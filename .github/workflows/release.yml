@@ -1,0 +1,81 @@
+# خط إصدار واحد مبسط لأداة HAL Member Profiles: أدوات رسمية فقط، بدون أسرار خارجية.
+# قائمة البناء أدناه مشتقة من نقطة دخول الإضافة (hal-member-profiles.php) وتحميلاتها
+# الشرطية داخل includes/، ومن الأصول المُشار إليها في الكود (assets/editor.css عبر
+# plugin_dir_url، ومجلد languages). القوالب في Child Theme/ تُسلَّم يدويًا ولا تدخل الحزمة.
+name: Release
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write   # الحد الأدنى اللازم لإنشاء الـRelease ورفع الـAsset.
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install production dependencies only
+        run: composer install --no-dev --optimize-autoloader
+
+      # ─── التحقق من تطابق الإصدارات مع الوسم (يمنع حلقات تحديث صامتة) ───
+      - name: Verify version match with tag
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+
+          # نمط الترويسة يتحمّل بادئة docblock " * Version:" — النمط المُرسَّخ "^Version:"
+          # لا يطابق ترويسة ووردبريس القياسية داخل التعليق ⇒ فشل صامت تحت set -e.
+          HEADER_VERSION=$(grep -oPm1 '^[ \t]*\*[ \t]*Version:[ \t]*\K[0-9.]+' hal-member-profiles.php || true)
+          STABLE_TAG=$(grep -oPm1 '^Stable tag:[ \t]*\K[0-9.]+' readme.txt || true)
+          CONST_VERSION=$(grep -oPm1 "define\( 'HAL_MEMBER_PROFILES_VERSION', '\K[0-9.]+" hal-member-profiles.php || true)
+
+          # "|| true" + فحص فارغ صريح: فشل grep الذي لا يجد تطابقًا يظهر برسالة مسماة
+          # بدل أن يقتل الخطوة بصمت.
+          if [ -z "$HEADER_VERSION" ]; then
+            echo "::error::Plugin header Version not found"
+            exit 1
+          fi
+          if [ "$TAG_VERSION" != "$HEADER_VERSION" ]; then
+            echo "::error::Header version ($HEADER_VERSION) != tag ($TAG_VERSION)"
+            exit 1
+          fi
+          if [ -z "$STABLE_TAG" ]; then
+            echo "::error::Stable tag not found in readme.txt"
+            exit 1
+          fi
+          if [ "$TAG_VERSION" != "$STABLE_TAG" ]; then
+            echo "::error::Stable tag ($STABLE_TAG) != tag ($TAG_VERSION)"
+            exit 1
+          fi
+          if [ -z "$CONST_VERSION" ]; then
+            echo "::error::Version constant not found"
+            exit 1
+          fi
+          if [ "$TAG_VERSION" != "$CONST_VERSION" ]; then
+            echo "::error::Version constant ($CONST_VERSION) != tag ($TAG_VERSION)"
+            exit 1
+          fi
+
+      # ─── بناء الحزمة: قائمة بيضاء صريحة فقط — ملفات التطوير خارجها عمدًا ───
+      # (tests/, docs/, .github/, Child Theme/, *.md الجذرية, phpunit.xml.dist,
+      #  composer.json/lock — vendor/ يُبنى في الخطوة السابقة من composer.lock).
+      - name: Build plugin package
+        run: |
+          mkdir -p build/hal-member-profiles
+          cp -r hal-member-profiles.php uninstall.php readme.txt includes assets languages vendor build/hal-member-profiles/
+          cd build && zip -rq "hal-member-profiles-${GITHUB_REF_NAME#v}.zip" hal-member-profiles
+
+      # ─── سلوك مقصود: إعادة تشغيل الـworkflow لنفس Tag القائم تفشل إلا بعد حذف
+      # الـRelease القديم يدويًا — لا حذف دفاعي تلقائي لإصدار قد تكون مواقع حية
+      # استهلكته فعلًا. ───
+      - name: Create GitHub Release with the package asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            "build/hal-member-profiles-${GITHUB_REF_NAME#v}.zip" \
+            --title "HAL Member Profiles ${GITHUB_REF_NAME}" \
+            --generate-notes

@@ -1,0 +1,38 @@
+/**
+ * HAL Member Profiles — Elementor editor-only placeholders and indicators.
+ *
+ * Loaded in the Elementor editor only — never on the live frontend, never on another
+ * theme. No general UI styling here, and no ".um" / ".um-button"-style selectors that
+ * would reach or hide Ultimate Member's own native output; every Widget already scopes
+ * its real output under the .hal-member-profiles wrapper, separate from these classes.
+ */
+
+.hal-member-profiles-placeholder {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 16px;
+	border: 1px dashed #c3c4c7;
+	border-radius: 4px;
+	background: #f6f7f7;
+	color: #646970;
+	font-size: 13px;
+	line-height: 1.4;
+}
+
+.hal-member-profiles-placeholder__icon {
+	flex: 0 0 auto;
+	width: 16px;
+	height: 16px;
+	opacity: 0.6;
+}
+
+.hal-member-profiles-placeholder__text {
+	flex: 1 1 auto;
+}
+
+.hal-member-profiles-placeholder--warning {
+	border-color: #d63638;
+	background: #fcf0f1;
+	color: #d63638;
+}

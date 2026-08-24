@@ -1,0 +1,14 @@
+{
+    "name": "hossamadellaw/hal-member-profiles",
+    "description": "Elementor design layer for Ultimate Member public profiles and member accounts.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "yahnis-elsts/plugin-update-checker": "~5.7.0"
+    },
+    "config": {
+        "platform": {
+            "php": "8.0.0"
+        }
+    }
+}

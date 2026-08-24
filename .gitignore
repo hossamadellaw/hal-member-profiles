@@ -1,0 +1,7 @@
+# تبعيات البناء — يبنيها خط الإصدار من composer.lock داخل الـworkflow (§3.1).
+/vendor/
+/build/
+
+# مستندات داخلية بقرار المالك: خارج git وخارج حزمة النشر معًا (§9.2-5).
+/hal-um-elementor-execution-plan.md
+/docs/
