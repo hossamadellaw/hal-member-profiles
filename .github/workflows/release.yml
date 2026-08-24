@@ -68,6 +68,47 @@ jobs:
           cp -r hal-member-profiles.php uninstall.php readme.txt includes assets languages vendor build/hal-member-profiles/
           cd build && zip -rq "hal-member-profiles-${GITHUB_REF_NAME#v}.zip" hal-member-profiles
 
+      # ─── حارس الحزمة: يُفشل الإصدار كاملًا برسالة مسماة إذا تسلّل أي مسار محظور
+      # إلى الـZIP المبني (Child Theme/tests/docs/.github أو ملفات تطوير/داخلية
+      # بجذر الحزمة) — يحوّل استثناء القائمة البيضاء من اتفاق إلى منع مفروض
+      # بالـpipeline، منعًا للخلط والارتباك. ───
+      - name: Guard - fail if forbidden paths leaked into the package
+        run: |
+          ZIP="build/hal-member-profiles-${GITHUB_REF_NAME#v}.zip"
+          python3 - "$ZIP" <<'PY'
+          import sys, zipfile
+
+          FORBIDDEN_DIRS = {"Child Theme", ".github", "docs", "tests"}
+          FORBIDDEN_ROOT_FILES = {
+              "hal-um-elementor-execution-plan.md", "compatibility-matrix.md",
+              "phpunit.xml.dist", "composer.json", "composer.lock",
+              "SECURITY.md", "LICENSE", "README.md",
+          }
+
+          z = zipfile.ZipFile(sys.argv[1])
+          names = z.namelist()
+
+          roots = {n.split("/", 1)[0] for n in names}
+          bad = [] if roots == {"hal-member-profiles"} else ["<not a single hal-member-profiles/ root>: " + ", ".join(sorted(roots))]
+
+          for n in names:
+              parts = n.split("/")
+              if len(parts) < 2:
+                  bad.append(n)
+              elif len(parts) == 2 and parts[1] in FORBIDDEN_ROOT_FILES:
+                  bad.append(n)
+              elif len(parts) >= 3 and parts[1] in FORBIDDEN_DIRS:
+                  bad.append(n)
+
+          if bad:
+              print("::error::Forbidden paths leaked into the package:")
+              for b in sorted(bad)[:20]:
+                  print("  -", b)
+              sys.exit(1)
+
+          print(f"guard OK: {len(names)} entries, single root, no forbidden paths")
+          PY
+
       # ─── سلوك مقصود: إعادة تشغيل الـworkflow لنفس Tag القائم تفشل إلا بعد حذف
       # الـRelease القديم يدويًا — لا حذف دفاعي تلقائي لإصدار قد تكون مواقع حية
       # استهلكته فعلًا. ───
