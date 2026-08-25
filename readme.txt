@@ -4,7 +4,7 @@ Tags: ultimate-member, elementor, membership, profile
 Requires at least: 6.5
 Requires PHP: 8.0
 Requires Plugins: ultimate-member, elementor
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -122,7 +122,7 @@ booking API calls, and no deeper Amelia features are part of this release.
 
 == Changelog ==
 
-= Unreleased (remediation release) =
+= 1.0.1 =
 * Privacy decisions aligned to Ultimate Member's documented field-privacy values with
   strict fail-closed handling of unrecognized values.
 * Runtime compatibility gate added: Public layout cannot be saved or served unless the

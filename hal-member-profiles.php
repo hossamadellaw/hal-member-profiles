@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       HAL Member Profiles
  * Description:       Elementor design layer for Ultimate Member public profiles and member accounts.
- * Version:           1.0.0
+ * Version:           1.0.1
  * Requires at least: 6.5
  * Requires PHP:      8.0
  * Requires Plugins:  ultimate-member, elementor
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'HAL_MEMBER_PROFILES_VERSION' ) ) {
-	define( 'HAL_MEMBER_PROFILES_VERSION', '1.0.0' );
+	define( 'HAL_MEMBER_PROFILES_VERSION', '1.0.1' );
 }
 if ( ! defined( 'HAL_MEMBER_PROFILES_FILE' ) ) {
 	define( 'HAL_MEMBER_PROFILES_FILE', __FILE__ );
