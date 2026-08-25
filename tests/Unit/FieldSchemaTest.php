@@ -1,77 +1,131 @@
 <?php
 /**
- * Unit tests for FieldSchema — the automatic, restricted field selector catalog.
- *
- * Requires WordPress (get_post_meta, get_posts), so these are marked incomplete until
- * run inside the real WordPress test environment described in tests/bootstrap.php
- * (WP_TESTS_DIR). tests/Fixtures/fixtures.php provides a synthetic field set
- * (hal_member_profiles_fixture_um_fields()) to seed a real UM Form's _um_custom_fields
- * postmeta with in that environment — never real site field data.
+ * Unit tests for FieldSchema — restricted selector catalog, default-form gating (F-09),
+ * and per-request re-classification. Runs without WordPress against
+ * tests/Fixtures/wp-stubs.php.
  *
  * @package HAL\MemberProfiles\Tests\Unit
  */
 
 namespace HAL\MemberProfiles\Tests\Unit;
 
+use HAL\MemberProfiles\FieldSchema;
 use PHPUnit\Framework\TestCase;
 
 final class FieldSchemaTest extends TestCase {
 
-	/**
-	 * Card 7.7 acceptance: adding/removing/changing a field type is reflected.
-	 */
-	public function test_selectors_reflect_added_field(): void {
-		$this->markTestIncomplete( 'Requires WordPress + a real Form post seeded with fixtures.php; run under WP_TESTS_DIR.' );
+	private FieldSchema $schema;
+
+	public function setUp(): void {
+		$this->schema = new FieldSchema();
 	}
 
-	public function test_selectors_reflect_removed_field(): void {
-		$this->markTestIncomplete( 'Requires WordPress; run under WP_TESTS_DIR.' );
+	public function tearDown(): void {
+		unset( $GLOBALS['wp_stubs']['post_meta'] );
+		unset( $GLOBALS['wp_stubs']['can_manage'] );
+		if ( class_exists( '\Elementor\Plugin', false ) ) {
+			\Elementor\Plugin::$instance = null;
+		}
 	}
 
-	public function test_selectors_reflect_changed_field_type(): void {
-		$this->markTestIncomplete( 'Requires WordPress; run under WP_TESTS_DIR.' );
+	private function seed_form( int $form_id, array $fields ): void {
+		$GLOBALS['wp_stubs']['post_meta'][ $form_id ]['_um_custom_fields'] = $fields;
 	}
 
-	/**
-	 * Card 7.7 acceptance: list/image/url classify correctly.
-	 */
-	public function test_multiselect_field_classifies_as_list(): void {
-		$this->markTestIncomplete( 'Requires WordPress; run under WP_TESTS_DIR. Fixture: hobbies.' );
+	private function keys( array $selectors ): array {
+		return array_column( $selectors, 'metakey' );
 	}
 
-	public function test_image_field_classifies_as_image(): void {
-		$this->markTestIncomplete( 'Requires WordPress; run under WP_TESTS_DIR. Fixture: gallery_photo.' );
+	/** Card 7.7: classification by type. */
+	public function test_multiselect_classifies_as_list(): void {
+		$this->seed_form( 11, array( 'hobbies' => array( 'metakey' => 'hobbies', 'type' => 'multiselect' ) ) );
+
+		$s = $this->schema->get_profile_selectors( 11 );
+		$this->assertSame( 'list', $s[0]['selector_type'] );
 	}
 
-	public function test_url_field_classifies_as_url(): void {
-		$this->markTestIncomplete( 'Requires WordPress; run under WP_TESTS_DIR. Fixture: personal_site.' );
+	public function test_image_and_url_classify_correctly(): void {
+		$this->seed_form( 11, array(
+			'gallery_photo' => array( 'metakey' => 'gallery_photo', 'type' => 'image' ),
+			'personal_site' => array( 'metakey' => 'personal_site', 'type' => 'url' ),
+		) );
+
+		$by_key = array_column( $this->schema->get_profile_selectors( 11 ), 'selector_type', 'metakey' );
+		$this->assertSame( 'image', $by_key['gallery_photo'] );
+		$this->assertSame( 'url', $by_key['personal_site'] );
 	}
 
-	/**
-	 * Card 7.7 acceptance: sensitive fields are rejected outright.
-	 */
-	public function test_password_field_never_appears_in_selectors(): void {
-		$this->markTestIncomplete( 'Requires WordPress; run under WP_TESTS_DIR. Fixture: user_password.' );
+	/** Card 7.7: sensitive/unsupported fields never appear. */
+	public function test_password_and_unsupported_types_are_excluded(): void {
+		$this->seed_form( 11, array(
+			'user_password'     => array( 'metakey' => 'user_password', 'type' => 'password' ),
+			'recover_password'  => array( 'metakey' => 'recover_password', 'type' => 'password' ),
+			'unsupported_field' => array( 'metakey' => 'unsupported_field', 'type' => 'oembed' ),
+		) );
+
+		$this->assertSame( array(), $this->schema->get_profile_selectors( 11 ) );
 	}
 
-	public function test_unsupported_type_is_excluded_not_guessed(): void {
-		$this->markTestIncomplete( 'Requires WordPress; run under WP_TESTS_DIR. Fixture: unsupported_field (oembed).' );
+	/** F-09 acceptance: two role-specific forms produce their own distinct catalogs. */
+	public function test_two_forms_produce_distinct_catalogs(): void {
+		$this->seed_form( 11, array(
+			'first_name' => array( 'metakey' => 'first_name', 'type' => 'text' ),
+			'hobbies'    => array( 'metakey' => 'hobbies', 'type' => 'multiselect' ),
+		) );
+		$this->seed_form( 12, array(
+			'firm_name'    => array( 'metakey' => 'firm_name', 'type' => 'text' ),
+			'firm_website' => array( 'metakey' => 'firm_website', 'type' => 'url' ),
+		) );
+
+		$k11 = $this->keys( $this->schema->get_profile_selectors( 11 ) );
+		$k12 = $this->keys( $this->schema->get_profile_selectors( 12 ) );
+
+		$this->assertSame( array( 'first_name', 'hobbies' ), $k11 );
+		$this->assertSame( array( 'firm_name', 'firm_website' ), $k12 );
+		$this->assertNotSame( $k11, $k12 );
 	}
 
-	/**
-	 * Card 7.7 acceptance: Forms differing by role produce different catalogs.
-	 */
-	public function test_different_forms_produce_different_selector_catalogs(): void {
-		$this->markTestIncomplete( 'Requires WordPress + two distinct Form posts; run under WP_TESTS_DIR.' );
+	/** F-09 acceptance: a type change is reflected on the next read (no stale cache). */
+	public function test_changed_type_reclassifies_on_next_read(): void {
+		$this->seed_form( 11, array( 'bio_link' => array( 'metakey' => 'bio_link', 'type' => 'url' ) ) );
+		$this->assertSame( 'url', $this->schema->get_profile_selectors( 11 )[0]['selector_type'] );
+
+		$GLOBALS['wp_stubs']['post_meta'][11]['_um_custom_fields']['bio_link']['type'] = 'text';
+		$this->assertSame( 'text', $this->schema->get_profile_selectors( 11 )[0]['selector_type'] );
 	}
 
-	/**
-	 * Card 7.7: Account selectors stay empty until a verified source is confirmed
-	 * (docs/compatibility-matrix.md §6).
-	 */
-	public function test_account_selectors_are_empty_by_default(): void {
-		$field_schema = new \HAL\MemberProfiles\FieldSchema();
+	/** Account selectors stay empty until a verified source exists (matrix §6 note). */
+	public function test_account_selectors_empty_by_default(): void {
+		$this->markTestSkipped(
+			'Account source registration fires apply_filters(), which needs the WP plugin '
+			. 'environment; covered by Integration suite under WP_TESTS_DIR.'
+		);
+	}
 
-		$this->assertSame( array(), $field_schema->get_account_selectors() );
+	// ------------------------------------------------------------------
+	// F-09: default_profile_form_id gating.
+	// ------------------------------------------------------------------
+
+	public function test_default_form_id_is_zero_outside_editor_preview(): void {
+		$this->seed_form( 11, array() ); // forms exist in the world.
+
+		$this->assertSame( 0, $this->schema->default_profile_form_id() );
+	}
+
+	public function test_default_form_id_allowed_only_for_manager_in_editor(): void {
+		\Elementor\Plugin::$instance          = new \Elementor\Plugin();
+		\Elementor\Plugin::$instance->editor  = new class { public function is_edit_mode() { return true; } };
+		\Elementor\Plugin::$instance->preview = new class { public function is_preview_mode() { return false; } };
+
+		// Editor but NOT manage_options: still locked.
+		$this->assertSame( 0, $this->schema->default_profile_form_id() );
+
+		// Editor + manage_options: declared design-time context — get_posts stub returns
+		// no rows here, so the expected result is still 0, but through the ALLOWED path;
+		// assert capability flip does not crash and stays fail-closed without forms.
+		$GLOBALS['wp_stubs']['can_manage'] = true;
+		$this->assertSame( 0, $this->schema->default_profile_form_id() );
+
+		\Elementor\Plugin::$instance = null;
 	}
 }

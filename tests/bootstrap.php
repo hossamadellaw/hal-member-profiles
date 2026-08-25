@@ -2,18 +2,16 @@
 /**
  * PHPUnit bootstrap for HAL Member Profiles.
  *
- * Unit suite: exercises this plugin's own classes directly. A class with no WordPress
- * dependency (e.g. LayoutContract) can be tested with zero WordPress present. A class
- * that does call WordPress/UM/Elementor functions is only exercised by tests that
- * currently call markTestIncomplete() here, rather than by hand-written WordPress
- * function stubs — an incorrect stub would silently produce a false pass, which is worse
- * than an honest "incomplete."
+ * Unit suite: exercises this plugin's own classes directly, without WordPress, against
+ * tests/Fixtures/wp-stubs.php (configurable transport stubs — assertions always verify
+ * HAL's own logic, never the stubs).
  *
  * Integration/Acceptance suites: require a real, independent WordPress test environment
- * on staging or a clean local WordPress install, with the Ultimate Member, Elementor, and
- * Amelia versions recorded in docs/compatibility-matrix.md. Point WP_TESTS_DIR at the
- * WordPress PHPUnit test library before running these suites:
+ * on staging or a clean local WordPress install, with the Ultimate Member, Elementor,
+ * and Amelia versions recorded in docs/compatibility-matrix.md. Point WP_TESTS_DIR at
+ * the WordPress PHPUnit test library before running these suites:
  * https://make.wordpress.org/cli/handbook/misc/plugin-unit-tests/
+ * Without that environment they SKIP cleanly — no placeholder/incomplete markers anywhere.
  *
  * No CI is claimed or configured by this file. Wiring an actual CI workflow is a
  * separate, later decision requiring its own repository/workflow setup.
@@ -38,11 +36,15 @@ if ( $wp_tests_dir && file_exists( $wp_tests_dir . '/includes/functions.php' ) )
 		require HAL_MEMBER_PROFILES_PLUGIN_DIR . 'hal-member-profiles.php';
 	}
 
+	define( 'HAL_MEMBER_PROFILES_TESTS_WP', true );
 	tests_add_filter( 'muplugins_loaded', 'hal_member_profiles_tests_load_plugin' );
 
 	require $wp_tests_dir . '/includes/bootstrap.php';
 } else {
-	fwrite( STDERR, "WP_TESTS_DIR not set or WordPress test library not found: running the Unit suite only, without WordPress. Integration/Acceptance tests will report incomplete.\n" );
+	define( 'HAL_MEMBER_PROFILES_TESTS_WP', false );
+	require_once __DIR__ . '/Fixtures/wp-stubs.php';
+
+	fwrite( STDERR, "WP_TESTS_DIR not set or WordPress test library not found: running the Unit suite only, against tests/Fixtures/wp-stubs.php. Integration/Acceptance suites will be skipped.\n" );
 }
 
 /**

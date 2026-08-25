@@ -15,39 +15,39 @@ function hal_member_profiles_fixture_um_fields(): array {
 		'favorite_color' => array(
 			'type'   => 'text',
 			'title'  => 'Favorite Color',
-			'public' => 1, // Everyone.
+			'public' => '1', // Everyone.
 		),
 		'personal_site'  => array(
 			'type'   => 'url',
 			'title'  => 'Personal Site',
-			'public' => 2, // Members.
+			'public' => '2', // Members.
 		),
 		'gallery_photo'  => array(
 			'type'   => 'image',
 			'title'  => 'Gallery Photo',
-			'public' => 1, // Everyone.
+			'public' => '1', // Everyone.
 		),
 		'hobbies'        => array(
 			'type'   => 'multiselect',
 			'title'  => 'Hobbies',
-			'public' => 5, // Specific roles only.
+			'public' => '-2', // Specific roles only (official string).
 			'roles'  => array( 'subscriber' ),
 		),
 		'user_password'  => array(
 			'type'   => 'password',
 			'title'  => 'Password',
-			'public' => 1,
+			'public' => '1',
 		),
 		'secret_note'    => array(
 			'type'   => 'text',
 			'title'  => 'Secret Note',
-			'public' => 4, // Owner + specific roles.
+			'public' => '-3', // Owner + specific roles (official string).
 			'roles'  => array( 'editor' ),
 		),
 		'unsupported_field' => array(
 			'type'   => 'oembed',
 			'title'  => 'Unsupported Field',
-			'public' => 1,
+			'public' => '1',
 		),
 	);
 }
