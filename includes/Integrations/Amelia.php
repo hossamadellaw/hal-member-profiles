@@ -35,8 +35,17 @@ final class Amelia {
 
 	private Settings $settings;
 
-	public function __construct( Settings $settings ) {
-		$this->settings = $settings;
+	/**
+	 * Test-only catalog override (mirrors CompatibilityGate's pattern). Production always
+	 * passes null and uses the frozen SERVICE_CATALOG constant.
+	 *
+	 * @var array|null
+	 */
+	private ?array $catalog_override;
+
+	public function __construct( Settings $settings, ?array $catalog_override = null ) {
+		$this->settings         = $settings;
+		$this->catalog_override = $catalog_override;
 
 		add_filter( 'um_user_pre_updating_profile_array', array( $this, 'filter_profile_services_before_save' ), 20, 3 );
 	}
@@ -70,9 +79,11 @@ final class Amelia {
 	 * @return array<int,string>
 	 */
 	public function get_service_catalog(): array {
+		$source = null !== $this->catalog_override ? $this->catalog_override : self::SERVICE_CATALOG;
+
 		$clean = array();
 
-		foreach ( self::SERVICE_CATALOG as $service_id => $service ) {
+		foreach ( $source as $service_id => $service ) {
 			$service_id = absint( $service_id );
 
 			if ( $service_id <= 0 ) {
@@ -169,17 +180,23 @@ final class Amelia {
 	}
 
 	/**
-	 * Server-side enforcement for selected_services posted by the UM Profile form. When the
-	 * administrative catalog is absent, the field is dropped rather than accepting an
-	 * unverified replacement. Registered on um_user_pre_updating_profile_array in the
-	 * constructor — this is the single, server-side gate for this value.
+	 * Server-side enforcement for selected_services posted by the UM Profile form.
+	 * Registered on um_user_pre_updating_profile_array in the constructor — this is the
+	 * single, server-side gate for this value.
 	 *
-	 * CONFIRMED DELIBERATE BEHAVIOR (per acceptance-matrix row "Amelia payload معدل: لا
-	 * تحفظ إلا service IDs المسموح بها"): a member who is NOT a mapped employee has an empty
-	 * allowlist, so a submitted selected_services key is saved as an EMPTY array — never
-	 * left unfiltered and never allowed to persist arbitrary IDs or legacy names. The wipe
-	 * is silent by design; it is documented here and in docs/compatibility-matrix.md §4 so
-	 * staging QA tests this exact outcome ("employee غير مهيأ" case).
+	 * CONTRACT (remediation card F-16 + docs/compatibility-matrix.md §4): the value that
+	 * UM finally STORES must be an EMPTY array in exactly these three cases, because the
+	 * key is written back with [] through this documented save hook — dropping the key
+	 * with unset() would leave any previously stored services stale in usermeta:
+	 *
+	 *   1. the administrative catalog is empty;
+	 *   2. the profile owner is NOT a mapped employee (empty allowlist);
+	 *   3. a mapped employee has an empty allowlist (no assigned service IDs).
+	 *
+	 * In every case the wipe is silent by design and staging QA asserts the stored
+	 * outcome ("employee غير مهيأ" case). Otherwise, only submitted IDs inside the
+	 * member's allowlist survive; anything else is dropped. Fail-closed throughout: an
+	 * invalid/unmapped employee or an empty catalog can never widen what is saved.
 	 *
 	 * @param mixed $to_update Values UM is about to save.
 	 * @param mixed $user_id   Profile owner.
@@ -197,13 +214,22 @@ final class Amelia {
 		$catalog = $this->get_service_catalog();
 
 		if ( empty( $catalog ) ) {
-			unset( $to_update['selected_services'] );
+			// Contract case 1: store an explicit empty array so stale usermeta is wiped.
+			$to_update['selected_services'] = array();
 
 			return $to_update;
 		}
 
-		if ( null !== $this->get_employee_id( $user_id ) && empty( $this->get_employee_service_ids( $user_id ) ) ) {
-			unset( $to_update['selected_services'] );
+		if ( null === $this->get_employee_id( $user_id ) ) {
+			// Contract case 2: not a mapped employee => nothing may be stored.
+			$to_update['selected_services'] = array();
+
+			return $to_update;
+		}
+
+		if ( empty( $this->get_employee_service_ids( $user_id ) ) ) {
+			// Contract case 3: mapped employee with an empty allowlist => wiped to [].
+			$to_update['selected_services'] = array();
 
 			return $to_update;
 		}

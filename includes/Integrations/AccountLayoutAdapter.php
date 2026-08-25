@@ -9,6 +9,7 @@
 namespace HAL\MemberProfiles\Integrations;
 
 use HAL\MemberProfiles\Bootstrap;
+use HAL\MemberProfiles\CompatibilityGate;
 use HAL\MemberProfiles\Settings;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -20,13 +21,18 @@ final class AccountLayoutAdapter {
 	/**
 	 * The single entry point the Child Theme account template calls. Renders the configured
 	 * Elementor Library Template when it is valid, complete, and permitted for this render;
-	 * otherwise falls back to $native_pipeline_callback exactly once. Never both.
+	 * otherwise falls back to $native_pipeline_callback exactly once — inside the correct
+	 * wrappers, with the original template args forwarded. Never both paths at once.
+	 *
+	 * F-14: the native callback receives the ORIGINAL $args (never stripped or replaced),
+	 * so UM's own full Account pipeline keeps its complete hook/save context.
 	 *
 	 * @param callable $native_pipeline_callback Renders (echoes) the complete native UM
-	 *                                            account pipeline when called.
+	 *                                            account pipeline when called with $args.
+	 * @param array    $args Original args the UM account template received.
 	 * @return void
 	 */
-	public static function render_or_fallback( callable $native_pipeline_callback ): void {
+	public static function render_or_fallback( callable $native_pipeline_callback, array $args = array() ): void {
 		$output = self::render_elementor_library();
 
 		if ( null !== $output ) {
@@ -34,7 +40,7 @@ final class AccountLayoutAdapter {
 			return;
 		}
 
-		call_user_func( $native_pipeline_callback );
+		call_user_func( $native_pipeline_callback, $args );
 	}
 
 	/**
@@ -53,6 +59,15 @@ final class AccountLayoutAdapter {
 		}
 
 		if ( ! $bootstrap->get_dependencies()->has_elementor_widgets() ) {
+			return null;
+		}
+
+		// F-14 executive gate: without a compatibility Pass for THIS exact composition
+		// (account capability), the Elementor route never starts — the caller falls back
+		// to UM's own full Account pipeline inside its original wrappers.
+		$compatibility_gate = $bootstrap->get_compatibility_gate();
+
+		if ( null === $compatibility_gate || ! $compatibility_gate->passes( CompatibilityGate::CAP_ACCOUNT ) ) {
 			return null;
 		}
 

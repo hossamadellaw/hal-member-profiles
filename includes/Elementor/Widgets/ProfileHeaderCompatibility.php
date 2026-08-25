@@ -10,6 +10,7 @@ namespace HAL\MemberProfiles\Elementor\Widgets;
 
 use Elementor\Widget_Base;
 use HAL\MemberProfiles\Bootstrap;
+use HAL\MemberProfiles\CompatibilityGate;
 use HAL\MemberProfiles\LayoutContract;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -60,6 +61,17 @@ final class ProfileHeaderCompatibility extends Widget_Base {
 			return;
 		}
 
+		// F-11 hard gate: without an executive compatibility Pass for THIS exact
+		// composition, NO registered extension callback runs at all, no custom_header
+		// marker registers, and the LayoutContract/native pipeline takes over with a
+		// FULL native header — never a partial one. Extension eligibility itself is
+		// additionally governed by docs/compatibility-matrix.md §2 sign-off.
+		$compatibility_gate = $bootstrap->get_compatibility_gate();
+
+		if ( null === $compatibility_gate || ! $compatibility_gate->passes( CompatibilityGate::CAP_PROFILE ) ) {
+			return;
+		}
+
 		$context = $profile_context->resolve();
 
 		if ( null === $context ) {
@@ -84,13 +96,16 @@ final class ProfileHeaderCompatibility extends Widget_Base {
 
 	/**
 	 * Captures output only from extension adapters explicitly registered via the
-	 * hal_member_profiles_header_compatibility_points filter, after being confirmed and
-	 * tested against docs/compatibility-matrix.md. A registered point that throws is
-	 * discarded on its own — it never breaks the other registered points or this widget.
+	 * hal_member_profiles_header_compatibility_points filter, AFTER the composition-level
+	 * CompatibilityGate Pass in render() — and each extension itself must additionally be
+	 * confirmed and tested against docs/compatibility-matrix.md §2 before it is ever
+	 * registered. A registered point that throws is discarded on its own — it never breaks
+	 * the other registered points or this widget.
 	 *
 	 * Empty by default in this release: no extension adapter has been registered and
-	 * tested yet, so this widget currently produces no output here, and LayoutContract
-	 * correctly falls back to the Native profile pipeline instead.
+	 * tested yet (and the gate's approved registry is empty until matrix QA), so this
+	 * widget currently produces no output here, and LayoutContract correctly falls back
+	 * to the Native profile pipeline instead.
 	 *
 	 * @param object $context Resolved Profile context from ProfileContext::resolve().
 	 * @return string

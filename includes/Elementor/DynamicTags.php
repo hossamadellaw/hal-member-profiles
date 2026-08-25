@@ -57,9 +57,29 @@ abstract class Abstract_Tag extends Tag {
 			return $options;
 		}
 
+		// Profile catalog form resolution (F-10): a scoped live/preview context wins;
+		// otherwise the ONLY permitted fallback is FieldSchema's declared design-time
+		// default, which itself returns 0 outside the manage_options editor preview —
+		// so the frontend never populates controls from a guessed Form.
+		$profile_form_id = 0;
+
+		$profile_context = $bootstrap->get_profile_context();
+
+		if ( null !== $profile_context ) {
+			$scoped = $profile_context->resolve();
+
+			if ( null !== $scoped && ! empty( $scoped->form_id ) ) {
+				$profile_form_id = (int) $scoped->form_id;
+			}
+		}
+
+		if ( $profile_form_id <= 0 ) {
+			$profile_form_id = $field_schema->default_profile_form_id();
+		}
+
 		$selectors = $account
 			? $field_schema->get_account_selectors()
-			: $field_schema->get_profile_selectors( $field_schema->default_profile_form_id() );
+			: $field_schema->get_profile_selectors( $profile_form_id );
 
 		foreach ( $selectors as $selector ) {
 			if ( $type === $selector['selector_type'] ) {
@@ -107,7 +127,9 @@ abstract class Abstract_Tag extends Tag {
 			return;
 		}
 
-		$form_id = ! empty( $context->form_id ) ? (int) $context->form_id : $field_schema->default_profile_form_id();
+		// F-10: no default/zero fallback — an unverifiable form id reaches Policy as-is,
+		// which fails closed (null => empty output) instead of another form's fields.
+		$form_id = (int) $context->form_id;
 
 		$result = $policy->can_view_field( (int) $context->target_user->ID, (int) $context->visitor_id, $form_id, $metakey );
 
@@ -190,7 +212,8 @@ abstract class Abstract_Tag extends Tag {
 			return;
 		}
 
-		$form_id = ! empty( $context->form_id ) ? (int) $context->form_id : 0;
+		// F-10: pass the scoped form id straight through; zero means Policy denies.
+		$form_id = (int) $context->form_id;
 
 		$result = $policy->can_view_header_element( (int) $context->target_user->ID, (int) $context->visitor_id, $element, $form_id );
 

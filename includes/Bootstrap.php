@@ -22,6 +22,7 @@ final class Bootstrap {
 	private static ?self $instance = null;
 
 	private Dependencies $dependencies;
+	private CompatibilityGate $compatibility_gate;
 	private Settings $settings;
 	private ?ProfileContext $profile_context = null;
 	private ?AccountContext $account_context = null;
@@ -65,6 +66,17 @@ final class Bootstrap {
 	 */
 	public function get_dependencies(): Dependencies {
 		return $this->dependencies;
+	}
+
+	/**
+	 * The one runtime compatibility gate instance, created after Dependencies (it reads
+	 * the environment versions from there) and shared with every service that needs a
+	 * compatibility decision, so no service forms its own divergent verdict.
+	 *
+	 * @return CompatibilityGate
+	 */
+	public function get_compatibility_gate(): CompatibilityGate {
+		return $this->compatibility_gate;
 	}
 
 	/**
@@ -137,10 +149,18 @@ final class Bootstrap {
 	 */
 	private function boot(): void {
 		require_once HAL_MEMBER_PROFILES_DIR . 'includes/Dependencies.php';
+		require_once HAL_MEMBER_PROFILES_DIR . 'includes/CompatibilityGate.php';
 		require_once HAL_MEMBER_PROFILES_DIR . 'includes/Settings.php';
 
 		$this->dependencies = new Dependencies();
-		$this->settings     = new Settings();
+
+		// The gate is created after Dependencies (it consumes current_versions()) and
+		// before Settings/Adapters, then the same instance is injected everywhere a
+		// compatibility verdict is needed. Pure in-memory work only: no filesystem,
+		// no external API calls happen here.
+		$this->compatibility_gate = new CompatibilityGate( $this->dependencies->current_versions() );
+
+		$this->settings = new Settings( $this->compatibility_gate );
 
 		if ( ! $this->dependencies->has_um() ) {
 			$this->notify_missing_dependency( __( 'Ultimate Member', 'hal-member-profiles' ) );

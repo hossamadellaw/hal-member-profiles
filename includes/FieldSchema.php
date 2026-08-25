@@ -2,6 +2,11 @@
 /**
  * The automatic catalog of fields a designer may select — never a generic user-meta reader.
  *
+ * Contract (remediation card F-09): on the live frontend the ACTUAL UM-resolved form ID
+ * is mandatory everywhere; this file hands out its best-effort default form only inside
+ * a declared, manage_options-gated Elementor editor/preview context. Sensitive and
+ * unsupported fields stay excluded from every catalog regardless of caller.
+ *
  * @package HAL\MemberProfiles
  */
 
@@ -162,13 +167,24 @@ final class FieldSchema {
 	}
 
 	/**
-	 * A best-effort default Profile Form ID for design-time selector population only
-	 * (e.g. inside the Elementor editor, before any live UM profile render exists).
-	 * Render-time callers should always pass the form ID UM itself resolved instead.
+	 * A best-effort default Profile Form ID, gated to the declared design-time context:
+	 * inside the Elementor editor/preview AND only for a manage_options user. Everywhere
+	 * else — above all every live frontend render — this returns 0, so no caller can
+	 * silently substitute a role-specific Form's catalog with another form's fields
+	 * (remediation card F-09). Render-time callers must pass the form ID UM itself
+	 * resolved; 0 means "no verified form" and yields an empty catalog.
 	 *
 	 * @return int
 	 */
 	public function default_profile_form_id(): int {
+		if ( ! $this->is_editor_preview_for_manager() ) {
+			return 0;
+		}
+
+		if ( ! function_exists( 'get_posts' ) ) {
+			return 0;
+		}
+
 		$forms = get_posts(
 			array(
 				'post_type'      => 'um_form',
@@ -185,6 +201,28 @@ final class FieldSchema {
 		);
 
 		return ! empty( $forms ) ? (int) $forms[0] : 0;
+	}
+
+	/**
+	 * Whether the current request is a manage_options user inside the Elementor editor
+	 * canvas or its preview iframe — the one declared place where the default Profile
+	 * Form may feed design-time selector population.
+	 *
+	 * @return bool
+	 */
+	private function is_editor_preview_for_manager(): bool {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return false;
+		}
+
+		if ( ! class_exists( '\Elementor\Plugin' ) || null === \Elementor\Plugin::$instance ) {
+			return false;
+		}
+
+		$plugin = \Elementor\Plugin::$instance;
+
+		return ( isset( $plugin->editor ) && $plugin->editor->is_edit_mode() )
+			|| ( isset( $plugin->preview ) && $plugin->preview->is_preview_mode() );
 	}
 
 	/**

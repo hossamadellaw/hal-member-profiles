@@ -2,6 +2,10 @@
 /**
  * Non-sensitive settings that only control whether the bridge is active and its uninstall fate.
  *
+ * Layout modes are governed by CompatibilityGate: "public_layout" may only be saved or
+ * served when the gate passes for the exact installed composition. A missing gate fails
+ * closed, so the bridge can never run an untested composition.
+ *
  * @package HAL\MemberProfiles
  */
 
@@ -20,7 +24,19 @@ final class Settings {
 	const LAYOUT_MODE_OBSERVE       = 'observe';
 	const LAYOUT_MODE_PUBLIC_LAYOUT = 'public_layout';
 
-	public function __construct() {
+	/**
+	 * Runtime compatibility gate consulted before public_layout may be saved or served.
+	 * Kept nullable because Bootstrap wires it in a dedicated step; null fails closed.
+	 *
+	 * @var CompatibilityGate|null
+	 */
+	private ?CompatibilityGate $compatibility_gate;
+
+	/**
+	 * @param CompatibilityGate|null $compatibility_gate Injected runtime gate; null (not yet wired) locks public_layout off.
+	 */
+	public function __construct( ?CompatibilityGate $compatibility_gate = null ) {
+		$this->compatibility_gate = $compatibility_gate;
 		add_action( 'admin_menu', array( $this, 'register_page' ) );
 		add_action( 'admin_init', array( $this, 'register_setting' ) );
 	}
@@ -82,6 +98,7 @@ final class Settings {
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'HAL Member Profiles', 'hal-member-profiles' ); ?></h1>
+			<?php settings_errors(); ?>
 			<form method="post" action="options.php">
 				<?php settings_fields( self::OPTION_GROUP ); ?>
 				<table class="form-table" role="presentation">
@@ -159,8 +176,8 @@ final class Settings {
 		$defaults = $this->defaults();
 		$clean    = $defaults;
 
-		$clean['profile_layout_mode'] = $this->sanitize_layout_mode( $input['profile_layout_mode'] ?? '' );
-		$clean['account_layout_mode'] = $this->sanitize_layout_mode( $input['account_layout_mode'] ?? '' );
+		$clean['profile_layout_mode'] = $this->sanitize_layout_mode( $input['profile_layout_mode'] ?? '', CompatibilityGate::CAP_PROFILE );
+		$clean['account_layout_mode'] = $this->sanitize_layout_mode( $input['account_layout_mode'] ?? '', CompatibilityGate::CAP_ACCOUNT );
 
 		$clean['profile_library_template_id'] = $this->sanitize_library_template_id( $input['profile_library_template_id'] ?? 0 );
 		$clean['account_library_template_id'] = $this->sanitize_library_template_id( $input['account_library_template_id'] ?? 0 );
@@ -182,21 +199,22 @@ final class Settings {
 	}
 
 	/**
-	 * Active profile layout mode.
+	 * Active profile layout mode, re-checked against the compatibility gate at read time
+	 * so a stale public_layout value can never serve on an unapproved composition.
 	 *
 	 * @return string
 	 */
 	public function get_profile_layout_mode(): string {
-		return $this->all()['profile_layout_mode'];
+		return $this->enforced_layout_mode( $this->all()['profile_layout_mode'], CompatibilityGate::CAP_PROFILE );
 	}
 
 	/**
-	 * Active account layout mode.
+	 * Active account layout mode, re-checked against the compatibility gate at read time.
 	 *
 	 * @return string
 	 */
 	public function get_account_layout_mode(): string {
-		return $this->all()['account_layout_mode'];
+		return $this->enforced_layout_mode( $this->all()['account_layout_mode'], CompatibilityGate::CAP_ACCOUNT );
 	}
 
 	/**
@@ -297,15 +315,67 @@ final class Settings {
 	}
 
 	/**
-	 * Restricts a layout mode value to the two modes this bridge supports.
+	 * Restricts a layout mode value to the two modes this bridge supports, and only lets
+	 * "public_layout" through when the compatibility gate passes for this capability.
+	 * Every gate failure (or a missing gate) resets the mode to "observe" and records a
+	 * specific admin-facing reason; the result is never taken from the request beyond the
+	 * submitted value itself, nor from any Markdown source.
 	 *
-	 * @param mixed $value Raw submitted value.
+	 * @param mixed  $value      Raw submitted value.
+	 * @param string $capability CompatibilityGate::CAP_* constant for this mode.
 	 * @return string
 	 */
-	private function sanitize_layout_mode( $value ): string {
-		return self::LAYOUT_MODE_PUBLIC_LAYOUT === $value
-			? self::LAYOUT_MODE_PUBLIC_LAYOUT
-			: self::LAYOUT_MODE_OBSERVE;
+	private function sanitize_layout_mode( $value, string $capability ): string {
+		if ( self::LAYOUT_MODE_PUBLIC_LAYOUT !== $value ) {
+			return self::LAYOUT_MODE_OBSERVE;
+		}
+
+		if ( ! $this->public_layout_allowed( $capability ) ) {
+			if ( function_exists( 'add_settings_error' ) ) {
+				add_settings_error(
+					self::OPTION_KEY,
+					'hal_member_profiles_' . $capability . '_layout_gate',
+					null === $this->compatibility_gate
+						? __( '"Public layout" was not saved: the runtime compatibility gate is not available, so the bridge stays on "Observe" until it is wired and passes.', 'hal-member-profiles' )
+						: __( '"Public layout" was not saved: the compatibility gate has not passed for this site\'s current component versions (see docs/compatibility-matrix.md). The mode stayed "Observe".', 'hal-member-profiles' ),
+					'warning'
+				);
+			}
+
+			return self::LAYOUT_MODE_OBSERVE;
+		}
+
+		return self::LAYOUT_MODE_PUBLIC_LAYOUT;
+	}
+
+	/**
+	 * Whether public_layout may run for a capability right now. A missing gate fails closed.
+	 *
+	 * @param string $capability CompatibilityGate::CAP_* constant.
+	 * @return bool
+	 */
+	private function public_layout_allowed( string $capability ): bool {
+		if ( null === $this->compatibility_gate ) {
+			return false;
+		}
+
+		return $this->compatibility_gate->passes( $capability );
+	}
+
+	/**
+	 * Coerces a stored mode at read time: public_layout only survives when the gate
+	 * currently passes; anything else stays as stored (observe).
+	 *
+	 * @param string $mode       Stored layout mode.
+	 * @param string $capability CompatibilityGate::CAP_* constant.
+	 * @return string
+	 */
+	private function enforced_layout_mode( string $mode, string $capability ): string {
+		if ( self::LAYOUT_MODE_PUBLIC_LAYOUT === $mode && ! $this->public_layout_allowed( $capability ) ) {
+			return self::LAYOUT_MODE_OBSERVE;
+		}
+
+		return $mode;
 	}
 
 	/**

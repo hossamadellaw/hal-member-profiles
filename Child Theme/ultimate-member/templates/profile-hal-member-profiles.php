@@ -1,5 +1,7 @@
 <?php
 /**
+ * Template: HAL Member Profiles
+ *
  * HAL Member Profiles — alternative Profile template (Elementor bridge).
  *
  * An OPTIONAL alternative to Ultimate Member's own profile.php, built from the installed

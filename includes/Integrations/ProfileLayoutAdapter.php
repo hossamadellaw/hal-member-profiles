@@ -9,6 +9,7 @@
 namespace HAL\MemberProfiles\Integrations;
 
 use HAL\MemberProfiles\Bootstrap;
+use HAL\MemberProfiles\CompatibilityGate;
 use HAL\MemberProfiles\Settings;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -61,6 +62,15 @@ final class ProfileLayoutAdapter {
 			return null;
 		}
 
+		// F-13: executive compatibility gate BEFORE anything is rendered or buffered.
+		// Without a Pass for this exact composition the Elementor route never starts and
+		// the caller falls back to the complete native pipeline.
+		$compatibility_gate = $bootstrap->get_compatibility_gate();
+
+		if ( null === $compatibility_gate || ! $compatibility_gate->passes( CompatibilityGate::CAP_PROFILE ) ) {
+			return null;
+		}
+
 		$settings = $bootstrap->get_settings();
 
 		if ( Settings::LAYOUT_MODE_PUBLIC_LAYOUT !== $settings->get_profile_layout_mode() ) {
@@ -87,7 +97,21 @@ final class ProfileLayoutAdapter {
 
 		$layout_contract->reset();
 
-		$output = self::render_template_with_saved_state( $template_id );
+		// F-13: open the verified Profile scope so every Widget/Dynamic Tag inside the
+		// Elementor content that calls resolve() bare inherits THIS render's verified
+		// form/mode — and ALWAYS close it (finally), on success, on failure, and on any
+		// exception, so nothing leaks outward and no global state is left mutated.
+		try {
+			if ( ! $profile_context->enter_scope( $args, $form_id, $mode ) ) {
+				return null;
+			}
+
+			$output = self::render_template_with_saved_state( $template_id );
+		} catch ( \Throwable $e ) {
+			return null;
+		} finally {
+			$profile_context->exit_scope();
+		}
 
 		if ( null === $output || '' === trim( $output ) ) {
 			return null;

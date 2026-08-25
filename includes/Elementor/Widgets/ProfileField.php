@@ -131,7 +131,9 @@ final class ProfileField extends Widget_Base {
 			return;
 		}
 
-		$form_id = ! empty( $context->form_id ) ? (int) $context->form_id : $field_schema->default_profile_form_id();
+		// F-11 contract: pass the scoped form id straight through; an unverifiable form
+		// id reaches Policy as-is and fails closed — never another Form's fields.
+		$form_id = (int) $context->form_id;
 
 		$result = $policy->can_view_field( (int) $context->target_user->ID, (int) $context->visitor_id, $form_id, $metakey );
 

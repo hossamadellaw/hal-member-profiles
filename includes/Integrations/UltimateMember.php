@@ -141,10 +141,13 @@ final class UltimateMember {
 	 * This is the single fallback path used when the Elementor Library route is
 	 * unavailable or its LayoutContract is invalid.
 	 *
+	 * F-12: the original template $args are REQUIRED here — the canonical fallback must
+	 * never run hook-less on invented empty arguments.
+	 *
 	 * @param array $args UM profile template $args, passed through unchanged.
 	 * @return string
 	 */
-	public function render_profile_native_pipeline( array $args = array() ): string {
+	public function render_profile_native_pipeline( array $args ): string {
 		return
 			$this->render_profile_before_header( $args ) .
 			$this->render_profile_header_cover_area( $args ) .
@@ -156,83 +159,66 @@ final class UltimateMember {
 	}
 
 	/**
-	 * The Account tab navigation — Ultimate Member's OWN side-navigation markup, reproduced
-	 * exactly as UM's current templates/account.php renders it (verified against the
-	 * installed UM version's source): the same um-account-side wrapper with its meta block,
-	 * the same <ul>/<li>/<a class="um-account-link"> structure, icon/tip/title/arrow spans,
-	 * responsive uimob classes, RTL arrow direction, and UM's own real enablement rule: a
-	 * tab shows only when it is marked 'custom', or its own 'account_tab_{$id}' option is
-	 * enabled, or it is the always-on 'general' tab. A disabled/unconfigured tab is simply
-	 * skipped here, never fabricated; no link, icon, order, or permission is invented here.
+	 * F-12 (fail-closed): Ultimate Member exposes NO official public API that renders the
+	 * Account tab navigation alone — the side-navigation markup lives inside UM's own
+	 * account.php template, not in any documented method. Per remediation card F-12, when
+	 * no official API exists for segmenting tabs/body, this bridge must NOT guess or
+	 * re-implement UM's internal HTML; the FULL native Account rendering is used instead
+	 * (render_account_native_full()), and this legacy entry point therefore always yields
+	 * an empty string so its caller falls back to that full pipeline.
 	 *
-	 * @return string
+	 * Kept only for backward compatibility with existing callers.
+	 *
+	 * @return string Always empty.
 	 */
 	public function render_account_tabs(): string {
-		if ( ! function_exists( 'UM' ) || ! method_exists( UM()->account(), 'tab_link' ) ) {
-			return '';
-		}
-
-		$account = UM()->account();
-		$tabs    = isset( $account->tabs ) && is_array( $account->tabs ) ? $account->tabs : array();
-
-		if ( empty( $tabs ) ) {
-			return '';
-		}
-
-		$current_tab = isset( $account->current_tab ) ? (string) $account->current_tab : '';
-
-		ob_start();
-		?>
-		<div class="um-account-side uimob340-hide uimob500-hide">
-			<div class="um-account-meta radius-<?php echo esc_attr( UM()->options()->get( 'profile_photocorner' ) ); ?>">
-				<div class="um-account-meta-img uimob800-hide">
-					<a href="<?php echo esc_url( um_user_profile_url() ); ?>"><?php echo get_avatar( um_user( 'ID' ), 120 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WordPress core get_avatar() output, echoed verbatim by UM's own account.php too. ?></a>
-				</div>
-				<div class="um-account-meta-img-b uimob800-show<?php echo wp_is_mobile() ? '' : ' um-tip-' . ( is_rtl() ? 'e' : 'w' ); ?>" title="<?php echo esc_attr( um_user( 'display_name' ) ); ?>">
-					<a href="<?php echo esc_url( um_user_profile_url() ); ?>"><?php echo get_avatar( um_user( 'ID' ), 120 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WordPress core get_avatar() output, echoed verbatim by UM's own account.php too. ?></a>
-				</div>
-				<div class="um-account-name uimob800-hide">
-					<a href="<?php echo esc_url( um_user_profile_url() ); ?>"><?php echo um_user( 'display_name', 'html' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- UM's own sanitized 'html' display value, echoed verbatim by UM's own account.php too. ?></a>
-					<div class="um-account-profile-link">
-						<a href="<?php echo esc_url( um_user_profile_url() ); ?>" class="um-link"><?php esc_html_e( 'View profile', 'ultimate-member' ); ?></a>
-					</div>
-				</div>
-			</div>
-			<ul>
-				<?php foreach ( $tabs as $id => $info ) : ?>
-					<?php if ( ! is_array( $info ) || empty( $info['title'] ) || ! $this->account_tab_enabled( $id, $info ) ) : ?>
-						<?php continue; ?>
-					<?php endif; ?>
-					<li>
-						<a data-tab="<?php echo esc_attr( $id ); ?>" href="<?php echo esc_url( (string) $account->tab_link( $id ) ); ?>" class="um-account-link <?php echo ( (string) $id === $current_tab ) ? 'current' : ''; ?>">
-							<span class="um-account-icontip uimob800-show<?php echo wp_is_mobile() ? '' : ' um-tip-' . ( is_rtl() ? 'e' : 'w' ); ?>" title="<?php echo esc_attr( (string) $info['title'] ); ?>">
-								<i class="<?php echo esc_attr( (string) ( $info['icon'] ?? '' ) ); ?>"></i>
-							</span>
-							<span class="um-account-icon uimob800-hide"><i class="<?php echo esc_attr( (string) ( $info['icon'] ?? '' ) ); ?>"></i></span>
-							<span class="um-account-title uimob800-hide"><?php echo esc_html( (string) $info['title'] ); ?></span>
-							<span class="um-account-arrow uimob800-hide"><i class="<?php echo is_rtl() ? 'um-faicon-angle-left' : 'um-faicon-angle-right'; ?>"></i></span>
-						</a>
-					</li>
-				<?php endforeach; ?>
-			</ul>
-		</div>
-		<?php
-		return (string) ob_get_clean();
+		return '';
 	}
 
 	/**
-	 * Ultimate Member's own real Account tab enablement rule, confirmed directly from UM's
-	 * current account.php template: custom tabs, tabs whose own 'account_tab_{$id}' option
-	 * is enabled, or the always-on 'general' tab.
+	 * The complete native Account rendering through one of UM's own OFFICIAL channels,
+	 * tried in order and failing closed to an empty string when none is verifiable:
 	 *
-	 * @param string|int $id   Tab ID.
-	 * @param array      $info Tab definition.
-	 * @return bool
+	 * 1. um_get_template( 'account.php' )  — UM's official template loader, which renders
+	 *    the full account output (side navigation, active tab body/Form, nonces,
+	 *    conditional logic, mobile wrappers) exactly as UM's own page does;
+	 * 2. the registered [ultimatemember_account] shortcode — UM's own documented
+	 *    front-end entry point for the same complete output;
+	 * 3. nothing — callers must then let UM's own template chain handle the page natively
+	 *    (e.g. by not overriding it at all), never by re-implementing its HTML here.
+	 *
+	 * No "exact UM" claim is made beyond what these official channels themselves produce;
+	 * live DOM/behavior parity is confirmed during compatibility-matrix QA on staging.
+	 *
+	 * @param array $args Original template args, forwarded to the official channel when it
+	 *                    accepts them (the shortcode/template read UM state directly).
+	 * @return string
 	 */
-	private function account_tab_enabled( $id, array $info ): bool {
-		return isset( $info['custom'] )
-			|| ! empty( UM()->options()->get( 'account_tab_' . $id ) )
-			|| 'general' === $id;
+	public function render_account_native_full( array $args = array() ): string {
+		unset( $args ); // Official channels render from UM's own resolved state.
+
+		if ( function_exists( 'um_get_template' ) ) {
+			ob_start();
+
+			try {
+				um_get_template( 'account.php' );
+			} catch ( \Throwable $e ) {
+				ob_end_clean();
+				return '';
+			}
+
+			$output = (string) ob_get_clean();
+
+			if ( '' !== trim( $output ) ) {
+				return $output;
+			}
+		}
+
+		if ( function_exists( 'shortcode_exists' ) && shortcode_exists( 'ultimatemember_account' ) && function_exists( 'do_shortcode' ) ) {
+			return (string) do_shortcode( '[ultimatemember_account]' );
+		}
+
+		return '';
 	}
 
 	/**
@@ -241,9 +227,13 @@ final class UltimateMember {
 	 * method, confirmed directly from UM's current account.php template. This method, not a
 	 * hook, is how UM itself renders each tab's content.
 	 *
+	 * F-12: the ORIGINAL template args are forwarded to UM's own renderer unchanged (the
+	 * previous implementation fabricated an empty array(), severing hook contexts).
+	 *
+	 * @param array $args Original template args, passed through unchanged.
 	 * @return string
 	 */
-	public function render_account_body(): string {
+	public function render_account_body( array $args = array() ): string {
 		if ( ! function_exists( 'UM' ) || ! method_exists( UM()->account(), 'render_account_tab' ) ) {
 			return '';
 		}
@@ -259,20 +249,22 @@ final class UltimateMember {
 		$info['with_header'] = true;
 
 		ob_start();
-		$account->render_account_tab( $id, $info, array() );
+		$account->render_account_tab( $id, $info, $args );
 
 		return (string) ob_get_clean();
 	}
 
 	/**
-	 * The complete native Account pipeline: tabs, then the active tab's body/Form. This is
-	 * the single fallback path used when the Elementor Library route is unavailable or its
-	 * LayoutContract is invalid.
+	 * The complete native Account pipeline. F-12: delegation goes exclusively through
+	 * render_account_native_full() — UM's own official full-account channel — because no
+	 * official API exists for rendering the tabs segment alone; composing it here from
+	 * re-implemented HTML is exactly what this card removes.
 	 *
+	 * @param array $args Original template args, forwarded unchanged.
 	 * @return string
 	 */
-	public function render_account_native_pipeline(): string {
-		return $this->render_account_tabs() . $this->render_account_body();
+	public function render_account_native_pipeline( array $args = array() ): string {
+		return $this->render_account_native_full( $args );
 	}
 
 	/**

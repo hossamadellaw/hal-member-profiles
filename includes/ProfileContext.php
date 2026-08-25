@@ -2,6 +2,13 @@
 /**
  * The single source of truth for who a public Ultimate Member profile page belongs to.
  *
+ * Also owns the per-request Profile scope (card remediation F-08): the template-side
+ * caller opens a scope with the verified $args/form_id/mode triple, so every later
+ * Widget/Dynamic Tag calling resolve() with no arguments sees that SAME verified form
+ * instead of falling back to guesses. Scopes nest (each exit restores the previous),
+ * hold no target identity supplied by callers, and die with the per-request instance —
+ * nothing persists between requests and no global state is touched.
+ *
  * @package HAL\MemberProfiles
  */
 
@@ -15,12 +22,24 @@ final class ProfileContext {
 
 	private Settings $settings;
 
+	/**
+	 * Open scope stack, innermost last. Each entry: array{args:array, form_id:int, mode:string}.
+	 *
+	 * @var array<int, array<string,mixed>>
+	 */
+	private array $scope_stack = array();
+
 	public function __construct( Settings $settings ) {
 		$this->settings = $settings;
 	}
 
 	/**
 	 * Resolves the profile being viewed, or null when there is no valid, permitted context.
+	 *
+	 * Explicit arguments win; otherwise an open scope supplies the template-verified
+	 * form/mode so bare resolve() calls from Widgets/Tags stay on the SAME Form. With
+	 * neither, legacy behavior applies (zeros — which downstream code must treat as
+	 * unverifiable).
 	 *
 	 * Ultimate Member's own routing already enforces the "Profile Privacy" setting before
 	 * its profile template loads; the is_private_profile() check below is an additional,
@@ -32,11 +51,100 @@ final class ProfileContext {
 	 * @return object|null
 	 */
 	public function resolve( array $args = array(), int $form_id = 0, string $mode = '' ): ?object {
+		$effective = $this->effective_request( $args, $form_id, $mode );
+
 		if ( $this->is_elementor_editor() ) {
-			return $this->resolve_editor_fixture( $form_id, $mode );
+			return $this->resolve_editor_fixture( $effective['form_id'], $effective['mode'] );
 		}
 
-		return $this->resolve_live_profile( $form_id, $mode );
+		return $this->resolve_live_profile( $effective['form_id'], $effective['mode'] );
+	}
+
+	/**
+	 * Opens a verified Profile scope for this request. Only callers that genuinely hold
+	 * the template's values (the layout adapter invoked from the UM template) may call
+	 * this; scopes nest, and the caller MUST exit inside a finally so the previous scope
+	 * is always restored even when rendering throws.
+	 *
+	 * The target user identity is deliberately NOT accepted here: it is derived fresh,
+	 * through the fully guarded pipeline, on every resolve() — a caller-supplied target
+	 * would be a profile-identity forgery vector. Nothing is stored before validation:
+	 * a non-positive form_id pushes no scope and returns false.
+	 *
+	 * @param array  $args    Raw template args to carry through the scope.
+	 * @param int    $form_id Verified active UM Profile form ID (> 0 required).
+	 * @param string $mode    Active UM profile mode.
+	 * @return bool Whether a scope was opened.
+	 */
+	public function enter_scope( array $args, int $form_id, string $mode ): bool {
+		if ( $form_id <= 0 ) {
+			return false;
+		}
+
+		$this->scope_stack[] = array(
+			'args'    => $args,
+			'form_id' => $form_id,
+			'mode'    => $this->sanitize_mode( $mode ),
+		);
+
+		return true;
+	}
+
+	/**
+	 * Closes the innermost scope, restoring the previous one automatically. Callers wrap
+	 * their render in try/finally and call this from finally, so nested renders can never
+	 * leak their scope outward on failure.
+	 *
+	 * @return bool Whether a scope was actually closed.
+	 */
+	public function exit_scope(): bool {
+		if ( empty( $this->scope_stack ) ) {
+			return false;
+		}
+
+		array_pop( $this->scope_stack );
+
+		return true;
+	}
+
+	/**
+	 * How many scopes are currently open (0 = none). Diagnostic aid for adapters/tests.
+	 *
+	 * @return int
+	 */
+	public function scope_depth(): int {
+		return count( $this->scope_stack );
+	}
+
+	/**
+	 * Merges explicit arguments over the innermost open scope: explicit wins per field,
+	 * scope fills the gaps of bare resolve() calls from Tags/Widgets.
+	 *
+	 * @param array  $args    Explicit args (may be empty).
+	 * @param int    $form_id Explicit form ID (0 = not supplied).
+	 * @param string $mode    Explicit mode ('' = not supplied).
+	 * @return array{args:array,form_id:int,mode:string}
+	 */
+	private function effective_request( array $args, int $form_id, string $mode ): array {
+		$scope = ! empty( $this->scope_stack )
+			? $this->scope_stack[ count( $this->scope_stack ) - 1 ]
+			: null;
+
+		return array(
+			'args'    => ! empty( $args ) ? $args : ( is_array( $scope['args'] ?? null ) ? $scope['args'] : array() ),
+			'form_id' => $form_id > 0 ? $form_id : (int) ( $scope['form_id'] ?? 0 ),
+			'mode'    => '' !== $mode ? $this->sanitize_mode( $mode ) : (string) ( $scope['mode'] ?? '' ),
+		);
+	}
+
+	/**
+	 * Restricts a mode value to lowercase alphanumerics/dash/underscore.
+	 *
+	 * @param string $mode Raw mode.
+	 * @return string
+	 */
+	private function sanitize_mode( string $mode ): string {
+		return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( trim( $mode ) ) ) ?? '';
 	}
 
 	/**
@@ -79,7 +187,16 @@ final class ProfileContext {
 		$visitor_id = get_current_user_id();
 		$is_owner   = $visitor_id > 0 && $visitor_id === $target_id;
 
-		if ( $this->is_private_profile( $target_id ) && ! $is_owner && ! current_user_can( 'manage_options' ) ) {
+		// Fail closed (remediation F-08 #1): when UM's own privacy verdict is
+		// UNAVAILABLE we cannot verify access at all, so no target is exposed — the old
+		// code assumed "not private" on a missing API, which failed open.
+		$private = $this->is_private_profile( $target_id );
+
+		if ( null === $private ) {
+			return null;
+		}
+
+		if ( $private && ! $is_owner && ! current_user_can( 'manage_options' ) ) {
 			return null;
 		}
 
@@ -132,15 +249,24 @@ final class ProfileContext {
 	/**
 	 * Checks Ultimate Member's own profile privacy flag for a user.
 	 *
+	 * Tri-state on purpose: null means "UM's verdict is unavailable", which callers must
+	 * treat as UNVERIFIABLE (fail closed) — never as "not private".
+	 *
 	 * @param int $user_id User ID.
-	 * @return bool
+	 * @return bool|null True/false per UM; null when the API cannot be consulted.
 	 */
-	private function is_private_profile( int $user_id ): bool {
-		if ( ! function_exists( 'UM' ) || ! method_exists( UM()->user(), 'is_private_profile' ) ) {
-			return false;
+	private function is_private_profile( int $user_id ): ?bool {
+		if ( ! function_exists( 'UM' ) ) {
+			return null;
 		}
 
-		return (bool) UM()->user()->is_private_profile( $user_id );
+		$user = UM()->user();
+
+		if ( ! is_object( $user ) || ! method_exists( $user, 'is_private_profile' ) ) {
+			return null;
+		}
+
+		return (bool) $user->is_private_profile( $user_id );
 	}
 
 	/**

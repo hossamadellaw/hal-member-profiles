@@ -14,18 +14,31 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class Policy {
 
 	/**
-	 * Ordinal privacy levels in the order Ultimate Member's own Field Privacy dropdown
-	 * documents them: Everyone, Members, Owner + users who can edit other accounts,
-	 * Owner + specific roles, Specific roles only. Verify these against the real installed
-	 * UM version's stored 'public' values during compatibility-matrix QA — create one test
-	 * field per privacy option and inspect its saved _um_custom_fields postmeta — before
-	 * relying on this mapping in production. Any unrecognized value fails closed (denied).
+	 * Field privacy values exactly as Ultimate Member's official source documents them
+	 * (ultimatemember/includes/core/um-actions-form.php, um_submit_form_errors_hook_()):
+	 *
+	 *   '1'  Everyone
+	 *   '2'  Members (logged-in visitors)
+	 *   '-1' Only the profile owner and users who can edit that account
+	 *   '-2' Only visitors holding one of the field's specific roles (NO owner exception)
+	 *   '-3' The profile owner OR visitors holding one of the field's specific roles
+	 *
+	 * They are stored as strings in _um_custom_fields, so they are compared as strings
+	 * here after normalization. Anything else — including legacy positive integers such
+	 * as 3/4/5 from older assumptions — normalizes to null and FAILS CLOSED (denied);
+	 * UM's own default filter would let unrecognized values through, and this bridge is
+	 * deliberately stricter.
+	 *
+	 * These mappings mirror upstream master, NOT necessarily the installed site version.
+	 * Before any public_layout release, compatibility-matrix QA must create one test
+	 * field per privacy option on staging, inspect the saved _um_custom_fields values,
+	 * and record the installed UM version — updating this adapter if the site diverges.
 	 */
-	private const PRIVACY_EVERYONE      = 1;
-	private const PRIVACY_MEMBERS       = 2;
-	private const PRIVACY_OWNER_EDITORS = 3;
-	private const PRIVACY_OWNER_ROLES   = 4;
-	private const PRIVACY_ROLES_ONLY    = 5;
+	private const PRIVACY_EVERYONE      = '1';
+	private const PRIVACY_MEMBERS       = '2';
+	private const PRIVACY_OWNER_EDITORS = '-1';
+	private const PRIVACY_ROLES_ONLY    = '-2';
+	private const PRIVACY_OWNER_ROLES   = '-3';
 
 	private FieldSchema $field_schema;
 
@@ -110,10 +123,14 @@ final class Policy {
 	/**
 	 * Decides whether the viewer may see a core Header element, and returns it typed and escaped.
 	 *
-	 * Mimics Ultimate Member's own active-Form privacy for Name/Bio/Cover/Avatar first; an
-	 * element not explicitly defined in the active Form is treated as visible by default,
-	 * since this bridge does not assume an undocumented general option such as "show_avatar"
-	 * exists.
+	 * Fail-closed rules (execution-plan card 7.8 + remediation F-07): a missing or invalid
+	 * Form ID, or a Header element whose governing field is not explicitly defined in the
+	 * active Form, can never be verified against UM's own decisions here, so the element
+	 * returns null (hidden / native fallback) instead of being allowed by assumption.
+	 *
+	 * Bio additionally honors Ultimate Member's documented global option
+	 * profile_show_bio (source-verified in um-actions-form.php); per-form custom bio
+	 * settings and any undocumented options are NOT assumed.
 	 *
 	 * @param int    $target_user_id Profile owner.
 	 * @param int    $viewer_id      Current visitor, 0 for guest.
@@ -122,13 +139,13 @@ final class Policy {
 	 * @return array{type:string,value:mixed}|null
 	 */
 	public function can_view_header_element( int $target_user_id, int $viewer_id, string $element, int $form_id = 0 ): ?array {
-		if ( $target_user_id <= 0 ) {
+		if ( $target_user_id <= 0 || $form_id <= 0 ) {
 			return null;
 		}
 
 		switch ( $element ) {
 			case 'name':
-				if ( ! $this->passes_header_field_privacy( $target_user_id, $viewer_id, $form_id, 'first_name' ) ) {
+				if ( ! $this->header_name_fields_pass( $target_user_id, $viewer_id, $form_id ) ) {
 					return null;
 				}
 
@@ -137,6 +154,10 @@ final class Policy {
 				return $user instanceof \WP_User ? $this->format_text( $user->display_name ) : null;
 
 			case 'bio':
+				if ( ! $this->bio_allowed_by_general_settings() ) {
+					return null;
+				}
+
 				if ( ! $this->passes_header_field_privacy( $target_user_id, $viewer_id, $form_id, 'description' ) ) {
 					return null;
 				}
@@ -203,8 +224,24 @@ final class Policy {
 	}
 
 	/**
-	 * Evaluates a field's Privacy setting for a specific viewer/target pair. Fails closed:
-	 * an unrecognized privacy value is treated as denied, never as visible.
+	 * Evaluates a field's Privacy setting for a specific viewer/target pair, mirroring
+	 * Ultimate Member's own um_submit_form_errors_hook_() switch decision-for-decision:
+	 *
+	 *   '1'  Everyone → visible
+	 *   '2'  Members → logged-in only
+	 *   '-1' Owner OR a viewer who can edit the target account (UM: um_current_user_can('edit'))
+	 *   '-2' Specific roles only — UM applies NO owner exception here, and neither do we
+	 *   '-3' Owner OR one of the field's specific roles
+	 *
+	 * Deliberate HAL-side differences, all documented and conservative in direction:
+	 * - manage_options administrators always see the value (UM's submit-path switch has
+	 *   no such branch; execution-plan card 7.8 requires admin coverage).
+	 * - An unrecognized 'public' value is DENIED, while UM's default filter branch would
+	 *   keep the field viewable. This bridge never guesses.
+	 * - An explicitly present but non-scalar 'public' key (e.g. null) is DENIED, while
+	 *   UM's isset()-style guard would fall through to Everyone.
+	 * A missing 'public' key means the field has no explicit privacy restriction, which
+	 * UM treats as Everyone; that is preserved here.
 	 *
 	 * @param int   $target_user_id Profile/account owner.
 	 * @param int   $viewer_id      Current visitor, 0 for guest.
@@ -216,11 +253,13 @@ final class Policy {
 			return true;
 		}
 
-		if ( $viewer_id > 0 && $viewer_id === $target_user_id ) {
-			return true;
-		}
+		$level = array_key_exists( 'public', $field )
+			? $this->normalize_privacy_level( $field['public'] )
+			: self::PRIVACY_EVERYONE;
 
-		$level = isset( $field['public'] ) ? (int) $field['public'] : self::PRIVACY_EVERYONE;
+		if ( null === $level ) {
+			return false;
+		}
 
 		switch ( $level ) {
 			case self::PRIVACY_EVERYONE:
@@ -230,11 +269,15 @@ final class Policy {
 				return $viewer_id > 0;
 
 			case self::PRIVACY_OWNER_EDITORS:
-				return $this->viewer_can_edit_target( $target_user_id );
+				return $this->viewer_is_owner( $viewer_id, $target_user_id )
+					|| $this->viewer_can_edit_target( $target_user_id );
 
-			case self::PRIVACY_OWNER_ROLES:
 			case self::PRIVACY_ROLES_ONLY:
 				return $this->viewer_has_allowed_role( $viewer_id, $field );
+
+			case self::PRIVACY_OWNER_ROLES:
+				return $this->viewer_is_owner( $viewer_id, $target_user_id )
+					|| $this->viewer_has_allowed_role( $viewer_id, $field );
 
 			default:
 				return false;
@@ -242,9 +285,53 @@ final class Policy {
 	}
 
 	/**
-	 * Mimics the active Form's privacy for a predefined Header element; visible by default
-	 * when the element has no explicit field definition in the active Form, since this
-	 * bridge does not assume an undocumented general option controls it.
+	 * Normalizes a raw stored privacy value to an official level constant. Only the
+	 * storage types UM actually writes — strings and integers — are considered; booleans,
+	 * floats, arrays, and everything else return null (fail closed), so e.g. a boolean
+	 * true can never masquerade as "Everyone" through string coercion.
+	 *
+	 * @param mixed $raw Raw 'public' value from a field definition.
+	 * @return string|null
+	 */
+	private function normalize_privacy_level( $raw ): ?string {
+		if ( ! is_string( $raw ) && ! is_int( $raw ) ) {
+			return null;
+		}
+
+		$value = trim( (string) $raw );
+
+		if ( in_array(
+			$value,
+			array(
+				self::PRIVACY_EVERYONE,
+				self::PRIVACY_MEMBERS,
+				self::PRIVACY_OWNER_EDITORS,
+				self::PRIVACY_ROLES_ONLY,
+				self::PRIVACY_OWNER_ROLES,
+			),
+			true
+		) ) {
+			return $value;
+		}
+
+		return null;
+	}
+
+	/**
+	 * Whether the viewer is the profile/account owner themselves.
+	 *
+	 * @param int $viewer_id      Current visitor, 0 for guest.
+	 * @param int $target_user_id Profile/account owner.
+	 * @return bool
+	 */
+	private function viewer_is_owner( int $viewer_id, int $target_user_id ): bool {
+		return $viewer_id > 0 && $viewer_id === $target_user_id;
+	}
+
+	/**
+	 * Evaluates a predefined Header element's governing field against the active Form.
+	 * A field that is not explicitly defined in the Form FAILS CLOSED (false): absence
+	 * of a definition is never treated as permission to show the element.
 	 *
 	 * @param int    $target_user_id Profile owner.
 	 * @param int    $viewer_id      Current visitor, 0 for guest.
@@ -256,10 +343,64 @@ final class Policy {
 		$field = $this->find_field( $form_id, $metakey );
 
 		if ( null === $field ) {
-			return true;
+			return false;
 		}
 
 		return $this->passes_privacy( $target_user_id, $viewer_id, $field );
+	}
+
+	/**
+	 * The display name is composed from first/last name in UM; every one of those fields
+	 * that the active Form explicitly defines must pass privacy for this viewer, and at
+	 * least one of them must actually be defined — otherwise the element is unverifiable
+	 * and fails closed.
+	 *
+	 * @param int $target_user_id Profile owner.
+	 * @param int $viewer_id      Current visitor, 0 for guest.
+	 * @param int $form_id        UM Form ID.
+	 * @return bool
+	 */
+	private function header_name_fields_pass( int $target_user_id, int $viewer_id, int $form_id ): bool {
+		$saw_definition = false;
+
+		foreach ( array( 'first_name', 'last_name' ) as $metakey ) {
+			$field = $this->find_field( $form_id, $metakey );
+
+			if ( null === $field ) {
+				continue;
+			}
+
+			$saw_definition = true;
+
+			if ( ! $this->passes_privacy( $target_user_id, $viewer_id, $field ) ) {
+				return false;
+			}
+		}
+
+		return $saw_definition;
+	}
+
+	/**
+	 * Whether Ultimate Member's documented global "show bio" option allows the bio block
+	 * at all (um-actions-form.php reads UM()->options()->get('profile_show_bio') when the
+	 * form does not override bio settings). Fails closed when UM or its options API is
+	 * unavailable. Per-form custom bio overrides are intentionally NOT guessed here;
+	 * they need compatibility-matrix verification before public_layout.
+	 *
+	 * @return bool
+	 */
+	private function bio_allowed_by_general_settings(): bool {
+		if ( ! function_exists( 'UM' ) ) {
+			return false;
+		}
+
+		$options = UM()->options();
+
+		if ( ! is_object( $options ) || ! method_exists( $options, 'get' ) ) {
+			return false;
+		}
+
+		return (bool) $options->get( 'profile_show_bio' );
 	}
 
 	/**
