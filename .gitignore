@@ -5,3 +5,4 @@
 # مستندات داخلية بقرار المالك: خارج git وخارج حزمة النشر معًا (§9.2-5).
 /hal-um-elementor-execution-plan.md
 /docs/
+/.phpunit.result.cache
