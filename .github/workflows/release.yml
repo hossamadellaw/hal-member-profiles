@@ -1,7 +1,9 @@
 # خط إصدار واحد مبسط لأداة HAL Member Profiles: أدوات رسمية فقط، بدون أسرار خارجية.
-# قائمة البناء أدناه مشتقة من نقطة دخول الإضافة (hal-member-profiles.php) وتحميلاتها
-# الشرطية داخل includes/، ومن الأصول المُشار إليها في الكود (assets/editor.css عبر
-# plugin_dir_url، ومجلد languages). القوالب في Child Theme/ تُسلَّم يدويًا ولا تدخل الحزمة.
+# قائمة البناء مشتقة من نقطة دخول الإضافة وتحميلاتها الشرطية، ومن الأصول المُشار إليها
+# في الكود (assets/editor.css عبر plugin_dir_url ومجلد languages). قوالب الجسر في
+# Child Theme/ultimate-member/templates/ تُضمَّن الآن داخل الحزمة (تسليم يدوي موثق في
+# readme.txt) — ملفان فقط: قالب البروفايل (بترويسة Template:) وقالب الحساب؛ أي ملف آخر
+# تحت Child Theme/ يُرفض بالحارس أدناه.
 name: Release
 
 on:
@@ -18,22 +20,45 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install production dependencies only
-        run: composer install --no-dev --optimize-autoloader
+      # ─── بيئة PHP مطابقة لحد الإضافة الأدنى (composer platform = 8.0) ───
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.0'
+          extensions: mbstring, xml, curl, zip
+          coverage: none
+
+      - name: Install dependencies (with dev) for quality gates
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Validate composer files
+        run: composer validate --strict
+
+      # ─── بوابات جودة إلزامية قبل البناء (بطاقة F-20): lint شامل + Unit suite ───
+      - name: Lint all first-party PHP
+        run: |
+          find . -type d \( -path ./vendor -o -path ./.git \) -prune -o \
+                 -type f -name '*.php' -print0 | xargs -0 -n1 php -l >/dev/null
+          echo "lint OK"
+
+      - name: Run unit tests (fail on any error/failure/incomplete)
+        run: vendor/bin/phpunit --testsuite unit --no-coverage
+
+      # ─── بناء vendor الإنتاجي نظيفًا بعد اجتياز البوابات (إزالة حزم dev) ───
+      - name: Rebuild production vendor without dev packages
+        run: |
+          rm -rf vendor
+          composer install --no-dev --optimize-autoloader --no-interaction
 
       # ─── التحقق من تطابق الإصدارات مع الوسم (يمنع حلقات تحديث صامتة) ───
       - name: Verify version match with tag
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
 
-          # نمط الترويسة يتحمّل بادئة docblock " * Version:" — النمط المُرسَّخ "^Version:"
-          # لا يطابق ترويسة ووردبريس القياسية داخل التعليق ⇒ فشل صامت تحت set -e.
           HEADER_VERSION=$(grep -oPm1 '^[ \t]*\*[ \t]*Version:[ \t]*\K[0-9.]+' hal-member-profiles.php || true)
           STABLE_TAG=$(grep -oPm1 '^Stable tag:[ \t]*\K[0-9.]+' readme.txt || true)
           CONST_VERSION=$(grep -oPm1 "define\( 'HAL_MEMBER_PROFILES_VERSION', '\K[0-9.]+" hal-member-profiles.php || true)
 
-          # "|| true" + فحص فارغ صريح: فشل grep الذي لا يجد تطابقًا يظهر برسالة مسماة
-          # بدل أن يقتل الخطوة بصمت.
           if [ -z "$HEADER_VERSION" ]; then
             echo "::error::Plugin header Version not found"
             exit 1
@@ -59,26 +84,31 @@ jobs:
             exit 1
           fi
 
-      # ─── بناء الحزمة: قائمة بيضاء صريحة فقط — ملفات التطوير خارجها عمدًا ───
-      # (tests/, docs/, .github/, Child Theme/, *.md الجذرية, phpunit.xml.dist,
-      #  composer.json/lock — vendor/ يُبنى في الخطوة السابقة من composer.lock).
+      # ─── بناء الحزمة: قائمة بيضاء صريحة + قالبا الجسر الرسميان ضمن مسارهما الطبيعي ───
+      # (tests/, docs/, .github/, باقي Child Theme/*, *.md الجذرية, phpunit.xml.dist,
+      #  composer.json/lock تبقى خارجها عمدًا).
       - name: Build plugin package
         run: |
           mkdir -p build/hal-member-profiles
           cp -r hal-member-profiles.php uninstall.php readme.txt includes assets languages vendor build/hal-member-profiles/
+          mkdir -p "build/hal-member-profiles/Child Theme/ultimate-member/templates"
+          cp "Child Theme/ultimate-member/templates/profile-hal-member-profiles.php" \
+             "Child Theme/ultimate-member/templates/account.php" \
+             "build/hal-member-profiles/Child Theme/ultimate-member/templates/"
           cd build && zip -rq "hal-member-profiles-${GITHUB_REF_NAME#v}.zip" hal-member-profiles
 
-      # ─── حارس الحزمة: يُفشل الإصدار كاملًا برسالة مسماة إذا تسلّل أي مسار محظور
-      # إلى الـZIP المبني (Child Theme/tests/docs/.github أو ملفات تطوير/داخلية
-      # بجذر الحزمة) — يحوّل استثناء القائمة البيضاء من اتفاق إلى منع مفروض
-      # بالـpipeline، منعًا للخلط والارتباك. ───
+      # ─── حارس الحزمة 1: منع تسلل المسارات المحظورة، مع سماح حصرية لملفي قالب الجسر ───
       - name: Guard - fail if forbidden paths leaked into the package
         run: |
           ZIP="build/hal-member-profiles-${GITHUB_REF_NAME#v}.zip"
           python3 - "$ZIP" <<'PY'
           import sys, zipfile
 
-          FORBIDDEN_DIRS = {"Child Theme", ".github", "docs", "tests"}
+          ALLOWED_CHILD_THEME = {
+              "Child Theme/ultimate-member/templates/profile-hal-member-profiles.php",
+              "Child Theme/ultimate-member/templates/account.php",
+          }
+          FORBIDDEN_DIRS = {".github", "docs", "tests"}
           FORBIDDEN_ROOT_FILES = {
               "hal-um-elementor-execution-plan.md", "compatibility-matrix.md",
               "phpunit.xml.dist", "composer.json", "composer.lock",
@@ -86,18 +116,25 @@ jobs:
           }
 
           z = zipfile.ZipFile(sys.argv[1])
-          names = z.namelist()
+          names = z.namelist()  # includes directory entries ending with '/'
 
           roots = {n.split("/", 1)[0] for n in names}
           bad = [] if roots == {"hal-member-profiles"} else ["<not a single hal-member-profiles/ root>: " + ", ".join(sorted(roots))]
 
-          for n in names:
+          file_names = [x for x in names if not x.endswith("/")]
+          for n in file_names:
               parts = n.split("/")
               if len(parts) < 2:
                   bad.append(n)
-              elif len(parts) == 2 and parts[1] in FORBIDDEN_ROOT_FILES:
+                  continue
+              rel = "/".join(parts[1:])
+              if parts[1] == "Child Theme":
+                  if rel not in ALLOWED_CHILD_THEME:
+                      bad.append(n)
+                  continue
+              if parts[1] in FORBIDDEN_DIRS:
                   bad.append(n)
-              elif len(parts) >= 3 and parts[1] in FORBIDDEN_DIRS:
+              if len(parts) == 2 and parts[1] in FORBIDDEN_ROOT_FILES:
                   bad.append(n)
 
           if bad:
@@ -107,6 +144,59 @@ jobs:
               sys.exit(1)
 
           print(f"guard OK: {len(names)} entries, single root, no forbidden paths")
+          PY
+
+      # ─── حارس الحزمة 2 (F-20): فحوص وجود/صحة أصول التسليم داخل الـZIP نفسه ───
+      - name: Guard - required delivery assets and Template headers inside the ZIP
+        run: |
+          ZIP="build/hal-member-profiles-${GITHUB_REF_NAME#v}.zip"
+          python3 - "$ZIP" <<'PY'
+          import sys, zipfile
+
+          REQUIRED = [
+              "hal-member-profiles/hal-member-profiles.php",
+              "hal-member-profiles/uninstall.php",
+              "hal-member-profiles/readme.txt",
+              "hal-member-profiles/includes/",
+              "hal-member-profiles/languages/",
+              "hal-member-profiles/assets/editor.css",
+              "hal-member-profiles/vendor/yahnis-elsts/plugin-update-checker/plugin-update-checker.php",
+              "hal-member-profiles/Child Theme/ultimate-member/templates/profile-hal-member-profiles.php",
+              "hal-member-profiles/Child Theme/ultimate-member/templates/account.php",
+          ]
+
+          z = zipfile.ZipFile(sys.argv[1])
+          names = set(z.namelist())
+          missing = []
+
+          for req in REQUIRED:
+              if req.endswith("/"):
+                  if not any(n.startswith(req) for n in names):
+                      missing.append(req + "*")
+              elif req not in names:
+                  missing.append(req)
+
+          if missing:
+              print("::error::Required delivery assets missing from package:")
+              for m in missing:
+                  print("  -", m)
+              sys.exit(1)
+
+          prof = z.read("hal-member-profiles/Child Theme/ultimate-member/templates/"
+                        "profile-hal-member-profiles.php").decode("utf-8", "replace")
+          acct = z.read("hal-member-profiles/Child Theme/ultimate-member/templates/"
+                        "account.php").decode("utf-8", "replace")
+
+          if "Template: HAL Member Profiles" not in prof.split("*/", 1)[0]:
+              print("::error::Profile bridge template is missing its 'Template:' header")
+              sys.exit(1)
+
+          if "Template:" in acct.split("*/", 1)[0]:
+              print("::error::Account bridge template must NOT declare a 'Template:' header")
+              sys.exit(1)
+
+          print(f"assets OK: all {len(REQUIRED)} required entries present; "
+                "profile Template header present; account header correctly absent")
           PY
 
       # ─── سلوك مقصود: إعادة تشغيل الـworkflow لنفس Tag القائم تفشل إلا بعد حذف

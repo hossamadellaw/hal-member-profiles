@@ -28,14 +28,21 @@ ownership of identity, privacy, roles, field validation, saving, nonces, and tab
   `Account Navigation`, `Account Body`, and related) render Ultimate Member's own native
   output inside your Elementor layout.
 
-Every field decision — visible or hidden — is made by `Policy.php`, which mirrors
-Ultimate Member's own Field Privacy settings. This plugin never reads raw user meta
-directly in a Widget or Dynamic Tag, never invents a field selector, and never falls
-back to showing the current visitor's own data when a target member cannot be resolved.
+**Privacy enforcement:** every field decision is made server-side by this plugin's own
+Policy layer, which reads Ultimate Member's documented per-field Privacy values
+(Everyone / Members / Owner+editors / specific roles / Owner+specific roles). Unknown or
+unrecognized values FAIL CLOSED (the field stays hidden), administrators can always view
+their own site's data, and a target member who cannot be resolved never falls back to
+the visitor. Parity with YOUR installed Ultimate Member version is verified during the
+compatibility QA recorded in this plugin's internal matrix before any public layout is
+enabled.
 
-If the Elementor Library Template for a Profile/Account is deleted, left as a Draft, or
-fails Elementor's own `elementor/query/...`-based validation, the page falls back to
-Ultimate Member's complete native output automatically — never a blank or partial page.
+**Fallback contract:** if the Elementor Library Template for a Profile or Account is
+deleted, left as a Draft, fails the layout contract (each required Widget rendered
+exactly once inside valid context), throws during render, or the runtime compatibility
+gate has not passed for this site's component versions — the page automatically completes
+through Ultimate Member's FULL native pipeline inside the original wrappers. Never a
+blank, partial, or duplicated page.
 
 = What this plugin does not do =
 
@@ -44,25 +51,32 @@ Ultimate Member's complete native output automatically — never a blank or part
 * It does not rebuild Ultimate Member's edit-profile form as separate Elementor controls.
 * It does not call any booking API directly; Amelia's own shortcode/form remains the
   final authority on availability and booking acceptance.
+* It contains NO Amelia synchronization/API features in this release — only the manual,
+  administrator-maintained allowlist described below.
 
 == Installation ==
+
+Everything below is doable from the Release ZIP alone.
 
 1. Ensure Ultimate Member and Elementor (free) are active first — this plugin declares
    both as hard requirements via `Requires Plugins` and will not activate without them.
 2. Upload and activate HAL Member Profiles like any other plugin.
-3. Go to **Settings → HAL Member Profiles** and leave both Profile and Account layout
-   modes on **Observe** until you have built and tested your Elementor Library Templates
-   on staging.
-4. Build a Profile Library Template and an Account Library Template in Elementor,
-   including the required Widgets for each (Header + Navigation + Body for Profile;
-   Navigation + Body for Account) — see `docs/compatibility-matrix.md` for the exact
-   rules `LayoutContract.php` enforces before a template is considered complete.
-5. Select the matching Elementor Library Template ID in Settings, switch the relevant
-   layout mode to **Public layout**, and select the "HAL Member Profiles" template
-   override for the Profile Form in Ultimate Member → Forms.
-6. Copy the two template overrides from this package's `Child Theme/ultimate-member/templates/`
-   directory into your Child Theme's own `ultimate-member/templates/` directory
-   (`profile-hal-member-profiles.php` and `account.php`).
+3. From the ZIP/package, copy the TWO bridge templates
+   (`profile-hal-member-profiles.php` and `account.php`) from
+   `Child Theme/ultimate-member/templates/` into your CHILD THEME's own
+   `ultimate-member/templates/` directory. Without them the bridge has no attachment
+   points and pages stay 100% native (safe, just unstyled-by-HAL).
+4. Go to **Settings → HAL Member Profiles**: both layout modes start at **Observe**
+   (zero visual change) and the Elementor route stays locked there until the built-in
+   compatibility gate passes for your site's exact plugin versions.
+5. Build one Profile and one Account Elementor Library Template containing the required
+   widgets exactly once each — Profile: one Header widget (Native OR Compatibility) +
+   Navigation + Body; Account: Navigation + Body.
+6. After staging QA passes and your composition is recorded, select the matching
+   Library Template IDs in Settings, then switch the relevant mode to **Public layout**
+   (it will refuse to save while the compatibility gate has not passed), and finally
+   select "HAL Member Profiles" as the Profile Form template under Ultimate Member →
+   Forms.
 
 == Frequently Asked Questions ==
 
@@ -80,33 +94,50 @@ half-configured layout.
 
 = What happens if I deactivate HAL Member Profiles entirely? =
 
-Both Child Theme template overrides detect this and render Ultimate Member's complete
-native pipeline directly, exactly as if this plugin were never installed.
+Both Child Theme template overrides detect this and delegate straight to Ultimate
+Member's ORIGINAL account/profile rendering, exactly as if this plugin were never
+installed.
 
 = Does this integrate with Amelia? =
 
-Only through an administrator-maintained, manually managed allowlist mapping a UM member
-to an Amelia employee ID and their allowed service ID(s) — never a live sync or copy of
-Amelia's own data, and never a direct booking API call. See `docs/compatibility-matrix.md`
-§4 before enabling this in production.
+Only through an administrator-maintained allowlist mapping a UM member to an Amelia
+employee ID and their allowed service ID(s), enforced server-side at profile-save time
+(anything outside the member's own allowlist is stored as empty). No live sync, no
+booking API calls, and no deeper Amelia features are part of this release.
 
-== Known limitations at 1.0.0 ==
+== Known limitations at this release ==
 
+* **Public layout is locked until compatibility QA passes.** The runtime gate keeps
+  both modes on Observe for every composition that has not been live-tested and signed
+  off internally — including a brand-new install. This is deliberate.
 * Custom Header (fully Elementor-designed header via `Profile Header Compatibility`) is
-  only as capable as the UM extensions registered and tested in
-  `docs/compatibility-matrix.md` §2 — currently none. Native Header is the safe default.
+  only as capable as the UM extensions registered and tested internally — currently
+  none. Native Header is the safe default.
 * Account field selectors (`Account Field` Widget/Tags) are empty until a verified
-  Account-tab field source is confirmed in `docs/compatibility-matrix.md` §6.
-* The legacy Photo/Dashboard Account tabs are not yet migrated; they remain in
-  `um-account-custom.php` until tested per `docs/compatibility-matrix.md` §3.
+  Account-tab field source is confirmed.
+* The legacy Photo/Dashboard Account tabs are not yet migrated; they remain served by
+  the legacy custom account renderer until tested.
 * `FieldSchema`'s field-type classification list should be checked against this site's
-  actual Ultimate Member field types in `docs/compatibility-matrix.md` §5.
+  actual Ultimate Member field types during the same QA pass.
 
 == Changelog ==
 
+= Unreleased (remediation release) =
+* Privacy decisions aligned to Ultimate Member's documented field-privacy values with
+  strict fail-closed handling of unrecognized values.
+* Runtime compatibility gate added: Public layout cannot be saved or served unless the
+  site's exact component versions passed internal QA.
+* Account bridge rewritten as a thin delegation to Ultimate Member's own account
+  rendering (no copied markup); Profile bridge unchanged except its official template
+  header, making it selectable in Ultimate Member → Forms.
+* Release package now ships the two Child Theme bridge templates; installation works
+  from the ZIP alone.
+* Automated unit test suite added (73 tests) and wired into the release pipeline.
+
 = 1.0.0 =
-* Initial build per `hal-um-elementor-execution-plan.md`: core services, Profile and
-  Account Widgets, Dynamic Tags (Elementor Pro), Elementor Library Template adapters
-  with native fallback, Amelia allowlist bridge, and Child Theme template overrides.
+* Initial build: core services, Profile and Account Widgets, Dynamic Tags (Elementor
+  Pro), Elementor Library Template adapters with native fallback, Amelia allowlist
+  bridge, and Child Theme template overrides.
 * Requires PHP 8.0 (raised from 7.4 before the first public release).
-* Automatic updates via GitHub Releases (plugin-update-checker ~5.7.0, bundled in vendor/).
+* Automatic updates via GitHub Releases (plugin-update-checker ~5.7.0, bundled in
+  vendor/).
