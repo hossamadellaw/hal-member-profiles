@@ -1,0 +1,22 @@
+{
+    "manifest_version": 1,
+    "plugin_slug": "hal-member-profiles",
+    "assets": [
+        {
+            "asset_version": 1,
+            "type": "um_profile_form_template",
+            "um_scope": "profile",
+            "source_path": "resources/ultimate-member/profile-hal-member-profiles.php",
+            "target_path": "ultimate-member/templates/profile-hal-member-profiles.php",
+            "sha256": "fb588a41cf09c3f20e5051a877c315264b50fbc18ddfd5000cda4ef93f36b3a0"
+        },
+        {
+            "asset_version": 1,
+            "type": "um_account_template_override",
+            "um_scope": "account",
+            "source_path": "resources/ultimate-member/account.php",
+            "target_path": "ultimate-member/templates/account.php",
+            "sha256": "254280f696f406fc0e4e718f783ed6aa52bf402585f068bfd011cbf2e644cce4"
+        }
+    ]
+}

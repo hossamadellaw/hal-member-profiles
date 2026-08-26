@@ -3,6 +3,16 @@
  * Creates each module in dependency order and shares the service instances across HAL
  * Member Profiles.
  *
+ * Development card D-14 module order: Dependencies/Gate → Settings/SecretStore →
+ * Context/Policy (+FieldSchema/LayoutContract) → SchemaRegistry → UM/Amelia →
+ * ManagedTemplates/Lifecycle (admin-only) → Elementor → Dashboard (admin-only). No
+ * circular coupling: every arrow points at an ALREADY-created instance, the admin-only
+ * block never runs on frontend requests (so Admin/Filesystem/API paths stay unloaded
+ * there), and a missing Amelia merely leaves its slot null instead of blocking UM.
+ * Lifecycle's activation-hook arming limitation (see its file header) remains documented:
+ * closing it fully needs a one-line early require in the plugin MAIN file, which stays an
+ * explicit owner decision outside this two-file card.
+ *
  * @package HAL\MemberProfiles
  */
 
@@ -29,9 +39,11 @@ final class Bootstrap {
 	private ?FieldSchema $field_schema = null;
 	private ?Policy $policy = null;
 	private ?LayoutContract $layout_contract = null;
+	private ?SchemaRegistry $schema_registry = null;
 	private ?UltimateMember $um_integration = null;
 	private ?Amelia $amelia = null;
 	private ?OptionalIntegrations $optional_integrations = null;
+	private ?ManagedTemplates $managed_templates = null;
 
 	private function __construct() {}
 
@@ -122,6 +134,25 @@ final class Bootstrap {
 	}
 
 	/**
+	 * D-14: the shared schema normalizer (card D-09), created once after Policy.
+	 *
+	 * @return SchemaRegistry|null
+	 */
+	public function get_schema_registry(): ?SchemaRegistry {
+		return $this->schema_registry;
+	}
+
+	/**
+	 * D-14: the admin-only managed-template service (card D-04); null on frontend and
+	 * whenever boot stopped before the admin block.
+	 *
+	 * @return ManagedTemplates|null
+	 */
+	public function get_managed_templates(): ?ManagedTemplates {
+		return $this->managed_templates;
+	}
+
+	/**
 	 * @return UltimateMember|null
 	 */
 	public function get_um_integration(): ?UltimateMember {
@@ -148,9 +179,11 @@ final class Bootstrap {
 	 * @return void
 	 */
 	private function boot(): void {
+		// 1) Dependencies/Gate → 2) Settings/SecretStore — card D-14 order start.
 		require_once HAL_MEMBER_PROFILES_DIR . 'includes/Dependencies.php';
 		require_once HAL_MEMBER_PROFILES_DIR . 'includes/CompatibilityGate.php';
 		require_once HAL_MEMBER_PROFILES_DIR . 'includes/Settings.php';
+		require_once HAL_MEMBER_PROFILES_DIR . 'includes/SecretStore.php';
 
 		$this->dependencies = new Dependencies();
 
@@ -162,25 +195,40 @@ final class Bootstrap {
 
 		$this->settings = new Settings( $this->compatibility_gate );
 
+		// SecretStore is a stateless static module (card D-07): loading it costs nothing
+		// and performs no I/O; consumers reach it statically wherever needed.
+
 		if ( ! $this->dependencies->has_um() ) {
 			$this->notify_missing_dependency( __( 'Ultimate Member', 'hal-member-profiles' ) );
 			return;
 		}
 
+		// 3) Context/Policy (+ FieldSchema/LayoutContract).
 		require_once HAL_MEMBER_PROFILES_DIR . 'includes/ProfileContext.php';
 		require_once HAL_MEMBER_PROFILES_DIR . 'includes/AccountContext.php';
 		require_once HAL_MEMBER_PROFILES_DIR . 'includes/FieldSchema.php';
 		require_once HAL_MEMBER_PROFILES_DIR . 'includes/Policy.php';
 		require_once HAL_MEMBER_PROFILES_DIR . 'includes/LayoutContract.php';
-		require_once HAL_MEMBER_PROFILES_DIR . 'includes/Integrations/UltimateMember.php';
 
 		$this->profile_context = new ProfileContext( $this->settings );
 		$this->account_context = new AccountContext( $this->settings );
 		$this->field_schema    = new FieldSchema();
 		$this->policy          = new Policy( $this->field_schema );
 		$this->layout_contract = new LayoutContract();
-		$this->um_integration  = new UltimateMember( $this->profile_context, $this->account_context );
 
+		// 4) SchemaRegistry (card D-09) — after Context/Policy, before UM/Amelia per card
+		// D-14; it consumes only the already-created FieldSchema instance.
+		require_once HAL_MEMBER_PROFILES_DIR . 'includes/SchemaRegistry.php';
+
+		$this->schema_registry = new SchemaRegistry( $this->field_schema );
+
+		// 5) UM/Amelia.
+		require_once HAL_MEMBER_PROFILES_DIR . 'includes/Integrations/UltimateMember.php';
+
+		$this->um_integration = new UltimateMember( $this->profile_context, $this->account_context );
+
+		// A missing Amelia leaves its slot null without blocking UM in any way
+		// (acceptance: "Amelia غائبة لا تمنع UM").
 		if ( $this->dependencies->has_amelia() ) {
 			require_once HAL_MEMBER_PROFILES_DIR . 'includes/Integrations/Amelia.php';
 
@@ -191,10 +239,32 @@ final class Bootstrap {
 
 		$this->optional_integrations = new OptionalIntegrations( $this->dependencies );
 
+		// 6) ManagedTemplates/Lifecycle — ADMIN-ONLY: on frontend requests this entire
+		// block (and its filesystem-capable service) never even loads (acceptance:
+		// "Frontend لا يحمل Admin/Filesystem/API paths غير اللازمة").
+		if ( is_admin() ) {
+			require_once HAL_MEMBER_PROFILES_DIR . 'includes/ManagedTemplates.php';
+
+			$this->managed_templates = new ManagedTemplates();
+
+			require_once HAL_MEMBER_PROFILES_DIR . 'includes/Lifecycle.php';
+
+			Lifecycle::register();
+		}
+
+		// 7) Elementor.
 		if ( $this->dependencies->has_elementor_widgets() ) {
 			add_action( 'elementor/init', array( $this, 'register_elementor' ) );
 		} else {
 			$this->notify_missing_dependency( __( 'Elementor', 'hal-member-profiles' ) );
+		}
+
+		// 8) Dashboard — ADMIN-ONLY, last per card D-14; it explains every module's state
+		// through CompatibilityGate::describe()/capabilities().
+		if ( is_admin() ) {
+			require_once HAL_MEMBER_PROFILES_DIR . 'includes/AdminDashboard.php';
+
+			AdminDashboard::register();
 		}
 	}
 

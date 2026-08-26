@@ -4,7 +4,7 @@ Tags: ultimate-member, elementor, membership, profile
 Requires at least: 6.5
 Requires PHP: 8.0
 Requires Plugins: ultimate-member, elementor
-Stable tag: 1.0.1
+Stable tag: 1.1.0-rc.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -37,6 +37,27 @@ the visitor. Parity with YOUR installed Ultimate Member version is verified duri
 compatibility QA recorded in this plugin's internal matrix before any public layout is
 enabled.
 
+**Managed templates (no manual copying):** the canonical Profile/Account bridge templates
+ship INSIDE this package under `resources/ultimate-member/` together with a signed-style
+manifest (version + SHA-256 per asset). An administrator provisions and syncs them into
+the active CHILD theme from the HAL dashboard ("Sync managed templates now"); a locally
+modified copy is always reported as a conflict and never overwritten automatically, and
+nothing ever installs or deletes itself on its own.
+
+**Deployment modes (honest matrix):**
+
+* **Direct filesystem:** provisioning writes normally.
+* **Other hosts (FTP/SSH):** WordPress reports its standard credentials request state;
+  HAL never asks for or stores passwords.
+* **Immutable / CI:** defining `HAL_MEMBER_PROFILES_IMMUTABLE_DEPLOYMENT` makes every
+  write a verify-only no-op, for pipelines where your deployer owns file placement.
+
+**Compatibility humility:** features are gated at runtime by the built-in compatibility
+gate against THIS site's actual component versions. Compositions that have not passed
+the internal QA matrix stay on Observe/native rendering — including a brand-new install.
+No universal compatibility is claimed for any host, cache layer, or future plugin
+version.
+
 **Fallback contract:** if the Elementor Library Template for a Profile or Account is
 deleted, left as a Draft, fails the layout contract (each required Widget rendered
 exactly once inside valid context), throws during render, or the runtime compatibility
@@ -51,8 +72,9 @@ blank, partial, or duplicated page.
 * It does not rebuild Ultimate Member's edit-profile form as separate Elementor controls.
 * It does not call any booking API directly; Amelia's own shortcode/form remains the
   final authority on availability and booking acceptance.
-* It contains NO Amelia synchronization/API features in this release — only the manual,
-  administrator-maintained allowlist described below.
+* It contains no automatic Amelia synchronization in this build's default state: the
+  optional Elite sync feature ships switched OFF (`Amelia sync mode: Off`) and must be
+  enabled explicitly by an administrator. See the Amelia section below.
 
 == Installation ==
 
@@ -61,11 +83,11 @@ Everything below is doable from the Release ZIP alone.
 1. Ensure Ultimate Member and Elementor (free) are active first — this plugin declares
    both as hard requirements via `Requires Plugins` and will not activate without them.
 2. Upload and activate HAL Member Profiles like any other plugin.
-3. From the ZIP/package, copy the TWO bridge templates
-   (`profile-hal-member-profiles.php` and `account.php`) from
-   `Child Theme/ultimate-member/templates/` into your CHILD THEME's own
-   `ultimate-member/templates/` directory. Without them the bridge has no attachment
-   points and pages stay 100% native (safe, just unstyled-by-HAL).
+3. The managed bridge templates already ship INSIDE this package under
+   `resources/ultimate-member/` (with their manifest). To place them into your active
+   CHILD theme, go to the **HAL Member Profiles** admin dashboard and use
+   **"Sync managed templates now"** — an administrator action; nothing copies itself.
+   Without provisioning, pages stay 100% native (safe, just unstyled-by-HAL).
 4. Go to **Settings → HAL Member Profiles**: both layout modes start at **Observe**
    (zero visual change) and the Elementor route stays locked there until the built-in
    compatibility gate passes for your site's exact plugin versions.
@@ -94,16 +116,29 @@ half-configured layout.
 
 = What happens if I deactivate HAL Member Profiles entirely? =
 
-Both Child Theme template overrides detect this and delegate straight to Ultimate
-Member's ORIGINAL account/profile rendering, exactly as if this plugin were never
-installed.
+Provisioned bridge templates detect this and delegate straight to Ultimate Member's
+ORIGINAL account/profile rendering, exactly as if this plugin were never installed.
 
 = Does this integrate with Amelia? =
 
-Only through an administrator-maintained allowlist mapping a UM member to an Amelia
-employee ID and their allowed service ID(s), enforced server-side at profile-save time
-(anything outside the member's own allowlist is stored as empty). No live sync, no
-booking API calls, and no deeper Amelia features are part of this release.
+Amelia integration is OPTIONAL and OFF by default. Two layers exist:
+
+* **Allowlist bridge (always available, no API):** an administrator maps a UM member to
+  an Amelia employee ID plus allowed service ID(s); profile-save enforcement stores only
+  IDs inside that member's own allowlist (anything else is stored as empty).
+* **Optional Elite sync (switched Off in Settings):** when enabled by an administrator,
+  HAL reads a read-only REST snapshot of services/employees/custom fields through the
+  WordPress HTTP API into an internal, PII-free catalog (employees appear as bare numeric
+  IDs — never names or emails). Amelia itself always remains the sole owner of
+  availability and booking; HAL never books anything.
+
+**How your Amelia API key is protected:** it is entered once by an administrator and is
+either kept in `wp-config.php`/environment as a constant (never touching the database) or
+stored encrypted at rest with authenticated encryption (libsodium secretbox, key derived
+from this site's own WordPress salts) in a non-autoloading option — the database never
+contains the plaintext. The key is masked afterwards (at most its last four characters)
+and is never displayed again, logged, or exported. If site salts rotate, stored keys fail
+closed and must simply be re-entered.
 
 == Known limitations at this release ==
 
@@ -119,8 +154,36 @@ booking API calls, and no deeper Amelia features are part of this release.
   the legacy custom account renderer until tested.
 * `FieldSchema`'s field-type classification list should be checked against this site's
   actual Ultimate Member field types during the same QA pass.
+* Managed-template provisioning currently runs from the dashboard Sync action and the
+  admin reconciliation tick; the recorded consent flag will gate future automated runs.
+* Amelia write-sync (`managed_additions` / `managed_sync`) modes are defined but their
+  write consumer arrives with later wiring; `discover_only` reading and the snapshot
+  catalog are what ship today. Default remains Off.
 
 == Changelog ==
+
+= 1.1.0 (unreleased – development summary) =
+* Managed templates: canonical template assets now ship inside the package under
+  `resources/ultimate-member/` with a versioned SHA-256 manifest; provisioning/syncing
+  into the active child theme runs from the HAL dashboard by an administrator, with
+  conflict detection (user-modified copies are never overwritten silently).
+* HAL admin dashboard added: overview/health, layouts & managed templates status with a
+  Sync action, compatibility diagnostics explaining every gate verdict, and honest
+  placeholders for modules arriving later.
+* Secret store: an optional Amelia API key can be stored encrypted at rest
+  (libsodium authenticated encryption, salts-derived key, non-autoloaded option) or
+  supplied via wp-config constant; keys are masked after entry and fail closed on salt
+  rotation.
+* Compatibility gate expanded to eight independent capabilities (managed templates,
+  Amelia API read / fields write, UM schema, Elementor Dynamic Tags) with per-capability
+  component floors — still no general pass and still fail-closed everywhere.
+* Optional Amelia Elite read-only sync scaffolding (Off by default) feeding a PII-free
+  service catalog consumed by the existing allowlist bridge; Amelia keeps full booking
+  ownership.
+* Release pipeline: package now ships `resources/` instead of the old manually-copied
+  bridge files, verifies manifest hashes pre-build AND inside the produced ZIP, bans any
+  residue of that legacy delivery path, and scans every packaged file for credential
+  patterns before publishing.
 
 = 1.0.1 =
 * Privacy decisions aligned to Ultimate Member's documented field-privacy values with

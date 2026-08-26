@@ -69,3 +69,64 @@ function hal_member_profiles_fixture_amelia_catalog(): array {
 		),
 	);
 }
+
+/**
+ * HTTP transport interception helpers for unit tests (card D-17). Loaded unconditionally
+ * by the bootstrap so they're always available to any test file.
+ */
+$GLOBALS['wp_stubs']['http_queue'] = array();
+$GLOBALS['wp_stubs']['http_calls'] = array();
+
+if ( ! function_exists( 'hal_wp_stub_queue_http' ) ) {
+	function hal_wp_stub_queue_http( $response ): void {
+		$GLOBALS['wp_stubs']['http_queue'][] = $response;
+	}
+}
+
+if ( ! function_exists( 'hal_wp_stub_http_calls' ) ) {
+	function hal_wp_stub_http_calls(): array {
+		return $GLOBALS['wp_stubs']['http_calls'] ?? array();
+	}
+}
+
+if ( ! function_exists( 'hal_wp_stub_reset_http' ) ) {
+	function hal_wp_stub_reset_http(): void {
+		$GLOBALS['wp_stubs']['http_queue'] = array();
+		$GLOBALS['wp_stubs']['http_calls'] = array();
+	}
+}
+
+/**
+ * WordPress HTTP API + error stubs for development-phase unit tests (card D-17).
+ */
+if ( ! class_exists( 'WP_Error' ) ) {
+	class WP_Error {
+		private $code;
+		public function __construct( $code = '', $message = '' ) { $this->code = $code; }
+		public function get_error_code() { return $this->code; }
+	}
+}
+
+if ( ! function_exists( 'is_wp_error' ) ) {
+	function is_wp_error( $thing ): bool {
+		return $thing instanceof \WP_Error;
+	}
+}
+
+if ( ! function_exists( 'wp_remote_request' ) ) {
+	function wp_remote_request( $url, $args = array() ) {
+		return array_shift( $GLOBALS['wp_stubs']['http_queue'] );
+	}
+}
+
+if ( ! function_exists( 'wp_remote_retrieve_response_code' ) ) {
+	function wp_remote_retrieve_response_code( $response ): string {
+		return is_array( $response ) ? (string) ( $response['response']['code'] ?? '' ) : '';
+	}
+}
+
+if ( ! function_exists( 'wp_remote_retrieve_body' ) ) {
+	function wp_remote_retrieve_body( $response ): string {
+		return is_array( $response ) ? (string) ( $response['body'] ?? '' ) : '';
+	}
+}

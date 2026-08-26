@@ -67,7 +67,7 @@ final class ProfileLayoutAdapter {
 		// the caller falls back to the complete native pipeline.
 		$compatibility_gate = $bootstrap->get_compatibility_gate();
 
-		if ( null === $compatibility_gate || ! $compatibility_gate->passes( CompatibilityGate::CAP_PROFILE ) ) {
+		if ( null === $compatibility_gate || ! $compatibility_gate->effective_passes( CompatibilityGate::CAP_PROFILE ) ) {
 			return null;
 		}
 

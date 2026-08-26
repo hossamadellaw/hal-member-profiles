@@ -3,6 +3,12 @@
  * The automatic catalog of Dynamic Tags for ordinary Elementor elements — Elementor Pro
  * only. Every tag defers entirely to Policy for access decisions and typed, escaped values.
  *
+ * Development card D-10: control options are fed through SchemaRegistry (card D-09) —
+ * whose public/account_only buckets derive from FieldSchema's own shared classifier, so
+ * the selectable sets remain identical to the Phase-1 contract — and ONE new typed tag
+ * joins the fixed roster: the public Amelia catalog item (services/employees), rendered
+ * exclusively from the stored administrative snapshot, never a live API call.
+ *
  * @package HAL\MemberProfiles\Elementor
  */
 
@@ -13,6 +19,7 @@ use Elementor\Core\DynamicTags\Tag;
 use Elementor\Modules\DynamicTags\Module;
 use HAL\MemberProfiles\Bootstrap;
 use HAL\MemberProfiles\FieldSchema;
+use HAL\MemberProfiles\SchemaRegistry;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -77,14 +84,62 @@ abstract class Abstract_Tag extends Tag {
 			$profile_form_id = $field_schema->default_profile_form_id();
 		}
 
-		$selectors = $account
-			? $field_schema->get_account_selectors()
-			: $field_schema->get_profile_selectors( $profile_form_id );
+		// D-10: options come from SchemaRegistry's normalized buckets. For Profile fields
+		// the SAME shared classifier FieldSchema always used types each normalized row, so
+		// the selectable set is identical to the Phase-1 contract — now registry-governed,
+		// with sensitive material structurally excluded by the registry itself.
+		$registry = new SchemaRegistry( $field_schema );
 
-		foreach ( $selectors as $selector ) {
-			if ( $type === $selector['selector_type'] ) {
-				$options[ $selector['metakey'] ] = $selector['label'];
+		if ( $account ) {
+			foreach ( $registry->um_account_schema()['items'] as $item ) {
+				if ( SchemaRegistry::VIS_ACCOUNT_ONLY !== $item['visibility'] || $type !== $item['type'] ) {
+					continue;
+				}
+
+				$options[ $item['identifier'] ] = $item['label'];
 			}
+
+			return $options;
+		}
+
+		foreach ( $registry->um_profile_schema( $profile_form_id )['items'] as $item ) {
+			if ( SchemaRegistry::VIS_PUBLIC !== $item['visibility'] ) {
+				continue;
+			}
+
+			if ( $type !== $field_schema->classify_metakey( $item['identifier'], array( 'type' => $item['type'] ) ) ) {
+				continue;
+			}
+
+			$options[ $item['identifier'] ] = $item['label'];
+		}
+
+		return $options;
+	}
+
+	/**
+	 * Public Amelia catalog entries (services + employees) from the stored administrative
+	 * snapshot ONLY — never a live REST call, per card D-10's render-time prohibition.
+	 *
+	 * @return array<string,string>
+	 */
+	protected function amelia_item_options(): array {
+		$options = array( '' => __( '— Select an item —', 'hal-member-profiles' ) );
+
+		$bootstrap = $this->bootstrap();
+
+		if ( null === $bootstrap ) {
+			return $options;
+		}
+
+		$registry = new SchemaRegistry( $bootstrap->get_field_schema() );
+
+		foreach ( $registry->amelia_catalog()['items'] ?? array() as $item ) {
+			if ( SchemaRegistry::VIS_PUBLIC !== $item['visibility'] ) {
+				continue;
+			}
+
+			$options[ $item['kind'] . ':' . $item['id'] ] = (string) $item['label'];
 		}
 
 		return $options;
@@ -697,6 +752,82 @@ final class Booking_Url_Tag extends Abstract_Tag {
 }
 
 /**
+ * HAL Amelia Catalog Item — ONE typed tag for the whole public catalog (card D-10:
+ * explicitly no class-per-field). Options and output come exclusively from
+ * SchemaRegistry's stored PII-free snapshot; a source item deleted since the last sync
+ * simply renders nothing. Requires the stored snapshot AND a detected Amelia plugin —
+ * otherwise silent, never a guessed value.
+ */
+final class Amelia_Catalog_Tag extends Abstract_Tag {
+
+	public function get_name(): string {
+		return 'hal_member_profiles_amelia_catalog';
+	}
+
+	public function get_title(): string {
+		return __( 'HAL Amelia Catalog Item', 'hal-member-profiles' );
+	}
+
+	public function get_group(): array {
+		return array( self::GROUP );
+	}
+
+	public function get_categories(): array {
+		return array( Module::TEXT_CATEGORY );
+	}
+
+	protected function register_controls(): void {
+		$this->add_control(
+			'hal_member_profiles_amelia_item',
+			array(
+				'label'   => __( 'Catalog item', 'hal-member-profiles' ),
+				'type'    => Controls_Manager::SELECT,
+				'options' => $this->amelia_item_options(),
+			)
+		);
+	}
+
+	public function render(): void {
+		$selected = (string) $this->get_settings( 'hal_member_profiles_amelia_item' );
+
+		if ( '' === $selected ) {
+			return;
+		}
+
+		$parts = explode( ':', $selected );
+
+		if ( 2 !== count( $parts ) ) {
+			return;
+		}
+
+		list( $kind, $raw_id ) = $parts;
+		$item_id = (int) $raw_id;
+
+		if ( ! in_array( $kind, array( 'service', 'employee' ), true ) || $item_id <= 0 ) {
+			return;
+		}
+
+		$bootstrap = $this->bootstrap();
+
+		if ( null === $bootstrap || null === $bootstrap->get_amelia() ) {
+			return;
+		}
+
+		$registry = new SchemaRegistry( $bootstrap->get_field_schema() );
+
+		foreach ( $registry->amelia_catalog()['items'] ?? array() as $item ) {
+			if (
+				$kind === $item['kind']
+				&& $item_id === (int) $item['id']
+				&& SchemaRegistry::VIS_PUBLIC === $item['visibility']
+			) {
+				echo esc_html( (string) $item['label'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_html applied directly above.
+			}
+		}
+	}
+}
+
+/**
  * Coordinates registration of every HAL tag above. Register.php (card 7.15) calls
  * register_all() from the elementor/dynamic_tags/register hook, Elementor Pro only.
  */
@@ -720,6 +851,7 @@ final class DynamicTags {
 			Account_Field_Url_Tag::class,
 			Account_Field_Image_Tag::class,
 			Booking_Url_Tag::class,
+			Amelia_Catalog_Tag::class,
 		);
 
 		foreach ( $tags as $tag_class ) {

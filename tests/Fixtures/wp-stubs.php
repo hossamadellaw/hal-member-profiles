@@ -69,7 +69,11 @@ namespace {
 	}
 	function get_avatar_url( $id ) { return 'https://stub.test/avatar/' . (int) $id . '.png'; }
 	function setup_postdata( $p ) {}
-	function wp_verify_nonce( $n, $a ) { return false; }
+	function wp_verify_nonce( $n, $a ) {
+		// Smart-enough stub: the canonical test nonce for any action verifies, everything
+		// else fails — matching how production treats forged values.
+		return ( 'nonce-' . $a === $n ) ? 1 : false;
+	}
 	function sanitize_text_field( $t ) { return trim( strip_tags( (string) $t ) ); }
 
 	function get_option( $name, $default = false ) {

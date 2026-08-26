@@ -16,6 +16,16 @@
  * - Pure logic only: no network, no filesystem, no DB schema, no WordPress API calls,
  *   so the gate itself can never break a page or leak data.
  *
+ * Development card D-13: the capability surface expands to eight INDEPENDENT gates —
+ * profile, account, amelia, managed_templates, amelia_api_read, amelia_fields_write,
+ * um_schema, elementor_dynamic_tags. There is deliberately NO master/general pass: every
+ * capability carries its own required-component floor (enforced in passes() BEFORE any
+ * tuple match, so even a mis-signed row can never enable a feature whose stack component
+ * is absent) and its own signed-composition rows. Losing one stack component disables
+ * exactly its own capabilities and nothing else. describe() exposes the reason for any
+ * verdict so diagnostic surfaces (card D-06 dashboard, card D-14 wiring) can explain
+ * themselves without guessing.
+ *
  * @package HAL\MemberProfiles
  */
 
@@ -32,6 +42,14 @@ final class CompatibilityGate {
 	const CAP_PROFILE = 'profile';
 	const CAP_ACCOUNT = 'account';
 	const CAP_AMELIA  = 'amelia';
+
+	// Development card D-13: five further INDEPENDENT capabilities. No general pass
+	// exists — each of the eight gates opens exclusively through its own signed rows.
+	const CAP_MANAGED_TEMPLATES      = 'managed_templates';
+	const CAP_AMELIA_API_READ        = 'amelia_api_read';
+	const CAP_AMELIA_FIELDS_WRITE    = 'amelia_fields_write';
+	const CAP_UM_SCHEMA              = 'um_schema';
+	const CAP_ELEMENTOR_DYNAMIC_TAGS = 'elementor_dynamic_tags';
 
 	/**
 	 * Canonical component keys used in version tuples, mirroring the matrix's §1 rows:
@@ -56,6 +74,27 @@ final class CompatibilityGate {
 	 * @var array<string, array<int, array<string, mixed>>>
 	 */
 	private const APPROVED_COMPOSITIONS = array();
+
+	/**
+	 * D-13: the minimal component floor each capability REQUIRES in the live environment,
+	 * enforced before tuple matching. A missing floor component fails that capability
+	 * (and only that one) regardless of any registry content — this is what makes "Elite
+	 * missing disables only the API" and "Pro missing disables only Tags" structural.
+	 * Tuples in APPROVED_COMPOSITIONS may pin these same components to exact tested
+	 * versions; the floor here is presence-only.
+	 *
+	 * @var array<string, array<int, string>>
+	 */
+	private const REQUIRED_COMPONENTS = array(
+		self::CAP_PROFILE                => array( 'wp', 'php', 'um', 'elementor' ),
+		self::CAP_ACCOUNT                => array( 'wp', 'php', 'um', 'elementor' ),
+		self::CAP_AMELIA                 => array( 'wp', 'php', 'amelia' ),
+		self::CAP_MANAGED_TEMPLATES      => array( 'wp', 'php', 'theme' ),
+		self::CAP_AMELIA_API_READ        => array( 'wp', 'php', 'amelia' ),
+		self::CAP_AMELIA_FIELDS_WRITE    => array( 'wp', 'php', 'amelia' ),
+		self::CAP_UM_SCHEMA              => array( 'wp', 'php', 'um' ),
+		self::CAP_ELEMENTOR_DYNAMIC_TAGS => array( 'wp', 'php', 'elementor', 'elementor_pro' ),
+	);
 
 	/**
 	 * Normalized current-environment versions, keyed by component slug.
@@ -92,8 +131,17 @@ final class CompatibilityGate {
 	public function passes( string $capability ): bool {
 		$capability = strtolower( trim( $capability ) );
 
-		if ( '' === $capability ) {
+		if ( '' === $capability || ! isset( self::REQUIRED_COMPONENTS[ $capability ] ) ) {
 			return false;
+		}
+
+		// D-13 floor check FIRST: a capability whose stack component is absent from this
+		// environment can never pass, no matter what any registry row claims. This is the
+		// structural guarantee behind "missing Elite disables only the API" etc.
+		foreach ( self::REQUIRED_COMPONENTS[ $capability ] as $component ) {
+			if ( ! isset( $this->versions[ $component ] ) ) {
+				return false;
+			}
 		}
 
 		$rows = $this->approved[ $capability ] ?? null;
@@ -109,6 +157,98 @@ final class CompatibilityGate {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Integration Closure #7: staging-QA-aware verdict. Identical to passes() except that
+	 * on an explicitly-enabled staging environment (see \HAL\MemberProfiles\StagingQA) the
+	 * matrix-signature requirement is waived while the component FLOOR still applies —
+	 * this is how QA produces the evidence that later becomes signed rows.
+	 *
+	 * Production can never reach the waiver (environment check fails there), and there is
+	 * still no master pass: each capability keeps its own floor and independence.
+	 *
+	 * Amelia-side WRITES ignore this override entirely by policy (their consumer uses the
+	 * strict passes()).
+	 *
+	 * @param string $capability One of this class's CAP_* constants.
+	 * @return bool
+	 */
+	public function effective_passes( string $capability ): bool {
+		if ( $this->passes( $capability ) ) {
+			return true;
+		}
+
+		$capability = strtolower( trim( $capability ) );
+
+		if ( '' === $capability || ! isset( self::REQUIRED_COMPONENTS[ $capability ] ) ) {
+			return false;
+		}
+
+		if ( ! class_exists( \HAL\MemberProfiles\StagingQA::class ) || ! StagingQA::enabled() ) {
+			return false;
+		}
+
+		foreach ( self::REQUIRED_COMPONENTS[ $capability ] as $component ) {
+			if ( ! isset( $this->versions[ $component ] ) ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * D-13: explains WHY a capability holds its current verdict, using machine-stable
+	 * slugs suitable for dashboards and logs (no secrets, no environment beyond component
+	 * names). Never throws; unknown capabilities describe themselves as such.
+	 *
+	 * @param string $capability One of this class's CAP_* constants (or anything else).
+	 * @return string One of: approved_composition | missing_components:<list> |
+	 *                awaiting_matrix_signoff | composition_mismatch | unknown_capability
+	 */
+	public function describe( string $capability ): string {
+		$capability = strtolower( trim( $capability ) );
+
+		if ( '' === $capability || ! isset( self::REQUIRED_COMPONENTS[ $capability ] ) ) {
+			return 'unknown_capability';
+		}
+
+		$missing = array();
+
+		foreach ( self::REQUIRED_COMPONENTS[ $capability ] as $component ) {
+			if ( ! isset( $this->versions[ $component ] ) ) {
+				$missing[] = $component;
+			}
+		}
+
+		if ( ! empty( $missing ) ) {
+			return 'missing_components:' . implode( ',', $missing );
+		}
+
+		$rows = $this->approved[ $capability ] ?? null;
+
+		if ( ! is_array( $rows ) || array() === $rows ) {
+			return 'awaiting_matrix_signoff';
+		}
+
+		foreach ( $rows as $row ) {
+			if ( $this->matches( $row ) ) {
+				return 'approved_composition';
+			}
+		}
+
+		return 'composition_mismatch';
+	}
+
+	/**
+	 * D-13: the full capability→required-components map (read-only copy) so diagnostic
+	 * surfaces can enumerate every independent gate without hardcoding names.
+	 *
+	 * @return array<string, array<int, string>>
+	 */
+	public function capabilities(): array {
+		return self::REQUIRED_COMPONENTS;
 	}
 
 	/**

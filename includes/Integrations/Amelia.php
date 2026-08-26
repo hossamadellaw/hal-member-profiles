@@ -7,11 +7,21 @@
  * consumer first. hal_amelia_api_request() and its admin-only loopback API are
  * intentionally not carried forward into this release.
  *
+ * Development card D-11: the LIVE service catalog now comes from SchemaRegistry's
+ * administrative PII-free snapshot (card D-09) instead of the frozen empty constant;
+ * SERVICE_CATALOG remains solely as the legacy-name migration table for pre-ID stored
+ * values. Employee identity resolves through the documented externalId filter FIRST,
+ * then the governed local mirror metakey — email/name inference stays forbidden. The
+ * F-16 stored-value contract below is frozen: same hook, same three wipe cases, same
+ * allowlist intersection. Amelia remains the sole owner of availability and booking;
+ * this class never checks availability, books anything, or touches bookings.
+ *
  * @package HAL\MemberProfiles\Integrations
  */
 
 namespace HAL\MemberProfiles\Integrations;
 
+use HAL\MemberProfiles\SchemaRegistry;
 use HAL\MemberProfiles\Settings;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -24,10 +34,10 @@ final class Amelia {
 	const EMPLOYEE_SERVICES_META_KEY = 'hal_amelia_service_ids';
 
 	/**
-	 * Administrator-maintained, manually-managed service catalog:
-	 * service_id => 'Name' or service_id => array( 'name' => 'Name', 'legacy_names' => array( ... ) ).
-	 * Empty by default — a limited, deliberate allowlist, never a copy or sync of Amelia's
-	 * own data.
+	 * LEGACY-MIGRATION TABLE ONLY (since development card D-11): pre-ID service name
+	 * aliases for normalizing very old stored values. It is NO LONGER the live catalog
+	 * source — the live catalog comes from SchemaRegistry's administrative snapshot.
+	 * Stays empty unless the owner records historical aliases deliberately.
 	 *
 	 * @var array
 	 */
@@ -37,7 +47,7 @@ final class Amelia {
 
 	/**
 	 * Test-only catalog override (mirrors CompatibilityGate's pattern). Production always
-	 * passes null and uses the frozen SERVICE_CATALOG constant.
+	 * passes null and consumes SchemaRegistry's stored snapshot.
 	 *
 	 * @var array|null
 	 */
@@ -51,13 +61,31 @@ final class Amelia {
 	}
 
 	/**
-	 * An employee's Amelia externalId, mirrored locally by an administrator — never inferred
-	 * from an email address or any other guess.
+	 * An employee's Amelia identity. Resolution order (card D-11): a DOCUMENTED
+	 * externalId supplied through the
+	 * `hal_member_profiles_amelia_employee_external_id` filter wins — intended exclusively
+	 * for a verified, matrix-recorded adapter — and only then the governed local mirror
+	 * metakey is consulted. Email, username, display-name, and ordering are NEVER consulted:
+	 * any unusable filter value fails toward the local mirror, never toward a guess.
 	 *
 	 * @param int $user_id User ID.
 	 * @return int|null
 	 */
 	public function get_employee_id( int $user_id ): ?int {
+		$external = apply_filters( 'hal_member_profiles_amelia_employee_external_id', null, $user_id );
+
+		if ( is_int( $external ) && $external > 0 ) {
+			return $external;
+		}
+
+		if ( is_string( $external ) && 1 === preg_match( '/^\d{1,20}$/', trim( $external ) ) ) {
+			$external_id = absint( trim( $external ) );
+
+			if ( $external_id > 0 ) {
+				return $external_id;
+			}
+		}
+
 		$employee_id = absint( get_user_meta( $user_id, self::EMPLOYEE_ID_META_KEY, true ) );
 
 		return $employee_id > 0 ? $employee_id : null;
@@ -74,12 +102,17 @@ final class Amelia {
 	}
 
 	/**
-	 * The local service catalog, cleaned to id => name pairs only.
+	 * The live service catalog, cleaned to id => name pairs only. Since card D-11 the
+	 * production source is SchemaRegistry's stored PII-free snapshot (public services);
+	 * the constructor-level override remains the deterministic test seam. Entries without
+	 * a usable title drop out — an unnamed service can never enter the allowlist math.
 	 *
 	 * @return array<int,string>
 	 */
 	public function get_service_catalog(): array {
-		$source = null !== $this->catalog_override ? $this->catalog_override : self::SERVICE_CATALOG;
+		$source = null !== $this->catalog_override
+			? $this->catalog_override
+			: $this->snapshot_catalog();
 
 		$clean = array();
 
@@ -240,6 +273,72 @@ final class Amelia {
 		$to_update['selected_services'] = array_values( array_intersect( $submitted, $allowed ) );
 
 		return $to_update;
+	}
+
+	/**
+	 * Live catalog rows from SchemaRegistry's stored administrative snapshot (card D-09),
+	 * shaped id => title for the shared cleaner above. Read-only consumption: this class
+	 * NEVER refreshes the snapshot — that verb belongs to authorized admin flows. Any
+	 * absence/corruption yields an empty catalog, which by the F-16 contract wipes
+	 * selected_services on save (fail-closed), never widens it.
+	 *
+	 * @return array<int,string>
+	 */
+	private function snapshot_catalog(): array {
+		if ( ! $this->ensure_registry_loaded() ) {
+			return array();
+		}
+
+		try {
+			$state = ( new SchemaRegistry() )->amelia_snapshot();
+		} catch ( \Throwable $e ) {
+			return array();
+		}
+
+		if ( empty( $state['ok'] ) || ! is_array( $state['snapshot']['services'] ?? null ) ) {
+			return array();
+		}
+
+		$pairs = array();
+
+		foreach ( $state['snapshot']['services'] as $service ) {
+			$id = isset( $service['id'] ) ? absint( $service['id'] ) : 0;
+
+			if ( $id <= 0 || ! isset( $service['title'] ) || ! is_scalar( $service['title'] ) ) {
+				continue;
+			}
+
+			$title = trim( (string) $service['title'] );
+
+			if ( '' === $title ) {
+				continue;
+			}
+
+			$pairs[ $id ] = $title;
+		}
+
+		return $pairs;
+	}
+
+	/**
+	 * Guarantees the registry chain exists before instantiation (no autoloader ships).
+	 *
+	 * @return bool
+	 */
+	private function ensure_registry_loaded(): bool {
+		if ( ! defined( 'HAL_MEMBER_PROFILES_DIR' ) ) {
+			return false;
+		}
+
+		if ( ! class_exists( \HAL\MemberProfiles\FieldSchema::class ) ) {
+			require_once HAL_MEMBER_PROFILES_DIR . 'includes/FieldSchema.php';
+		}
+
+		if ( ! class_exists( SchemaRegistry::class ) ) {
+			require_once HAL_MEMBER_PROFILES_DIR . 'includes/SchemaRegistry.php';
+		}
+
+		return class_exists( SchemaRegistry::class );
 	}
 
 	/**

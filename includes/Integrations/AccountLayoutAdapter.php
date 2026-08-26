@@ -67,7 +67,7 @@ final class AccountLayoutAdapter {
 		// to UM's own full Account pipeline inside its original wrappers.
 		$compatibility_gate = $bootstrap->get_compatibility_gate();
 
-		if ( null === $compatibility_gate || ! $compatibility_gate->passes( CompatibilityGate::CAP_ACCOUNT ) ) {
+		if ( null === $compatibility_gate || ! $compatibility_gate->effective_passes( CompatibilityGate::CAP_ACCOUNT ) ) {
 			return null;
 		}
 

@@ -13,6 +13,7 @@ declare( strict_types=1 );
 namespace HAL\MemberProfiles;
 
 use YahnisElsts\PluginUpdateChecker\v5p7\PucFactory;
+use YahnisElsts\PluginUpdateChecker\v5p7\Vcs\Api as VcsApi;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -21,13 +22,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class Updater {
 
 	/**
-	 * Matches ONLY this plugin's release assets, as named by .github/workflows/release.yml
-	 * ("hal-member-profiles-{version}.zip"). Without this pattern the checker would ignore
-	 * the built ZIP and fall back to a source archive that lacks vendor/.
+	 * Matches ONLY this plugin's STABLE release assets, as named by
+	 * .github/workflows/release.yml ("hal-member-profiles-X.Y.Z.zip"). Pre-release
+	 * candidates ("hal-member-profiles-X.Y.Z-rc.N.zip") deliberately do NOT match, so an
+	 * accidentally published RC can never be selected by the checker. Without a matching
+	 * asset the update check fails closed via REQUIRE_RELEASE_ASSETS below — it must
+	 * never fall back to a source archive that lacks vendor/.
 	 *
 	 * @var string
 	 */
-	private const ASSET_REGEX = '/^hal-member-profiles.*\.zip$/i';
+	private const ASSET_REGEX = '/^hal-member-profiles-[0-9]+\.[0-9]+\.[0-9]+\.zip$/i';
 
 	public static function init(): void {
 		if ( ! defined( 'HAL_MEMBER_PROFILES_GITHUB_REPO' ) || '' === HAL_MEMBER_PROFILES_GITHUB_REPO ) {
@@ -55,7 +59,10 @@ final class Updater {
 				HAL_MEMBER_PROFILES_GITHUB_REPO,
 				HAL_MEMBER_PROFILES_FILE,
 				'hal-member-profiles'
-			)->getVcsApi()->enableReleaseAssets( self::ASSET_REGEX );
+			)->getVcsApi()->enableReleaseAssets(
+				self::ASSET_REGEX,
+				VcsApi::REQUIRE_RELEASE_ASSETS
+			);
 		} catch ( \Throwable ) {
 			// لا تسمح لعطل منظومة التحديث بإسقاط عمل الإضافة أبدًا.
 		}

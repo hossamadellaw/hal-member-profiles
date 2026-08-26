@@ -6,6 +6,13 @@
  * served when the gate passes for the exact installed composition. A missing gate fails
  * closed, so the bridge can never run an untested composition.
  *
+ * Development card D-12: this option stays strictly NON-SENSITIVE — modes, template IDs,
+ * fixtures, the managed-template consent flag, and the Amelia sync-mode switch. The
+ * Amelia API key lives exclusively in SecretStore (card D-07), and the Amelia catalog
+ * lives exclusively in SchemaRegistry's separate NON-autoloaded snapshot option (card
+ * D-09); neither ever passes through this file. Disabling managed sync here is purely a
+ * scheduling/consumer flag (cards D-13/D-14): it deletes no data and no files.
+ *
  * @package HAL\MemberProfiles
  */
 
@@ -23,6 +30,11 @@ final class Settings {
 
 	const LAYOUT_MODE_OBSERVE       = 'observe';
 	const LAYOUT_MODE_PUBLIC_LAYOUT = 'public_layout';
+
+	const SYNC_MODE_OFF               = 'off';
+	const SYNC_MODE_DISCOVER_ONLY     = 'discover_only';
+	const SYNC_MODE_MANAGED_ADDITIONS = 'managed_additions';
+	const SYNC_MODE_MANAGED_SYNC      = 'managed_sync';
 
 	/**
 	 * Runtime compatibility gate consulted before public_layout may be saved or served.
@@ -133,6 +145,18 @@ final class Settings {
 						<td><input type="url" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[amelia_booking_url]" value="<?php echo esc_attr( (string) $settings['amelia_booking_url'] ); ?>" placeholder="https://" /></td>
 					</tr>
 					<tr>
+						<th scope="row"><?php esc_html_e( 'Amelia sync mode', 'hal-member-profiles' ); ?></th>
+						<td>
+							<select name="<?php echo esc_attr( self::OPTION_KEY ); ?>[amelia_sync_mode]">
+								<option value="off" <?php selected( $settings['amelia_sync_mode'], self::SYNC_MODE_OFF ); ?>><?php esc_html_e( 'Off — no connection', 'hal-member-profiles' ); ?></option>
+								<option value="discover_only" <?php selected( $settings['amelia_sync_mode'], self::SYNC_MODE_DISCOVER_ONLY ); ?>><?php esc_html_e( 'Discover only — read and show diffs, never write', 'hal-member-profiles' ); ?></option>
+								<option value="managed_additions" <?php selected( $settings['amelia_sync_mode'], self::SYNC_MODE_MANAGED_ADDITIONS ); ?>><?php esc_html_e( 'Managed additions — create/update HAL-owned items only', 'hal-member-profiles' ); ?></option>
+								<option value="managed_sync" <?php selected( $settings['amelia_sync_mode'], self::SYNC_MODE_MANAGED_SYNC ); ?>><?php esc_html_e( 'Managed sync — full managed mappings (deletions stay manual)', 'hal-member-profiles' ); ?></option>
+							</select>
+							<p class="description"><?php esc_html_e( 'Turning this off stops future synchronization only — it never deletes catalog data or files.', 'hal-member-profiles' ); ?></p>
+						</td>
+					</tr>
+					<tr>
 						<th scope="row"><?php esc_html_e( 'Profile preview fixture user ID', 'hal-member-profiles' ); ?></th>
 						<td>
 							<input type="number" min="0" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[profile_fixture_user_id]" value="<?php echo esc_attr( (string) $settings['profile_fixture_user_id'] ); ?>" />
@@ -144,6 +168,16 @@ final class Settings {
 						<td>
 							<input type="number" min="0" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[account_fixture_user_id]" value="<?php echo esc_attr( (string) $settings['account_fixture_user_id'] ); ?>" />
 							<p class="description"><?php esc_html_e( 'Only used to preview this layout inside the Elementor editor, for administrators only — never shown on the live frontend or in a public preview.', 'hal-member-profiles' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Managed templates consent', 'hal-member-profiles' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[managed_templates_consent]" value="1" <?php checked( $settings['managed_templates_consent'] ); ?> />
+								<?php esc_html_e( 'Allow HAL to provision and sync its managed templates into the active Child Theme', 'hal-member-profiles' ); ?>
+							</label>
+							<p class="description"><?php esc_html_e( 'Revoking this consent stops provisioning/syncing — it never deletes your files or stored data.', 'hal-member-profiles' ); ?></p>
 						</td>
 					</tr>
 					<tr>
@@ -194,6 +228,12 @@ final class Settings {
 		$clean['account_fixture_user_id'] = $this->sanitize_fixture_user_id( $input['account_fixture_user_id'] ?? 0 );
 
 		$clean['purge_on_uninstall'] = ! empty( $input['purge_on_uninstall'] );
+
+		// D-12: managed-template consent and the Amelia sync switch — both strictly
+		// non-sensitive operational flags. Turning sync OFF (or revoking consent) is a
+		// consumer-facing scheduling signal only; nothing anywhere deletes data or files.
+		$clean['managed_templates_consent'] = ! empty( $input['managed_templates_consent'] );
+		$clean['amelia_sync_mode']          = $this->sanitize_amelia_sync_mode( $input['amelia_sync_mode'] ?? '' );
 
 		return $clean;
 	}
@@ -282,6 +322,28 @@ final class Settings {
 	}
 
 	/**
+	 * Explicit operator consent for HAL provisioning/syncing managed templates into the
+	 * active Child Theme (cards D-04/D-05 consumers). Purely non-sensitive; revoking it
+	 * never deletes data or files anywhere.
+	 *
+	 * @return bool
+	 */
+	public function get_managed_templates_consent(): bool {
+		return (bool) $this->all()['managed_templates_consent'];
+	}
+
+	/**
+	 * The Amelia sync switch (governing doc §9.1): off | discover_only |
+	 * managed_additions | managed_sync. Disabling it never deletes catalog snapshots,
+	 * options, or files — it only stops future synchronization work.
+	 *
+	 * @return string
+	 */
+	public function get_amelia_sync_mode(): string {
+		return (string) $this->all()['amelia_sync_mode'];
+	}
+
+	/**
 	 * Reads the stored option merged over safe defaults.
 	 *
 	 * @return array
@@ -311,7 +373,30 @@ final class Settings {
 			'account_fixture_user_id'     => 0,
 			'amelia_booking_url'          => '',
 			'purge_on_uninstall'          => false,
+			'managed_templates_consent'   => false,
+			'amelia_sync_mode'            => self::SYNC_MODE_OFF,
 		);
+	}
+
+	/**
+	 * Restricts the Amelia sync value to the four documented modes; anything else —
+	 * including garbage, empty, or hostile input — lands on `off`, which is a pure no-op
+	 * flag and never triggers cleanup of any kind.
+	 *
+	 * @param mixed $value Raw submitted value.
+	 * @return string
+	 */
+	private function sanitize_amelia_sync_mode( $value ): string {
+		$allowed = array(
+			self::SYNC_MODE_OFF,
+			self::SYNC_MODE_DISCOVER_ONLY,
+			self::SYNC_MODE_MANAGED_ADDITIONS,
+			self::SYNC_MODE_MANAGED_SYNC,
+		);
+
+		return in_array( (string) $value, $allowed, true )
+			? (string) $value
+			: self::SYNC_MODE_OFF;
 	}
 
 	/**
@@ -359,7 +444,7 @@ final class Settings {
 			return false;
 		}
 
-		return $this->compatibility_gate->passes( $capability );
+		return $this->compatibility_gate->effective_passes( $capability );
 	}
 
 	/**
