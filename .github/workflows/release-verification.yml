@@ -119,7 +119,7 @@ jobs:
           PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          node --test tests/external/verify.test.mjs
+          env -u PRODUCTION_BASE_URL node --test tests/external/verify.test.mjs
           node tests/external/verify.mjs validate
 
   verify-target:
