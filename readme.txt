@@ -4,7 +4,7 @@ Tags: ultimate-member, elementor, membership, profile
 Requires at least: 6.5
 Requires PHP: 8.0
 Requires Plugins: ultimate-member, elementor
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -161,6 +161,10 @@ closed and must simply be re-entered.
   catalog are what ship today. Default remains Off.
 
 == Changelog ==
+
+= 1.1.1 =
+* Isolated the immutable-deployment unit test so its process-wide constant cannot leak
+  into the stable release gate. Version 1.1.0 was not published because that gate failed.
 
 = 1.1.0 =
 * Managed templates: canonical template assets now ship inside the package under
