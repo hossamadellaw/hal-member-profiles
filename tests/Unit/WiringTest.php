@@ -75,6 +75,12 @@ final class WiringTest extends TestCase {
 		$instance->setAccessible( true );
 		$instance->setValue( null, null );
 
+		if ( class_exists( AdminDashboard::class ) ) {
+			$registered = new \ReflectionProperty( AdminDashboard::class, 'registered' );
+			$registered->setAccessible( true );
+			$registered->setValue( null, false );
+		}
+
 		Bootstrap::init();
 
 		$b = Bootstrap::instance();
@@ -128,7 +134,7 @@ final class WiringTest extends TestCase {
 		$state = get_option( ManagedTemplates::STATE_OPTION );
 
 		$this->assertIsArray( $state );
-		$this->assertSame( 'child-lc', $state['theme'] ?? '', 'provisioning ran against the active stubbed theme' );
+		$this->assertSame( 'child-wiring', $state['theme'] ?? '', 'provisioning ran against the active stubbed theme' );
 		$this->assertNotNull( $this->boot_admin()->get_managed_templates(), 'bootstrap owns the managed-templates service' );
 	}
 }

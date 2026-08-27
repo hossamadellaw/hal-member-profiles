@@ -46,19 +46,19 @@ final class AdminDashboard {
 	public const AMELIA_QUERY_ARG = 'hal_amelia_result';
 	public const DESIRED_OPTION   = 'hal_member_profiles_amelia_desired_fields';
 
+	private static bool $registered = false;
+
 	/**
 	 * Wires the admin hooks exactly once. Called by bootstrapping (card D-14).
 	 *
 	 * @return void
 	 */
 	public static function register(): void {
-		static $done = false;
-
-		if ( $done || ! defined( 'HAL_MEMBER_PROFILES_FILE' ) ) {
+		if ( self::$registered || ! defined( 'HAL_MEMBER_PROFILES_FILE' ) ) {
 			return;
 		}
 
-		$done = true;
+		self::$registered = true;
 
 		self::load_module_classes();
 

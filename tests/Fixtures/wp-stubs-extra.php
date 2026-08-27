@@ -58,11 +58,11 @@ namespace {
 	}
 
 	function hal_wp_stub_queue_http( $response ): void {
-		$GLOBALS['wp_stubs_extra']['http_queue'][] = $response;
+		$GLOBALS['wp_stubs']['http_queue'][] = $response;
 	}
 
 	function hal_wp_stub_http_calls(): array {
-		return hal_wp_stub_extra( 'http_calls' );
+		return $GLOBALS['wp_stubs']['http_calls'] ?? array();
 	}
 
 	if ( ! function_exists( 'wp_salt' ) ) {

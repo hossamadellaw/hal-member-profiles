@@ -115,6 +115,11 @@ if ( ! function_exists( 'is_wp_error' ) ) {
 
 if ( ! function_exists( 'wp_remote_request' ) ) {
 	function wp_remote_request( $url, $args = array() ) {
+		$GLOBALS['wp_stubs']['http_calls'][] = array(
+			'url'  => $url,
+			'args' => $args,
+		);
+
 		return array_shift( $GLOBALS['wp_stubs']['http_queue'] );
 	}
 }

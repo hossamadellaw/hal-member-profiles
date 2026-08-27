@@ -17,9 +17,8 @@ final class SchemaRegistryTest extends TestCase {
 
 	protected function setUp(): void {
 		hal_wp_stub_extra_set( 'is_admin', true );
-		hal_wp_stub_extra_set( 'can_manage', true );
-		hal_wp_stub_extra_set( 'http_queue', array() );
-		hal_wp_stub_extra_set( 'http_calls', array() );
+		$GLOBALS['wp_stubs']['can_manage'] = true;
+		hal_wp_stub_reset_http();
 		$GLOBALS['wp_stubs']['options']   = array(
 			\HAL\MemberProfiles\Settings::OPTION_KEY => array(
 				'amelia_sync_mode' => 'discover_only',

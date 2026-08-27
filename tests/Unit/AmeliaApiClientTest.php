@@ -17,8 +17,7 @@ final class AmeliaApiClientTest extends TestCase {
 	protected function setUp(): void {
 		hal_wp_stub_extra_set( 'is_admin', true );
 		$GLOBALS['wp_stubs']['can_manage'] = true;
-		hal_wp_stub_extra_set( 'http_queue', array() );
-		hal_wp_stub_extra_set( 'http_calls', array() );
+		hal_wp_stub_reset_http();
 	}
 
 	protected function tearDown(): void {

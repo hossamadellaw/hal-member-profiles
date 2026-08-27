@@ -39,7 +39,13 @@ namespace {
 		return $GLOBALS['wp_stubs'][ $key ] ?? $default;
 	}
 
-	function add_action( ...$ignored ) {}
+	function add_action( $hook, $callback, $priority = 10, $accepted_args = 1 ) {
+		$GLOBALS['__hooks'][ $hook ][] = array(
+			'callback'      => $callback,
+			'priority'      => $priority,
+			'accepted_args' => $accepted_args,
+		);
+	}
 	function add_filter( ...$ignored ) {}
 	function apply_filters( $tag, $value ) { return $value; }
 	function do_action( ...$ignored ) {}
