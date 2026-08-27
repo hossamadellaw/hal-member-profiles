@@ -4,7 +4,7 @@ Tags: ultimate-member, elementor, membership, profile
 Requires at least: 6.5
 Requires PHP: 8.0
 Requires Plugins: ultimate-member, elementor
-Stable tag: 1.1.0-rc.1
+Stable tag: 1.1.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -162,7 +162,7 @@ closed and must simply be re-entered.
 
 == Changelog ==
 
-= 1.1.0 (unreleased – development summary) =
+= 1.1.0 =
 * Managed templates: canonical template assets now ship inside the package under
   `resources/ultimate-member/` with a versioned SHA-256 manifest; provisioning/syncing
   into the active child theme runs from the HAL dashboard by an administrator, with
