@@ -4,7 +4,7 @@ Tags: ultimate-member, elementor, membership, profile
 Requires at least: 6.5
 Requires PHP: 8.0
 Requires Plugins: ultimate-member, elementor
-Stable tag: 1.1.3
+Stable tag: 1.1.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -161,6 +161,12 @@ closed and must simply be re-entered.
   catalog are what ship today. Default remains Off.
 
 == Changelog ==
+
+= 1.1.4 =
+* Explicitly loads the Amelia API client and fields writer used by the HAL admin screen,
+  with a regression test that renders the dashboard without the test-only autoloader.
+* Corrected the verifier's fixed DNS lookup callback for Node's `all: true` mode and
+  classifies `ERR_INVALID_IP_ADDRESS` as a specific lookup-contract failure.
 
 = 1.1.3 =
 * Fixed the Elementor dependency-detection race by waiting for Elementor's official
