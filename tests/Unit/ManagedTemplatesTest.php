@@ -280,6 +280,10 @@ final class ManagedTemplatesTest extends TestCase {
 		$this->assertStringEqualsFile( $this->target_in( $theme_a ), $old_bytes, 'old theme must stay untouched' );
 	}
 
+	/**
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
+	 */
 	public function test_immutable_mode_refuses_all_writes(): void {
 		hal_wp_stub_extra_set( 'is_admin', true );
 		$GLOBALS['wp_stubs']['can_manage'] = true;

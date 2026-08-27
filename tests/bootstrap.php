@@ -45,7 +45,6 @@ if ( $wp_tests_dir && file_exists( $wp_tests_dir . '/includes/functions.php' ) )
 	require_once __DIR__ . '/Fixtures/wp-stubs.php';
 	require_once __DIR__ . '/Fixtures/wp-stubs-extra.php';
 
-	fwrite( STDERR, "WP_TESTS_DIR not set or WordPress test library not found: running the Unit suite only, against tests/Fixtures/wp-stubs.php. Integration/Acceptance suites will be skipped.\n" );
 }
 
 /**
