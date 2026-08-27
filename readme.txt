@@ -4,7 +4,7 @@ Tags: ultimate-member, elementor, membership, profile
 Requires at least: 6.5
 Requires PHP: 8.0
 Requires Plugins: ultimate-member, elementor
-Stable tag: 1.1.2
+Stable tag: 1.1.3
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -161,6 +161,16 @@ closed and must simply be re-entered.
   catalog are what ship today. Default remains Off.
 
 == Changelog ==
+
+= 1.1.3 =
+* Fixed the Elementor dependency-detection race by waiting for Elementor's official
+  loaded signal and rechecking readiness before displaying a missing-dependency notice.
+* Isolated all invocation, watch, and target environment values from Preflight test
+  fixtures while preserving the real values for validation and target verification.
+* Added a blocking pre-publication Preflight so a Stable GitHub Release is not created
+  until its tests and validation succeed. Version 1.1.2 was returned to Draft and was
+  not approved after Production Verification failed and the installed build displayed
+  a false Elementor dependency notice on the production site.
 
 = 1.1.2 =
 * Isolated `PRODUCTION_BASE_URL` from the Preflight test fixtures while preserving it
