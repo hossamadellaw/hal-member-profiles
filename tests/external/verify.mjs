@@ -376,12 +376,16 @@ function loadConfig(configPath, selectedEnvironment, fileSystem = fs) {
 
 function cleanError(error) {
   if (error instanceof VerificationError) return error;
-  const code = normalizeCode(error?.code ?? 'unexpected_error');
+  const rawCode = typeof error?.code === 'string' && /^[a-z][a-z0-9_]{0,63}$/iu.test(error.code)
+    ? error.code
+    : null;
+  const code = normalizeCode(rawCode ?? 'unexpected_error');
   if (['econnreset', 'econnrefused', 'etimedout', 'ehostunreach', 'enetunreach', 'enotfound', 'eai_again'].includes(code)) {
     return new VerificationError(`target_network:${code}`, 'blocked', true);
   }
   if (code === 'err_invalid_ip_address') return new VerificationError('internal:lookup_contract_invalid', 'blocked', false);
   if (code === 'hpe_header_overflow') return new VerificationError('target_protocol:headers_too_large', 'fail', true);
+  if (rawCode !== null) return new VerificationError(`internal:runtime_code:${code}`, 'blocked', false);
   return new VerificationError('internal:unexpected_error', 'blocked', false);
 }
 

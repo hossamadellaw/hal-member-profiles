@@ -767,6 +767,21 @@ test('error normalization and GitHub failure classification are finite and sanit
   assert.equal(__test.githubFailure({ status: 404, headers: {} }, 'environment').code, 'github_control:environment_unexpected_response');
 });
 
+test('unknown machine error codes are reported without leaking error details', () => {
+  const secret = 'sensitive-token-and-url';
+  const error = Object.assign(new Error(`${secret}: https://example.test/private?token=${secret}`), {
+    code: 'ERR_SOCKET_BAD_PORT',
+    url: `https://example.test/?token=${secret}`,
+    body: secret,
+  });
+  const clean = __test.cleanError(error);
+  assert.equal(clean.code, 'internal:runtime_code:err_socket_bad_port');
+  assert.equal(clean.status, 'blocked');
+  assert.equal(clean.incidentEligible, false);
+  assert.equal(`${clean.code}\n${clean.message}\n${clean.stack}`.includes(secret), false);
+  assert.equal(__test.cleanError({ code: `ERR_${secret}?token=${secret}` }).code, 'internal:unexpected_error');
+});
+
 test('strict management handles ineligible, not-observable, duplicate and invalid provenance payloads', () => {
   const ineligible = { ...management(), management_eligible: false, overall: 'blocked', code: 'config:setup_blocked', incident: false, incident_fingerprints: [], observations: { observed_version: null, provenance: null } };
   assert.equal(parseManagementPayload(encode(ineligible)).management_eligible, false);
