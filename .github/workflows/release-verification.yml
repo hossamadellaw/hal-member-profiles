@@ -119,7 +119,35 @@ jobs:
           PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          env -u PRODUCTION_BASE_URL node --test tests/external/verify.test.mjs
+          env \
+            -u VERIFICATION_CONFIG \
+            -u TARGET_ENVIRONMENT \
+            -u EXPECTED_VERSION \
+            -u DEPLOYMENT_COMMIT_SHA \
+            -u RELEASE_ID \
+            -u CLAIM_SOURCE \
+            -u VERIFIER_COMMIT_SHA \
+            -u WORKFLOW_SHA \
+            -u INVOCATION_KIND \
+            -u MANUAL_INSTALL_CONFIRMED \
+            -u DEPLOYMENT_CONCLUSION \
+            -u RELEASE_IS_DRAFT \
+            -u RELEASE_IS_PRERELEASE \
+            -u WATCH_FOR_VERSION \
+            -u PRODUCTION_BASE_URL \
+            -u GITHUB_TOKEN \
+            -u GITHUB_REPOSITORY \
+            -u GITHUB_RUN_ID \
+            -u GITHUB_RUN_ATTEMPT \
+            -u GITHUB_EVENT_NAME \
+            -u GITHUB_OUTPUT \
+            -u GITHUB_STEP_SUMMARY \
+            -u OUTPUT_DIR \
+            -u PROVENANCE_PAYLOAD \
+            -u MANAGEMENT_PAYLOAD \
+            -u TARGET_BASIC_AUTH_USERNAME \
+            -u TARGET_BASIC_AUTH_PASSWORD \
+            node --test tests/external/verify.test.mjs
           node tests/external/verify.mjs validate
 
   verify-target:

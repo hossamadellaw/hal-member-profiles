@@ -361,6 +361,61 @@ jobs:
           print("secret scan OK: no credential patterns in any packaged file")
           PY
 
+      # ─── بوابة Preflight قبل أي نشر مستقر. وضع claims_only هنا مقصود لأن الـRelease
+      # لم يُنشأ بعد؛ الربط الكامل بالـRelease والـAsset يبقى في الـworkflow الدفاعي
+      # اللاحق بعد النشر. ───
+      - name: Preflight stable release before publication
+        if: ${{ !contains(github.ref_name, '-rc') }}
+        env:
+          VERIFICATION_CONFIG: tests/external/verification-config.json
+          TARGET_ENVIRONMENT: production
+          EXPECTED_VERSION: ${{ github.ref_name }}
+          DEPLOYMENT_COMMIT_SHA: ${{ github.sha }}
+          RELEASE_ID: ${{ github.ref_name }}
+          CLAIM_SOURCE: deployment_caller
+          VERIFIER_COMMIT_SHA: ${{ github.sha }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+          INVOCATION_KIND: call
+          MANUAL_INSTALL_CONFIRMED: false
+          DEPLOYMENT_CONCLUSION: success
+          RELEASE_IS_DRAFT: false
+          RELEASE_IS_PRERELEASE: false
+          WATCH_FOR_VERSION: true
+          PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          env \
+            -u VERIFICATION_CONFIG \
+            -u TARGET_ENVIRONMENT \
+            -u EXPECTED_VERSION \
+            -u DEPLOYMENT_COMMIT_SHA \
+            -u RELEASE_ID \
+            -u CLAIM_SOURCE \
+            -u VERIFIER_COMMIT_SHA \
+            -u WORKFLOW_SHA \
+            -u INVOCATION_KIND \
+            -u MANUAL_INSTALL_CONFIRMED \
+            -u DEPLOYMENT_CONCLUSION \
+            -u RELEASE_IS_DRAFT \
+            -u RELEASE_IS_PRERELEASE \
+            -u WATCH_FOR_VERSION \
+            -u PRODUCTION_BASE_URL \
+            -u GITHUB_TOKEN \
+            -u GITHUB_REPOSITORY \
+            -u GITHUB_RUN_ID \
+            -u GITHUB_RUN_ATTEMPT \
+            -u GITHUB_EVENT_NAME \
+            -u GITHUB_OUTPUT \
+            -u GITHUB_STEP_SUMMARY \
+            -u OUTPUT_DIR \
+            -u PROVENANCE_PAYLOAD \
+            -u MANAGEMENT_PAYLOAD \
+            -u TARGET_BASIC_AUTH_USERNAME \
+            -u TARGET_BASIC_AUTH_PASSWORD \
+            node --test tests/external/verify.test.mjs
+          jq '.provenance.mode = "claims_only"' "$VERIFICATION_CONFIG" > "$RUNNER_TEMP/prepublish-verification-config.json"
+          VERIFICATION_CONFIG="$RUNNER_TEMP/prepublish-verification-config.json" node tests/external/verify.mjs validate
+
       # ─── سلوك مقصود: إعادة تشغيل الـworkflow لنفس Tag القائم تفشل إلا بعد حذف
       # الـRelease القديم يدويًا — لا حذف دفاعي تلقائي لإصدار قد تكون مواقع حية
       # استهلكته فعلًا. ───
