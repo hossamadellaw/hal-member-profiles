@@ -10,6 +10,12 @@
 namespace HAL\MemberProfiles\Tests\Unit;
 
 use HAL\MemberProfiles\AdminDashboard;
+use HAL\MemberProfiles\Bootstrap;
+use HAL\MemberProfiles\FieldSchema;
+use HAL\MemberProfiles\SchemaRegistry;
+use HAL\MemberProfiles\SecretStore;
+use HAL\MemberProfiles\Settings;
+use HAL\MemberProfiles\Integrations\AmeliaFieldsWriter;
 use PHPUnit\Framework\TestCase;
 
 final class AdminDashboardPermissionsTest extends TestCase {
@@ -117,5 +123,51 @@ final class AdminDashboardPermissionsTest extends TestCase {
 		unset( $_GET[ AdminDashboard::REPAIR_QUERY_ARG ] );
 
 		$this->assertTrue( $this->write_counters_all_zero(), 'dashboard is read-only by design' );
+	}
+
+	public function test_dashboard_renders_and_loads_amelia_fields_writer_without_test_autoloading(): void {
+		class_exists( Bootstrap::class );
+		class_exists( FieldSchema::class );
+		class_exists( SecretStore::class );
+		class_exists( SchemaRegistry::class );
+		class_exists( Settings::class );
+
+		$test_autoloader = null;
+
+		foreach ( spl_autoload_functions() as $autoloader ) {
+			if ( ! $autoloader instanceof \Closure ) {
+				continue;
+			}
+
+			$reflection = new \ReflectionFunction( $autoloader );
+
+			$loader_file = str_replace( '\\', '/', (string) $reflection->getFileName() );
+			$test_file   = str_replace( '\\', '/', HAL_MEMBER_PROFILES_PLUGIN_DIR . 'tests/bootstrap.php' );
+
+			if ( $test_file === $loader_file ) {
+				$test_autoloader = $autoloader;
+				spl_autoload_unregister( $test_autoloader );
+				break;
+			}
+		}
+
+		$this->assertNotNull( $test_autoloader, 'The HAL-only test autoloader must be isolated.' );
+		$this->assertFalse( class_exists( AmeliaFieldsWriter::class, false ) );
+
+		$buffer_level = ob_get_level();
+
+		try {
+			ob_start();
+			AdminDashboard::render_page();
+			$output = ob_get_clean();
+		} finally {
+			while ( ob_get_level() > $buffer_level ) {
+				ob_end_clean();
+			}
+			spl_autoload_register( $test_autoloader );
+		}
+
+		$this->assertTrue( class_exists( AmeliaFieldsWriter::class, false ) );
+		$this->assertStringContainsString( 'HAL Member Profiles', $output );
 	}
 }

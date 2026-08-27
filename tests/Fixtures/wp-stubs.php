@@ -61,6 +61,10 @@ namespace {
 		return ( is_string( $u ) && preg_match( '#^https?://#i', $u ) ) ? $u : '';
 	}
 	function esc_url_raw( $u, $p = array() ) { return esc_url( $u, $p ); }
+	function admin_url( $path = '' ) { return 'https://stub.test/wp-admin/' . ltrim( (string) $path, '/' ); }
+	function submit_button( $text, $type = 'primary', $name = 'submit', $wrap = true ) {
+		echo '<button type="submit" class="button button-' . esc_attr( $type ) . '" name="' . esc_attr( $name ) . '">' . esc_html( $text ) . '</button>';
+	}
 	function current_user_can( $cap ) {
 		return 'manage_options' === $cap
 			? (bool) hal_wp_stub( 'can_manage', false )

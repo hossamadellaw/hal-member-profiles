@@ -221,6 +221,14 @@ final class AdminDashboard {
 		if ( ! class_exists( Lifecycle::class ) ) {
 			require_once HAL_MEMBER_PROFILES_DIR . 'includes/Lifecycle.php';
 		}
+
+		if ( ! class_exists( \HAL\MemberProfiles\Integrations\AmeliaApiClient::class, false ) ) {
+			require_once HAL_MEMBER_PROFILES_DIR . 'includes/Integrations/AmeliaApiClient.php';
+		}
+
+		if ( ! class_exists( \HAL\MemberProfiles\Integrations\AmeliaFieldsWriter::class, false ) ) {
+			require_once HAL_MEMBER_PROFILES_DIR . 'includes/Integrations/AmeliaFieldsWriter.php';
+		}
 	}
 
 	/**
