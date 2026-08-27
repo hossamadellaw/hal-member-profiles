@@ -4,7 +4,7 @@ Tags: ultimate-member, elementor, membership, profile
 Requires at least: 6.5
 Requires PHP: 8.0
 Requires Plugins: ultimate-member, elementor
-Stable tag: 1.1.1
+Stable tag: 1.1.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -161,6 +161,11 @@ closed and must simply be re-entered.
   catalog are what ship today. Default remains Off.
 
 == Changelog ==
+
+= 1.1.2 =
+* Isolated `PRODUCTION_BASE_URL` from the Preflight test fixtures while preserving it
+  for actual target verification. Version 1.1.1 was returned to Draft after Production
+  Verification failed and was not approved for deployment to the production site.
 
 = 1.1.1 =
 * Isolated the immutable-deployment unit test so its process-wide constant cannot leak
