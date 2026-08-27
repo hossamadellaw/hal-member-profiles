@@ -1,0 +1,235 @@
+name: Time-Bounded Target-Read-Only Release Verification
+
+on:
+  # Note: releases created with the repository GITHUB_TOKEN (as release.yml does)
+  # never fire this event listener. The automatic start signal for pipeline-published
+  # stable releases is the workflow_call job chained from release.yml; this
+  # release listener remains as a secondary path for manually published releases.
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: Exact GitHub Environment key declared in verification-config.json
+        required: true
+        type: choice
+        options:
+          - production
+      expected_version:
+        description: Release version expected on the already updated target
+        required: true
+        type: string
+      deployment_commit_sha:
+        description: Full commit SHA that was manually installed on the target
+        required: true
+        type: string
+      release_id:
+        description: Public release identifier bound to this verification
+        required: true
+        type: string
+      manual_install_confirmed:
+        description: Confirm that the release ZIP was installed before this run
+        required: true
+        type: boolean
+  workflow_call:
+    # The caller MUST make this workflow depend on its completed successful deployment.
+    # A published Release proves publication, not target installation, and is unsupported.
+    # The caller MUST explicitly grant contents: read, actions: read, and issues: write;
+    # a reusable workflow can reduce caller permissions but cannot elevate them.
+    inputs:
+      target_environment:
+        description: Exact GitHub Environment key declared in verification-config.json
+        required: true
+        type: string
+      expected_version:
+        description: Release version expected on the deployed target
+        required: true
+        type: string
+      deployment_commit_sha:
+        description: Full commit SHA deployed by the successful caller job
+        required: true
+        type: string
+      release_id:
+        description: Public release identifier bound to this verification
+        required: true
+        type: string
+      deployment_conclusion:
+        description: Must be the literal success output of the completed deployment job
+        required: true
+        type: string
+    secrets:
+      PRODUCTION_BASE_URL:
+        description: Production base URL used to reach the deployed target during verification
+        required: true
+
+permissions: {}
+
+# The sequential job timeouts are an active-execution hard bound: 2 + 12 + 2 = 16
+# minutes for the complete cycle. GitHub queue time before a job starts is external.
+
+# The environment key below is a config-derived grouping identity only. It is
+# intentionally version-independent and safe to reuse because validation rejects
+# any two environment keys sharing a primary canonical origin.
+concurrency:
+  group: release-verification-${{ github.repository }}-${{ github.event_name == 'release' && 'production' || inputs.target_environment }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    name: Preflight
+    # Publication starts a bounded watcher only for a stable, non-draft Release. It is
+    # a trigger, never evidence that the release ZIP has reached the production target.
+    if: ${{ github.event_name != 'release' || (github.event.release.draft == false && github.event.release.prerelease == false) }}
+    # Standard Ubuntu runners are intended for public repositories only. The owner must
+    # configure an external hard-stop Actions budget for exceptional shared-quota costs.
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      environment: ${{ steps.preflight.outputs.environment }}
+      environment_digest: ${{ steps.preflight.outputs.environment_digest }}
+      basic_auth_required: ${{ steps.preflight.outputs.basic_auth_required }}
+      config_digest: ${{ steps.preflight.outputs.config_digest }}
+      provenance_payload: ${{ steps.preflight.outputs.provenance_payload }}
+    steps:
+      - name: Checkout verifier commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate tests and public control-plane prerequisites
+        id: preflight
+        env:
+          VERIFICATION_CONFIG: tests/external/verification-config.json
+          TARGET_ENVIRONMENT: ${{ github.event_name == 'release' && 'production' || inputs.target_environment }}
+          EXPECTED_VERSION: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.expected_version }}
+          DEPLOYMENT_COMMIT_SHA: ${{ github.event_name == 'release' && github.sha || inputs.deployment_commit_sha }}
+          RELEASE_ID: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_id }}
+          CLAIM_SOURCE: ${{ github.event_name == 'release' && 'stable_release_watcher' || (github.event_name == 'workflow_dispatch' && 'manual_operator' || 'deployment_caller') }}
+          VERIFIER_COMMIT_SHA: ${{ job.workflow_sha }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+          INVOCATION_KIND: ${{ github.event_name == 'release' && 'release' || (github.event_name == 'workflow_dispatch' && 'dispatch' || 'call') }}
+          MANUAL_INSTALL_CONFIRMED: ${{ inputs.manual_install_confirmed || false }}
+          DEPLOYMENT_CONCLUSION: ${{ inputs.deployment_conclusion || '' }}
+          RELEASE_IS_DRAFT: ${{ github.event_name == 'release' && github.event.release.draft || false }}
+          RELEASE_IS_PRERELEASE: ${{ github.event_name == 'release' && github.event.release.prerelease || false }}
+          WATCH_FOR_VERSION: ${{ github.event_name == 'workflow_dispatch' && 'false' || 'true' }}
+          PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node --test tests/external/verify.test.mjs
+          node tests/external/verify.mjs validate
+
+  verify-target:
+    name: Verify target
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    # No GitHub `environment:` mapping on purpose: verification must not require a
+    # manually provisioned GitHub Environment. PRODUCTION_BASE_URL is the required
+    # reusable-workflow secret declared under on.workflow_call.secrets and granted
+    # explicitly by name from the caller; Basic-Auth credentials (if ever enabled
+    # in the config) resolve from repository/organization-level Secrets instead.
+    outputs:
+      overall: ${{ steps.verify-public.outputs.overall || steps.verify-authenticated.outputs.overall }}
+      management_payload: ${{ steps.verify-public.outputs.management_payload || steps.verify-authenticated.outputs.management_payload }}
+      artifact_ok: ${{ steps.artifact.outcome == 'success' }}
+    steps:
+      - name: Checkout verifier commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify public read-only target
+        id: verify-public
+        if: ${{ needs.preflight.outputs.basic_auth_required != 'true' }}
+        continue-on-error: true
+        env:
+          VERIFICATION_CONFIG: tests/external/verification-config.json
+          OUTPUT_DIR: verification-output
+          TARGET_ENVIRONMENT: ${{ needs.preflight.outputs.environment }}
+          EXPECTED_VERSION: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.expected_version }}
+          DEPLOYMENT_COMMIT_SHA: ${{ github.event_name == 'release' && github.sha || inputs.deployment_commit_sha }}
+          RELEASE_ID: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_id }}
+          CLAIM_SOURCE: ${{ github.event_name == 'release' && 'stable_release_watcher' || (github.event_name == 'workflow_dispatch' && 'manual_operator' || 'deployment_caller') }}
+          VERIFIER_COMMIT_SHA: ${{ job.workflow_sha }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+          PROVENANCE_PAYLOAD: ${{ needs.preflight.outputs.provenance_payload }}
+          WATCH_FOR_VERSION: ${{ github.event_name == 'workflow_dispatch' && 'false' || 'true' }}
+          PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
+        run: node tests/external/verify.mjs verify
+
+      - name: Verify Basic-Auth-protected read-only target
+        id: verify-authenticated
+        if: ${{ needs.preflight.outputs.basic_auth_required == 'true' }}
+        continue-on-error: true
+        env:
+          VERIFICATION_CONFIG: tests/external/verification-config.json
+          OUTPUT_DIR: verification-output
+          TARGET_ENVIRONMENT: ${{ needs.preflight.outputs.environment }}
+          EXPECTED_VERSION: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.expected_version }}
+          DEPLOYMENT_COMMIT_SHA: ${{ github.event_name == 'release' && github.sha || inputs.deployment_commit_sha }}
+          RELEASE_ID: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_id }}
+          CLAIM_SOURCE: ${{ github.event_name == 'release' && 'stable_release_watcher' || (github.event_name == 'workflow_dispatch' && 'manual_operator' || 'deployment_caller') }}
+          VERIFIER_COMMIT_SHA: ${{ job.workflow_sha }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+          PROVENANCE_PAYLOAD: ${{ needs.preflight.outputs.provenance_payload }}
+          WATCH_FOR_VERSION: ${{ github.event_name == 'workflow_dispatch' && 'false' || 'true' }}
+          PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
+          TARGET_BASIC_AUTH_USERNAME: ${{ secrets.TARGET_BASIC_AUTH_USERNAME }}
+          TARGET_BASIC_AUTH_PASSWORD: ${{ secrets.TARGET_BASIC_AUTH_PASSWORD }}
+        run: node tests/external/verify.mjs verify
+
+      - name: Upload bounded sanitized evidence
+        id: artifact
+        if: ${{ always() && (steps.verify-public.outputs.management_payload != '' || steps.verify-authenticated.outputs.management_payload != '') }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-verification-${{ needs.preflight.outputs.environment_digest }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: verification-output/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 9
+
+      - name: Set target verification conclusion
+        if: ${{ always() }}
+        env:
+          OVERALL: ${{ steps.verify-public.outputs.overall || steps.verify-authenticated.outputs.overall }}
+          ARTIFACT_OUTCOME: ${{ steps.artifact.outcome }}
+        run: |
+          if [ "$ARTIFACT_OUTCOME" != "success" ]; then
+            echo "release-verification:blocked:artifact_control_error" >&2
+            exit 1
+          fi
+          if [ "$OVERALL" != "pass" ]; then
+            echo "release-verification:$OVERALL" >&2
+            exit 1
+          fi
+
+  manage-issue:
+    name: Manage incident issue
+    # This is strict secret, permission, and input isolation—not absolute network isolation.
+    needs:
+      - preflight
+      - verify-target
+    if: ${{ always() && needs.preflight.result == 'success' && needs.verify-target.outputs.artifact_ok == 'true' && needs.verify-target.outputs.management_payload != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout verifier commit without target credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Deduplicate, update, close, or supersede the exact incident
+        env:
+          MANAGEMENT_PAYLOAD: ${{ needs.verify-target.outputs.management_payload }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tests/external/verify.mjs manage-issue

@@ -1,0 +1,61 @@
+{
+  "schema_version": 2,
+  "provenance": {
+    "mode": "github_release_required",
+    "release_asset_name": "hal-member-profiles-{version}.zip"
+  },
+  "environments": {
+    "production": {
+      "targets": {
+        "primary": {
+          "base_url": "${PRODUCTION_BASE_URL}",
+          "basic_auth": false
+        }
+      },
+      "allowed_redirects": [],
+      "checks": [
+        {
+          "id": "production-home",
+          "target": "primary",
+          "type": "page",
+          "path": "/",
+          "method": "GET",
+          "expected_status": 200,
+          "required": true,
+          "fatal_signatures": true,
+          "required_text": [],
+          "forbidden_text": [],
+          "observable": true
+        }
+      ],
+      "version_sources": [
+        {
+          "id": "installed-readme-stable-tag",
+          "target": "primary",
+          "type": "text_marker",
+          "path": "/wp-content/plugins/hal-member-profiles/readme.txt",
+          "required": true,
+          "prefix": "Stable tag: ",
+          "suffix": "\n"
+        }
+      ]
+    }
+  },
+  "limits": {
+    "max_attempts": 12,
+    "consecutive_successes": 2,
+    "incident_repeat_count": 2,
+    "max_requests_per_attempt": 10,
+    "max_total_requests": 24,
+    "request_concurrency": 2,
+    "request_timeout_ms": 5000,
+    "phase_timeout_ms": 600000,
+    "evidence_reserve_ms": 30000,
+    "retry_delay_ms": 45000,
+    "max_redirect_hops": 3,
+    "max_response_headers": 64,
+    "max_header_bytes": 32768,
+    "max_body_bytes": 1048576,
+    "max_artifact_bytes": 262144
+  }
+}

@@ -382,3 +382,30 @@ jobs:
           gh release create "${GITHUB_REF_NAME}" \
             "build/hal-member-profiles-${GITHUB_REF_NAME#v}.zip" \
             "${ARGS[@]}"
+
+  # ───── Automatic Production verification opener ─────
+  # Releases created here use secrets.GITHUB_TOKEN, and events triggered by
+  # GITHUB_TOKEN never fire `on: release` workflows. The stable verification tool is
+  # therefore invoked directly through workflow_call instead of relying solely on the
+  # release event listener in release-verification.yml.
+  # The -rc gate mirrors RELEASE_CHANNEL regex ^vX.Y.Z$; RC tags publish Draft+Prerelease.
+  # The verifier independently re-checks draft/prerelease plus asset/tag/commit binding.
+  verify-production:
+    name: Verify production deployment
+    needs: build-and-release
+    if: ${{ needs.build-and-release.result == 'success' && !contains(github.ref_name, '-rc') }}
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    uses: ./.github/workflows/release-verification.yml
+    with:
+      target_environment: production
+      expected_version: ${{ github.ref_name }}
+      deployment_commit_sha: ${{ github.sha }}
+      release_id: ${{ github.ref_name }}
+      deployment_conclusion: ${{ needs.build-and-release.result }}
+    # تمرير صريح بالاسم فقط، دون توريث عام للأسرار: هذا هو السر الوحيد المصرح به
+    # تحت on.workflow_call.secrets في الـreusable workflow المستدعى.
+    secrets:
+      PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
