@@ -34,6 +34,7 @@ namespace {
 		'um_options'   => array(),
 		'can_edit_map' => array(),
 	);
+	$GLOBALS['__did_actions'] = array();
 
 	function hal_wp_stub( string $key, $default = null ) {
 		return $GLOBALS['wp_stubs'][ $key ] ?? $default;
@@ -49,6 +50,7 @@ namespace {
 	function add_filter( ...$ignored ) {}
 	function apply_filters( $tag, $value ) { return $value; }
 	function do_action( ...$ignored ) {}
+	function did_action( $hook ) { return (int) ( $GLOBALS['__did_actions'][ $hook ] ?? 0 ); }
 	function __( $text, $domain = null ) { return $text; }
 	function esc_html__( $text, $domain = null ) { return htmlspecialchars( (string) $text, ENT_QUOTES ); }
 	function esc_html_e( $t, $d = null ) { echo htmlspecialchars( (string) $t, ENT_QUOTES ); }

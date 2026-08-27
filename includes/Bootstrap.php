@@ -74,6 +74,22 @@ final class Bootstrap {
 	}
 
 	/**
+	 * Registers a late, self-correcting notice while HAL waits for Elementor's loader.
+	 *
+	 * @return void
+	 */
+	public static function watch_for_missing_elementor(): void {
+		require_once HAL_MEMBER_PROFILES_DIR . 'includes/Dependencies.php';
+
+		$dependencies = new Dependencies();
+
+		self::notify_missing_dependency(
+			__( 'Elementor', 'hal-member-profiles' ),
+			array( $dependencies, 'has_elementor_widgets' )
+		);
+	}
+
+	/**
 	 * @return Dependencies
 	 */
 	public function get_dependencies(): Dependencies {
@@ -199,7 +215,7 @@ final class Bootstrap {
 		// and performs no I/O; consumers reach it statically wherever needed.
 
 		if ( ! $this->dependencies->has_um() ) {
-			$this->notify_missing_dependency( __( 'Ultimate Member', 'hal-member-profiles' ) );
+			self::notify_missing_dependency( __( 'Ultimate Member', 'hal-member-profiles' ) );
 			return;
 		}
 
@@ -256,7 +272,10 @@ final class Bootstrap {
 		if ( $this->dependencies->has_elementor_widgets() ) {
 			add_action( 'elementor/init', array( $this, 'register_elementor' ) );
 		} else {
-			$this->notify_missing_dependency( __( 'Elementor', 'hal-member-profiles' ) );
+			self::notify_missing_dependency(
+				__( 'Elementor', 'hal-member-profiles' ),
+				array( $this->dependencies, 'has_elementor_widgets' )
+			);
 		}
 
 		// 8) Dashboard — ADMIN-ONLY, last per card D-14; it explains every module's state
@@ -293,14 +312,18 @@ final class Bootstrap {
 	/**
 	 * Shows a manage_options-only admin notice when an essential dependency is missing.
 	 *
-	 * @param string $plugin_name Human-readable name of the missing plugin.
+	 * @param string        $plugin_name Human-readable name of the missing plugin.
+	 * @param callable|null $is_available Optional live dependency check before rendering.
 	 * @return void
 	 */
-	private function notify_missing_dependency( string $plugin_name ): void {
+	private static function notify_missing_dependency( string $plugin_name, ?callable $is_available = null ): void {
 		add_action(
 			'admin_notices',
-			static function () use ( $plugin_name ) {
+			static function () use ( $plugin_name, $is_available ) {
 				if ( ! current_user_can( 'manage_options' ) ) {
+					return;
+				}
+				if ( null !== $is_available && call_user_func( $is_available ) ) {
 					return;
 				}
 

@@ -31,8 +31,12 @@ if ( ! defined( 'HAL_MEMBER_PROFILES_FILE' ) ) {
 if ( ! defined( 'HAL_MEMBER_PROFILES_GITHUB_REPO' ) ) {
 	define( 'HAL_MEMBER_PROFILES_GITHUB_REPO', 'https://github.com/hossamadellaw/hal-member-profiles' );
 }
-define( 'HAL_MEMBER_PROFILES_DIR', plugin_dir_path( __FILE__ ) );
-define( 'HAL_MEMBER_PROFILES_URL', plugin_dir_url( __FILE__ ) );
+if ( ! defined( 'HAL_MEMBER_PROFILES_DIR' ) ) {
+	define( 'HAL_MEMBER_PROFILES_DIR', plugin_dir_path( __FILE__ ) );
+}
+if ( ! defined( 'HAL_MEMBER_PROFILES_URL' ) ) {
+	define( 'HAL_MEMBER_PROFILES_URL', plugin_dir_url( __FILE__ ) );
+}
 
 // Integration Closure #1: arm Lifecycle's activation hook during THIS include phase so
 // it registers before WordPress fires the activation event (a plugins_loaded-time load is
@@ -45,7 +49,7 @@ if ( is_admin() && file_exists( __DIR__ . '/includes/Lifecycle.php' ) ) {
 
 require_once HAL_MEMBER_PROFILES_DIR . 'includes/Updater.php';
 
-add_action( 'plugins_loaded', __NAMESPACE__ . '\\hal_member_profiles_boot' );
+add_action( 'plugins_loaded', __NAMESPACE__ . '\\hal_member_profiles_boot', 20 );
 
 /**
  * Load Bootstrap once WordPress core plugin lifecycle is ready.
@@ -55,5 +59,14 @@ add_action( 'plugins_loaded', __NAMESPACE__ . '\\hal_member_profiles_boot' );
 function hal_member_profiles_boot() {
 	require_once HAL_MEMBER_PROFILES_DIR . 'includes/Bootstrap.php';
 
-	Bootstrap::init();
+	if ( did_action( 'elementor/loaded' ) ) {
+		Bootstrap::init();
+		return;
+	}
+
+	// Elementor normally fires elementor/loaded from its plugins_loaded callback. If
+	// plugin ordering leaves HAL first, wait for that official readiness signal instead
+	// of caching a false missing-dependency verdict. Bootstrap::init() is idempotent.
+	add_action( 'elementor/loaded', array( Bootstrap::class, 'init' ) );
+	Bootstrap::watch_for_missing_elementor();
 }

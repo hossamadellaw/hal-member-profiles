@@ -33,7 +33,9 @@ final class Dependencies {
 	 * @return bool
 	 */
 	public function has_elementor_widgets(): bool {
-		return class_exists( '\Elementor\Plugin' ) && class_exists( '\Elementor\Widget_Base' );
+		return did_action( 'elementor/loaded' ) > 0
+			&& class_exists( '\Elementor\Plugin' )
+			&& class_exists( '\Elementor\Widget_Base' );
 	}
 
 	/**
