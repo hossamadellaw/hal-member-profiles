@@ -165,6 +165,15 @@ test('redirects are declared, base-confined, counted and strip cross-target auth
   await assert.rejects(__test.boundedRequest(new URL('https://public.example.com/outside'), 'GET', { ...context, attemptRequests: 0 }), /outside_target_base_path/);
 });
 
+test('bounded requests fall back to global timers when dependencies omit timer functions', async () => {
+  const config = validated();
+  const calls = [];
+  const context = { targets: config.environment.targets, allowedRedirects: new Map(), auth: null, limits: config.limits, totalRequests: 0, attemptRequests: 0, phaseDeadline: 100000, now: () => 0, dependencies: {}, resolvePublic: async () => { calls.push('resolvePublic'); return [{ address: '93.184.216.34', family: 4 }]; }, requestOnce: async () => { calls.push('requestOnce'); return response(200, 'Ready'); } };
+  const result = await __test.boundedRequest(new URL('https://public.example.com/base/'), 'GET', context);
+  assert.equal(result.statusCode, 200);
+  assert.deepEqual(calls, ['resolvePublic', 'requestOnce']);
+});
+
 test('redirect and request budgets reject undeclared, downgrade and exhausted paths', async () => {
   const config = validated();
   const base = { targets: config.environment.targets, allowedRedirects: new Map(), auth: null, limits: config.limits, totalRequests: 0, attemptRequests: 0, phaseDeadline: 100000, now: () => 0, dependencies: { setTimeout, clearTimeout }, resolvePublic: async () => [{ address: '93.184.216.34', family: 4 }], requestOnce: async () => response(302, '', { location: 'https://cdn.example.com/assets/x' }) };

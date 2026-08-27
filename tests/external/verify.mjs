@@ -393,12 +393,14 @@ function faultFingerprint(id, status, code) {
   return digest(`${id}\0${status}\0${normalizeCode(code)}`, 24);
 }
 
-function withTimeout(promise, milliseconds, timers = { setTimeout, clearTimeout }) {
+function withTimeout(promise, milliseconds, timers = {}) {
+  const schedule = typeof timers?.setTimeout === 'function' ? timers.setTimeout.bind(timers) : setTimeout;
+  const cancel = typeof timers?.clearTimeout === 'function' ? timers.clearTimeout.bind(timers) : clearTimeout;
   return new Promise((resolve, reject) => {
-    const timer = timers.setTimeout(() => reject(new VerificationError('target_network:etimedout', 'blocked', true)), milliseconds);
+    const timer = schedule(() => reject(new VerificationError('target_network:etimedout', 'blocked', true)), milliseconds);
     promise.then(
-      (value) => { timers.clearTimeout(timer); resolve(value); },
-      (error) => { timers.clearTimeout(timer); reject(error); },
+      (value) => { cancel(timer); resolve(value); },
+      (error) => { cancel(timer); reject(error); },
     );
   });
 }
