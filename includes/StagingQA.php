@@ -8,8 +8,12 @@
  *
  * Double-keyed enablement — BOTH must hold, no Request/input override exists anywhere:
  *   1. WP_ENVIRONMENT_TYPE is literally 'staging' (wp-config / server constant);
- *   2. the server-side option flag hal_member_profiles_staging_qa_enabled is exactly
- *      true, toggled only out-of-band (WP-CLI / code), never through a UI or Request.
+ *   2. the server-side option flag hal_member_profiles_staging_qa_enabled holds one of
+ *      the CANONICAL TRUE PERSISTED SHAPES — bool true (the same-request read right
+ *      after update_option()), int 1, or the string "1" (what WordPress's database
+ *      round-trip actually returns on any LATER request). Anything else — false, 0,
+ *      "0", "", "true", "yes", null, arrays, objects — fails closed. The flag is
+ *      toggled only out-of-band (WP-CLI / code), never through a UI or Request.
  *
  * Production safety: on any production box condition #1 is false regardless of flags or
  * request parameters, so every consumer stays on its strict gate path.
@@ -35,7 +39,18 @@ final class StagingQA {
 			return false;
 		}
 
-		return true === get_option( self::FLAG_OPTION, false );
+		// Single read. WordPress does NOT preserve boolean types across requests:
+		// update_option(true) comes back from the database as the string "1". Accept
+		// ONLY the canonical true shapes with strict identity comparisons — bool true
+		// (fresh in-request value), int 1, string "1" — and fail closed for every other
+		// type or spelling. No loose comparison, no Request override, no filter here.
+		$flag = get_option( self::FLAG_OPTION, false );
+
+		if ( true === $flag || 1 === $flag || '1' === $flag ) {
+			return true;
+		}
+
+		return false;
 	}
 
 	/**
