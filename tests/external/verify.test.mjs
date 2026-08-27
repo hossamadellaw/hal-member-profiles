@@ -192,6 +192,31 @@ test('requestOnce executes fixed lookup and destroys malformed responses', async
   await assert.rejects(__test.requestOnce(new URL('https://public.example.com/base/'), 'GET', null, LIMITS, [{ address: '93.184.216.34', family: 4 }], { httpsRequest: fakeHttpsResponse({ rawHeaders: Array.from({ length: 130 }, (_, index) => index % 2 ? 'v' : 'x') }), setTimeout, clearTimeout }), /too_many_headers/);
 });
 
+test('requestOnce fixed lookup honors Node all-address callback mode', async () => {
+  let request;
+  let options;
+  const pending = __test.requestOnce(new URL('https://public.example.com/base/'), 'GET', null, LIMITS, [{ address: '93.184.216.34', family: 4 }], {
+    httpsRequest: (_url, requestOptions) => {
+      options = requestOptions;
+      request = new EventEmitter();
+      request.destroy = () => {};
+      request.end = () => {};
+      return request;
+    },
+    setTimeout,
+    clearTimeout,
+  });
+
+  let result;
+  options.lookup('public.example.com', { all: true }, (error, addresses) => { result = { error, addresses }; });
+  request.emit('error', Object.assign(new Error('closed'), { code: 'ECONNRESET' }));
+  await assert.rejects(pending, /target_network:econnreset/);
+
+  assert.equal(result.error, null);
+  assert.deepEqual(result.addresses, [{ address: '93.184.216.34', family: 4 }]);
+  assert.equal(__test.cleanError(Object.assign(new Error('invalid'), { code: 'ERR_INVALID_IP_ADDRESS' })).code, 'internal:lookup_contract_invalid');
+});
+
 test('DNS resolver blocks empty, private and network errors', async () => {
   await assert.rejects(__test.resolvePublic('x', { dnsLookup: async () => [] }), /dns_empty/);
   await assert.rejects(__test.resolvePublic('x', { dnsLookup: async () => [{ address: '10.0.0.1', family: 4 }] }), /dns_non_public/);

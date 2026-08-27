@@ -380,6 +380,7 @@ function cleanError(error) {
   if (['econnreset', 'econnrefused', 'etimedout', 'ehostunreach', 'enetunreach', 'enotfound', 'eai_again'].includes(code)) {
     return new VerificationError(`target_network:${code}`, 'blocked', true);
   }
+  if (code === 'err_invalid_ip_address') return new VerificationError('internal:lookup_contract_invalid', 'blocked', false);
   if (code === 'hpe_header_overflow') return new VerificationError('target_protocol:headers_too_large', 'fail', true);
   return new VerificationError('internal:unexpected_error', 'blocked', false);
 }
@@ -471,7 +472,9 @@ function requestOnce(url, method, auth, limits, records, dependencies = {}) {
       method,
       headers,
       servername: normalizedHostname(url),
-      lookup: (_hostname, _options, callback) => callback(null, chosen.address, chosen.family),
+      lookup: (_hostname, options, callback) => options?.all
+        ? callback(null, [{ address: chosen.address, family: chosen.family }])
+        : callback(null, chosen.address, chosen.family),
       timeout: limits.request_timeout_ms,
       maxHeaderSize: limits.max_header_bytes,
       agent: false,
