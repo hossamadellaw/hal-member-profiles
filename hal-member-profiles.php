@@ -2,11 +2,11 @@
 /**
  * Plugin Name:       HAL Member Profiles
  * Description:       Elementor design layer for Ultimate Member public profiles and member accounts.
- * Version:           1.1.4
+ * Version:           1.1.5
  * Requires at least: 6.5
  * Requires PHP:      8.0
  * Requires Plugins:  ultimate-member, elementor
- * Author:            Hossam Adel Lawyer
+ * Author:            Hossam Adel Law Firm
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       hal-member-profiles
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'HAL_MEMBER_PROFILES_VERSION' ) ) {
-	define( 'HAL_MEMBER_PROFILES_VERSION', '1.1.4' );
+	define( 'HAL_MEMBER_PROFILES_VERSION', '1.1.5' );
 }
 if ( ! defined( 'HAL_MEMBER_PROFILES_FILE' ) ) {
 	define( 'HAL_MEMBER_PROFILES_FILE', __FILE__ );

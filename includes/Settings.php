@@ -49,19 +49,22 @@ final class Settings {
 	 */
 	public function __construct( ?CompatibilityGate $compatibility_gate = null ) {
 		$this->compatibility_gate = $compatibility_gate;
-		add_action( 'admin_menu', array( $this, 'register_page' ) );
+		add_action( 'admin_menu', array( $this, 'register_page' ), 20 );
 		add_action( 'admin_init', array( $this, 'register_setting' ) );
 	}
 
 	/**
-	 * Adds the settings page under Settings.
+	 * Registers the settings page as a submenu of the HAL Member Profiles admin menu
+	 * (card S-03) at a later admin_menu priority than the parent registration, since
+	 * Settings is instantiated before AdminDashboard in Bootstrap.
 	 *
 	 * @return void
 	 */
 	public function register_page(): void {
-		add_options_page(
+		add_submenu_page(
+			AdminDashboard::PAGE_SLUG,
 			__( 'HAL Member Profiles', 'hal-member-profiles' ),
-			__( 'HAL Member Profiles', 'hal-member-profiles' ),
+			__( 'Settings', 'hal-member-profiles' ),
 			'manage_options',
 			self::PAGE_SLUG,
 			array( $this, 'render_page' )
@@ -110,44 +113,70 @@ final class Settings {
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'HAL Member Profiles', 'hal-member-profiles' ); ?></h1>
+			<p class="description"><?php esc_html_e( 'All editable HAL Member Profiles values live on this single save form.', 'hal-member-profiles' ); ?></p>
+			<p class="description"><strong><?php esc_html_e( 'Next step:', 'hal-member-profiles' ); ?></strong> <?php esc_html_e( 'review the groups below and save — grouping changed the view only, not how values are stored.', 'hal-member-profiles' ); ?></p>
 			<?php settings_errors(); ?>
 			<form method="post" action="options.php">
 				<?php settings_fields( self::OPTION_GROUP ); ?>
+
+				<h2 class="title"><?php esc_html_e( 'Profile layout', 'hal-member-profiles' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Profile layout mode', 'hal-member-profiles' ); ?></th>
+						<th scope="row"><label for="hal-profile-layout-mode"><?php esc_html_e( 'Profile layout mode', 'hal-member-profiles' ); ?></label></th>
 						<td>
-							<select name="<?php echo esc_attr( self::OPTION_KEY ); ?>[profile_layout_mode]">
+							<select id="hal-profile-layout-mode" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[profile_layout_mode]">
 								<option value="observe" <?php selected( $settings['profile_layout_mode'], self::LAYOUT_MODE_OBSERVE ); ?>><?php esc_html_e( 'Observe (no visual change)', 'hal-member-profiles' ); ?></option>
 								<option value="public_layout" <?php selected( $settings['profile_layout_mode'], self::LAYOUT_MODE_PUBLIC_LAYOUT ); ?>><?php esc_html_e( 'Public layout (Elementor template)', 'hal-member-profiles' ); ?></option>
 							</select>
 						</td>
 					</tr>
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Profile Elementor library template ID', 'hal-member-profiles' ); ?></th>
-						<td><input type="number" min="0" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[profile_library_template_id]" value="<?php echo esc_attr( (string) $settings['profile_library_template_id'] ); ?>" /></td>
+						<th scope="row"><label for="hal-profile-template-id"><?php esc_html_e( 'Profile Elementor library template ID', 'hal-member-profiles' ); ?></label></th>
+						<td><input id="hal-profile-template-id" type="number" min="0" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[profile_library_template_id]" value="<?php echo esc_attr( (string) $settings['profile_library_template_id'] ); ?>" /></td>
 					</tr>
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Account layout mode', 'hal-member-profiles' ); ?></th>
+						<th scope="row"><label for="hal-profile-fixture-id"><?php esc_html_e( 'Profile preview fixture user ID', 'hal-member-profiles' ); ?></label></th>
 						<td>
-							<select name="<?php echo esc_attr( self::OPTION_KEY ); ?>[account_layout_mode]">
+							<input id="hal-profile-fixture-id" type="number" min="0" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[profile_fixture_user_id]" value="<?php echo esc_attr( (string) $settings['profile_fixture_user_id'] ); ?>" />
+							<p class="description"><?php esc_html_e( 'Only used to preview this layout inside the Elementor editor, for administrators only — never shown on the live frontend or in a public preview.', 'hal-member-profiles' ); ?></p>
+						</td>
+					</tr>
+				</table>
+
+				<h2 class="title"><?php esc_html_e( 'Account layout', 'hal-member-profiles' ); ?></h2>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><label for="hal-account-layout-mode"><?php esc_html_e( 'Account layout mode', 'hal-member-profiles' ); ?></label></th>
+						<td>
+							<select id="hal-account-layout-mode" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[account_layout_mode]">
 								<option value="observe" <?php selected( $settings['account_layout_mode'], self::LAYOUT_MODE_OBSERVE ); ?>><?php esc_html_e( 'Observe (no visual change)', 'hal-member-profiles' ); ?></option>
 								<option value="public_layout" <?php selected( $settings['account_layout_mode'], self::LAYOUT_MODE_PUBLIC_LAYOUT ); ?>><?php esc_html_e( 'Public layout (Elementor template)', 'hal-member-profiles' ); ?></option>
 							</select>
 						</td>
 					</tr>
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Account Elementor library template ID', 'hal-member-profiles' ); ?></th>
-						<td><input type="number" min="0" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[account_library_template_id]" value="<?php echo esc_attr( (string) $settings['account_library_template_id'] ); ?>" /></td>
+						<th scope="row"><label for="hal-account-template-id"><?php esc_html_e( 'Account Elementor library template ID', 'hal-member-profiles' ); ?></label></th>
+						<td><input id="hal-account-template-id" type="number" min="0" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[account_library_template_id]" value="<?php echo esc_attr( (string) $settings['account_library_template_id'] ); ?>" /></td>
 					</tr>
 					<tr>
-						<th scope="row"><?php esc_html_e( 'Amelia general booking URL', 'hal-member-profiles' ); ?></th>
-						<td><input type="url" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[amelia_booking_url]" value="<?php echo esc_attr( (string) $settings['amelia_booking_url'] ); ?>" placeholder="https://" /></td>
-					</tr>
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Amelia sync mode', 'hal-member-profiles' ); ?></th>
+						<th scope="row"><label for="hal-account-fixture-id"><?php esc_html_e( 'Account preview fixture user ID', 'hal-member-profiles' ); ?></label></th>
 						<td>
-							<select name="<?php echo esc_attr( self::OPTION_KEY ); ?>[amelia_sync_mode]">
+							<input id="hal-account-fixture-id" type="number" min="0" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[account_fixture_user_id]" value="<?php echo esc_attr( (string) $settings['account_fixture_user_id'] ); ?>" />
+							<p class="description"><?php esc_html_e( 'Only used to preview this layout inside the Elementor editor, for administrators only — never shown on the live frontend or in a public preview.', 'hal-member-profiles' ); ?></p>
+						</td>
+					</tr>
+				</table>
+
+				<h2 class="title"><?php esc_html_e( 'Amelia', 'hal-member-profiles' ); ?></h2>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><label for="hal-amelia-booking-url"><?php esc_html_e( 'Amelia general booking URL', 'hal-member-profiles' ); ?></label></th>
+						<td><input id="hal-amelia-booking-url" type="url" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[amelia_booking_url]" value="<?php echo esc_attr( (string) $settings['amelia_booking_url'] ); ?>" placeholder="https://" /></td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="hal-amelia-sync-mode"><?php esc_html_e( 'Amelia sync mode', 'hal-member-profiles' ); ?></label></th>
+						<td>
+							<select id="hal-amelia-sync-mode" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[amelia_sync_mode]">
 								<option value="off" <?php selected( $settings['amelia_sync_mode'], self::SYNC_MODE_OFF ); ?>><?php esc_html_e( 'Off — no connection', 'hal-member-profiles' ); ?></option>
 								<option value="discover_only" <?php selected( $settings['amelia_sync_mode'], self::SYNC_MODE_DISCOVER_ONLY ); ?>><?php esc_html_e( 'Discover only — read and show diffs, never write', 'hal-member-profiles' ); ?></option>
 								<option value="managed_additions" <?php selected( $settings['amelia_sync_mode'], self::SYNC_MODE_MANAGED_ADDITIONS ); ?>><?php esc_html_e( 'Managed additions — create/update HAL-owned items only', 'hal-member-profiles' ); ?></option>
@@ -156,25 +185,15 @@ final class Settings {
 							<p class="description"><?php esc_html_e( 'Turning this off stops future synchronization only — it never deletes catalog data or files.', 'hal-member-profiles' ); ?></p>
 						</td>
 					</tr>
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Profile preview fixture user ID', 'hal-member-profiles' ); ?></th>
-						<td>
-							<input type="number" min="0" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[profile_fixture_user_id]" value="<?php echo esc_attr( (string) $settings['profile_fixture_user_id'] ); ?>" />
-							<p class="description"><?php esc_html_e( 'Only used to preview this layout inside the Elementor editor, for administrators only — never shown on the live frontend or in a public preview.', 'hal-member-profiles' ); ?></p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Account preview fixture user ID', 'hal-member-profiles' ); ?></th>
-						<td>
-							<input type="number" min="0" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[account_fixture_user_id]" value="<?php echo esc_attr( (string) $settings['account_fixture_user_id'] ); ?>" />
-							<p class="description"><?php esc_html_e( 'Only used to preview this layout inside the Elementor editor, for administrators only — never shown on the live frontend or in a public preview.', 'hal-member-profiles' ); ?></p>
-						</td>
-					</tr>
+				</table>
+
+				<h2 class="title"><?php esc_html_e( 'Managed sync & uninstall', 'hal-member-profiles' ); ?></h2>
+				<table class="form-table" role="presentation">
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Managed templates consent', 'hal-member-profiles' ); ?></th>
 						<td>
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[managed_templates_consent]" value="1" <?php checked( $settings['managed_templates_consent'] ); ?> />
+							<label for="hal-managed-templates-consent">
+								<input id="hal-managed-templates-consent" type="checkbox" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[managed_templates_consent]" value="1" <?php checked( $settings['managed_templates_consent'] ); ?> />
 								<?php esc_html_e( 'Allow HAL to provision and sync its managed templates into the active Child Theme', 'hal-member-profiles' ); ?>
 							</label>
 							<p class="description"><?php esc_html_e( 'Revoking this consent stops provisioning/syncing — it never deletes your files or stored data.', 'hal-member-profiles' ); ?></p>
@@ -183,10 +202,11 @@ final class Settings {
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Purge on uninstall', 'hal-member-profiles' ); ?></th>
 						<td>
-							<label>
-								<input type="checkbox" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[purge_on_uninstall]" value="1" <?php checked( $settings['purge_on_uninstall'] ); ?> />
+							<label for="hal-purge-on-uninstall">
+								<input id="hal-purge-on-uninstall" type="checkbox" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[purge_on_uninstall]" value="1" <?php checked( $settings['purge_on_uninstall'] ); ?> />
 								<?php esc_html_e( 'Delete these bridge settings on uninstall', 'hal-member-profiles' ); ?>
 							</label>
+							<p class="description"><?php esc_html_e( 'Irreversible: once the plugin is uninstalled with this enabled, the deletion cannot be undone.', 'hal-member-profiles' ); ?></p>
 						</td>
 					</tr>
 				</table>

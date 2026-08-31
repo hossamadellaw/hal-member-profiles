@@ -3,8 +3,17 @@
  * Administrative client for the Amelia Elite REST surface — development card D-08.
  *
  * Sole responsibility: talking to Amelia's HTTP API through WordPress's own HTTP API,
- * read-only, for later administrative consumers (SchemaRegistry snapshot, dashboard
- * diagnostics). Nothing else may issue these calls.
+ * for administrative consumers only (SchemaRegistry snapshot, dashboard diagnostics,
+ * fields writer transport). Nothing else may issue these calls.
+ *
+ * Verbs are strictly split (v1.1.5 documentation, card S-06):
+ * - GET discovery: test_connection()/get_entities()/get_fields() read /entities and
+ *   /fields — idempotent reads for diagnostics and the stored snapshot.
+ * - Governed POST transport: create_custom_field()/update_custom_field() exist and are
+ *   wired for the HAL-owned fields writer (Integration Closure #4). They are transport
+ *   verbs only — policy (compatibility gate, sync mode, ownership, nonce) is enforced by
+ *   AmeliaFieldsWriter before any POST is reached, and production writes stay closed
+ *   until the `amelia_fields_write` gate passes. No delete verb exists by design.
  *
  * Contract implemented here (per the governing card):
  * - Base URL derives from THIS SITE (home_url()), never from Request/user input; a
@@ -16,10 +25,9 @@
  * - Authentication travels ONLY in the custom `Amelia` header, sourced exclusively from
  *   SecretStore (card D-07) — never from Request data, constants of third parties, or
  *   stored plaintext.
- * - Limits: 10s timeout, 1 MiB response ceiling, single attempt per call. Read-only
- *   resources (/entities, /fields) are the ONLY endpoints this class knows; there are
- *   deliberately no write verbs, hence no non-idempotent-retry hazard can exist. Any
- *   future write requirement must arrive as its own reviewed, idempotency-aware verb.
+ * - Limits: 10s timeout, 1 MiB response ceiling, single attempt per call. The GET
+ *   surface (/entities, /fields) is idempotent; the governed POST verbs above are never
+ *   retried automatically, so no non-idempotent-retry hazard exists.
  * - Status discipline: 200 validates as a JSON object/array; 401 invalid_key, 403
  *   forbidden, 404 elite_unavailable, 429 rate_limited, 5xx upstream_error, other 4xx
  *   http_<code>, transport failures transport_error (loopback-blocked hosts included).
@@ -30,7 +38,7 @@
  * API call — structurally, because no frontend hook exists anywhere in this file.
  *
  * Integration note for card D-14: this file registers nothing on include and wires
- * nothing; consumers instantiate it directly. Until wired, the client is unreachable.
+ * nothing; consumers instantiate it directly.
  *
  * @package HAL\MemberProfiles\Integrations
  */
@@ -116,12 +124,6 @@ final class AmeliaApiClient {
 		return rtrim( home_url( '/' . ltrim( $base, '/' ) ), '/' );
 	}
 
-	/**
-	 * Single guarded read path shared by every public verb.
-	 *
-	 * @param string $resource 'entities' or 'fields' — the complete allowlist.
-	 * @return array{ok:bool, reason:string, data?:array<string,mixed>}
-	 */
 	/**
 	 * Integration Closure #4: creates one HAL-owned custom field. Transport-level verb
 	 * only — policy (gate/mode/ownership/nonce) is enforced by AmeliaFieldsWriter before

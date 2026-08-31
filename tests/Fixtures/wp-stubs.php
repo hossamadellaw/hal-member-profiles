@@ -56,14 +56,23 @@ namespace {
 	function esc_html_e( $t, $d = null ) { echo htmlspecialchars( (string) $t, ENT_QUOTES ); }
 	function esc_html( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES ); }
 	function esc_attr( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES ); }
+	function esc_textarea( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES ); }
 	function esc_attr_e( $t, $d = null ) { echo htmlspecialchars( (string) $t, ENT_QUOTES ); }
 	function esc_url( $u, $p = array() ) {
 		return ( is_string( $u ) && preg_match( '#^https?://#i', $u ) ) ? $u : '';
 	}
 	function esc_url_raw( $u, $p = array() ) { return esc_url( $u, $p ); }
 	function admin_url( $path = '' ) { return 'https://stub.test/wp-admin/' . ltrim( (string) $path, '/' ); }
-	function submit_button( $text, $type = 'primary', $name = 'submit', $wrap = true ) {
+	function submit_button( $text = null, $type = 'primary', $name = 'submit', $wrap = true ) {
 		echo '<button type="submit" class="button button-' . esc_attr( $type ) . '" name="' . esc_attr( $name ) . '">' . esc_html( $text ) . '</button>';
+	}
+	function settings_fields( $group ) {}
+	function settings_errors() {}
+	function selected( $helper, $current = true ) {
+		return (string) $helper === (string) $current ? " selected='selected'" : '';
+	}
+	function checked( $helper, $current = true ) {
+		return (string) $helper === (string) $current ? " checked='checked'" : '';
 	}
 	function current_user_can( $cap ) {
 		return 'manage_options' === $cap
@@ -104,6 +113,7 @@ namespace {
 		$meta = hal_wp_stub( 'post_meta', array() );
 		return $meta[ $pid ][ $key ] ?? '';
 	}
+	function get_post( $id ) { return null; }
 	function get_userdata( $id ) {
 		$users = hal_wp_stub( 'users', array() );
 		if ( ! isset( $users[ $id ] ) ) {

@@ -12,6 +12,10 @@ import { __test, decideAttempts, githubRequest, isUnsafeIp, manageIssue, parseMa
 
 const LIMITS = Object.freeze({ max_attempts: 3, consecutive_successes: 2, incident_repeat_count: 2, max_requests_per_attempt: 10, max_total_requests: 30, request_concurrency: 2, request_timeout_ms: 10000, phase_timeout_ms: 360000, evidence_reserve_ms: 30000, retry_delay_ms: 100, max_redirect_hops: 3, max_response_headers: 64, max_header_bytes: 32768, max_body_bytes: 1048576, max_artifact_bytes: 262144 });
 
+function readReleaseVerificationWorkflow(root) {
+  return fs.readFileSync(path.join(root, '.github', 'workflows', 'release-verification.yml'), 'utf8').replace(/\r\n?/gu, '\n');
+}
+
 function rawConfig(options = {}) {
   return {
     schema_version: 2,
@@ -602,7 +606,7 @@ test('artifact inventory is exactly two small sanitized evidence files', async (
 
 test('workflow has one global versionless concurrency key and exactly three isolated jobs', () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-  const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-verification.yml'), 'utf8');
+  const workflow = readReleaseVerificationWorkflow(root);
   assert.match(workflow, /^permissions: \{\}$/mu);
   assert.match(workflow, /^concurrency:\n  group: release-verification-\$\{\{ github\.repository \}\}-\$\{\{ github\.event_name == 'release' && 'production' \|\| inputs\.target_environment \}\}\n  cancel-in-progress: true$/mu);
   assert.equal((workflow.match(/^  (?:preflight|verify-target|manage-issue):$/gmu) ?? []).length, 3);
@@ -612,7 +616,7 @@ test('workflow has one global versionless concurrency key and exactly three isol
 
 test('workflow pins external actions and isolates target secrets from public and issue steps', () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-  const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-verification.yml'), 'utf8');
+  const workflow = readReleaseVerificationWorkflow(root);
   const uses = [...workflow.matchAll(/^\s+uses:\s+([^\s#]+)/gmu)].map((match) => match[1]);
   assert.ok(uses.length >= 4);
   assert.ok(uses.every((value) => /@[0-9a-f]{40}$/u.test(value)));
@@ -629,12 +633,12 @@ test('workflow pins external actions and isolates target secrets from public and
   assert.match(issueJob, /contents: read[\s\S]*issues: write/u);
 });
 
-test('workflow exposes stable release, dispatch and call without any persistent schedule', () => {
+test('workflow exposes dispatch and call only, with no release trigger and no persistent schedule', () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-  const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-verification.yml'), 'utf8');
+  const workflow = readReleaseVerificationWorkflow(root);
   assert.match(workflow, /^  workflow_dispatch:/mu);
   assert.match(workflow, /^  workflow_call:/mu);
-  assert.match(workflow, /^  release:\n    types: \[published\]$/mu);
+  assert.doesNotMatch(workflow, /^  release:/mu);
   assert.doesNotMatch(workflow, /^  (?:pull_request|pull_request_target|schedule):/mu);
   assert.match(workflow, /github\.event\.release\.draft == false && github\.event\.release\.prerelease == false/u);
   assert.match(workflow, /trigger, never evidence that the release ZIP has reached the production target/u);
@@ -648,28 +652,19 @@ test('workflow exposes stable release, dispatch and call without any persistent 
   assert.doesNotMatch(verifyJob, /^    environment:\n/mu);
 });
 
-test('release pipeline chains verification directly so GITHUB_TOKEN-published releases still start it', () => {
+test('release pipeline publishes without auto-starting verification; verification waits for a real deployment', () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
   const release = fs.readFileSync(path.join(root, '.github', 'workflows', 'release.yml'), 'utf8');
-  assert.match(release, /events triggered by\s*\n  # GITHUB_TOKEN never fire `on: release` workflows/u);
-  assert.equal((release.match(/uses: \.\/\.github\/workflows\/release-verification\.yml/gu) ?? []).length, 1);
-  const caller = release.match(/^  verify-production:\n[\s\S]*$/mu)?.[0] ?? '';
-  assert.match(caller, /needs: build-and-release/u);
-  assert.match(caller, /needs\.build-and-release\.result == 'success' && !contains\(github\.ref_name, '-rc'\)/u);
-  for (const grant of ['contents: read', 'actions: read', 'issues: write']) assert.ok(caller.includes(grant), grant);
-  assert.match(caller, /target_environment: production/u);
-  assert.match(caller, /expected_version: \$\{\{ github\.ref_name \}\}/u);
-  assert.match(caller, /deployment_commit_sha: \$\{\{ github\.sha \}\}/u);
-  assert.match(caller, /release_id: \$\{\{ github\.ref_name \}\}/u);
-  assert.match(caller, /deployment_conclusion: \$\{\{ needs\.build-and-release\.result \}\}/u);
-  assert.match(caller, /secrets:\n      PRODUCTION_BASE_URL: \$\{\{ secrets\.PRODUCTION_BASE_URL \}\}/u);
+  assert.doesNotMatch(release, /verify-production/u);
+  assert.doesNotMatch(release, /uses: \.\/\.github\/workflows\/release-verification\.yml/u);
+  assert.doesNotMatch(release, /^  release:/mu);
   assert.doesNotMatch(release, /secrets:\s*inherit/u);
   assert.doesNotMatch(release, /vars\.PRODUCTION_BASE_URL/u);
 });
 
 test('workflow enforces a sixteen-minute active-cycle bound and documents reusable permissions', () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-  const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release-verification.yml'), 'utf8');
+  const workflow = readReleaseVerificationWorkflow(root);
   const timeouts = [...workflow.matchAll(/^    timeout-minutes: (\d+)$/gmu)].map((match) => Number(match[1]));
   assert.deepEqual(timeouts, [2, 12, 2]);
   assert.equal(timeouts.reduce((sum, value) => sum + value, 0), 16);
@@ -685,10 +680,18 @@ test('workflow enforces a sixteen-minute active-cycle bound and documents reusab
   assert.equal(config.environments.production.targets.primary.base_url, '${PRODUCTION_BASE_URL}');
   assert.equal(config.environments.production.targets.primary.basic_auth, false);
   assert.deepEqual(config.environments.production.allowed_redirects, []);
-  const home = config.environments.production.checks.find((item) => item.id === 'production-home');
-  assert.equal(home.required, true);
-  assert.equal(home.method, 'GET');
-  assert.equal(home.expected_status, 200);
+  const readme = config.environments.production.checks.find((item) => item.id === 'production-readme');
+  assert.equal(readme.required, true);
+  assert.equal(readme.method, 'GET');
+  assert.equal(readme.expected_status, 200);
+  assert.equal(readme.fatal_signatures, true);
+  assert.deepEqual(readme.required_text, ['=== HAL Member Profiles ===']);
+  assert.equal(readme.path, '/wp-content/plugins/hal-member-profiles/readme.txt');
+  assert.equal(config.environments.production.checks.length, 1);
+  assert.deepEqual(
+    config.environments.production.version_sources.map((item) => item.path),
+    ['/wp-content/plugins/hal-member-profiles/readme.txt']
+  );
 });
 
 test('template inventory is exactly the four contract files and contains no runtime language', () => {
@@ -881,7 +884,7 @@ test('resolved production base URL never reaches emitted evidence or the managem
   try {
     await withEnv({ ...baseEnv, TARGET_ENVIRONMENT: 'production', VERIFICATION_CONFIG: configPath, OUTPUT_DIR: directory, PRODUCTION_BASE_URL: 'https://production.example.com/' }, async () => {
       const report = await runVerifyMode({
-        performRequest: async (url, method) => String(url).includes('/wp-content/') ? response(200, 'Stable tag: 1.2.3\n') : successTarget(url, method),
+        performRequest: async (url, method) => String(url).includes('/wp-content/') ? response(200, '=== HAL Member Profiles ===\nStable tag: 1.2.3\n') : successTarget(url, method),
         now: () => Date.parse('2026-08-26T12:00:00Z'), sleep: async () => {},
       });
       assert.equal(report.overall, 'pass');

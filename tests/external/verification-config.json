@@ -15,15 +15,17 @@
       "allowed_redirects": [],
       "checks": [
         {
-          "id": "production-home",
+          "id": "production-readme",
           "target": "primary",
           "type": "page",
-          "path": "/",
+          "path": "/wp-content/plugins/hal-member-profiles/readme.txt",
           "method": "GET",
           "expected_status": 200,
           "required": true,
           "fatal_signatures": true,
-          "required_text": [],
+          "required_text": [
+            "=== HAL Member Profiles ==="
+          ],
           "forbidden_text": [],
           "observable": true
         }

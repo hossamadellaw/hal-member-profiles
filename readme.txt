@@ -4,12 +4,17 @@ Tags: ultimate-member, elementor, membership, profile
 Requires at least: 6.5
 Requires PHP: 8.0
 Requires Plugins: ultimate-member, elementor
-Stable tag: 1.1.4
+Stable tag: 1.1.5
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 An Elementor design layer for Ultimate Member's public Profile and member Account pages —
 built on top of Ultimate Member's own logic, never a replacement for it.
+
+**Baseline (v1.1.5):** the runtime baseline is the ORIGINAL Ultimate Member and Amelia
+plugins together with this plugin's standard bridge. The former site-specific `custom UM`
+integration files are deleted and are NOT a runtime source for anything; where this
+README's history mentions them, that is history only.
 
 == Description ==
 
@@ -88,7 +93,8 @@ Everything below is doable from the Release ZIP alone.
    CHILD theme, go to the **HAL Member Profiles** admin dashboard and use
    **"Sync managed templates now"** — an administrator action; nothing copies itself.
    Without provisioning, pages stay 100% native (safe, just unstyled-by-HAL).
-4. Go to **Settings → HAL Member Profiles**: both layout modes start at **Observe**
+4. Go to **HAL Member Profiles → Settings** (the Settings page inside the HAL Member
+   Profiles admin menu): both layout modes start at **Observe**
    (zero visual change) and the Elementor route stays locked there until the built-in
    compatibility gate passes for your site's exact plugin versions.
 5. Build one Profile and one Account Elementor Library Template containing the required
@@ -124,8 +130,12 @@ ORIGINAL account/profile rendering, exactly as if this plugin were never install
 Amelia integration is OPTIONAL and OFF by default. Two layers exist:
 
 * **Allowlist bridge (always available, no API):** an administrator maps a UM member to
-  an Amelia employee ID plus allowed service ID(s); profile-save enforcement stores only
-  IDs inside that member's own allowlist (anything else is stored as empty).
+  an Amelia employee ID plus allowed service ID(s). The server-side save filter
+  (`Amelia::filter_profile_services_before_save()`, with its fail-closed F-16 stored-value
+  contract intact inside the method) is NOT auto-wired in v1.1.5: it no longer registers
+  itself on `um_user_pre_updating_profile_array` until a documented Field Schema ownership
+  exists, so profile-save enforcement applies only if an integration explicitly wires the
+  documented callback.
 * **Optional Elite sync (switched Off in Settings):** when enabled by an administrator,
   HAL reads a read-only REST snapshot of services/employees/custom fields through the
   WordPress HTTP API into an internal, PII-free catalog (employees appear as bare numeric
@@ -150,17 +160,41 @@ closed and must simply be re-entered.
   none. Native Header is the safe default.
 * Account field selectors (`Account Field` Widget/Tags) are empty until a verified
   Account-tab field source is confirmed.
-* The legacy Photo/Dashboard Account tabs are not yet migrated; they remain served by
-  the legacy custom account renderer until tested.
+* The legacy Photo/Dashboard Account tabs are not implemented inside HAL; on the native
+  UM/Amelia baseline these tabs are served by Ultimate Member's own full native account
+  rendering (they are not served by any legacy custom renderer — that code is deleted).
 * `FieldSchema`'s field-type classification list should be checked against this site's
   actual Ultimate Member field types during the same QA pass.
 * Managed-template provisioning currently runs from the dashboard Sync action and the
   admin reconciliation tick; the recorded consent flag will gate future automated runs.
-* Amelia write-sync (`managed_additions` / `managed_sync`) modes are defined but their
-  write consumer arrives with later wiring; `discover_only` reading and the snapshot
-  catalog are what ship today. Default remains Off.
+* Amelia write-sync: the HAL-owned fields writer (`AmeliaFieldsWriter`) exists and is
+  wired into its governed admin route ("Apply plan now"), but production writes stay
+  closed by the runtime compatibility gate (`amelia_fields_write` capability, currently
+  not signed off). `discover_only` reading and the snapshot catalog are what operate
+  today. Default remains Off.
+* The internal runtime evidence report (Diagnostics page) describes HAL's own state with
+  machine reasons: read-only, PII-free (counts and booleans only), never sent anywhere,
+  and never read by the external Production Verifier. Its `ci_fixture` variant is a
+  build-time schema-stability artifact only — it is not live and is never a
+  compatibility sign-off.
 
 == Changelog ==
+
+= 1.1.5 =
+* Security separation: the Amelia `selected_services` save filter is no longer
+  auto-registered from the integration's constructor — the fail-closed stored-value
+  contract (F-16) remains inside the method, available for explicit, documented wiring.
+* Admin reorganization: one `HAL Member Profiles` admin menu with six governed pages
+  (Overview, Profiles, Account, Amelia, Diagnostics, Settings); the Settings page moved
+  from WordPress' general Settings menu into this menu, and action redirects return to
+  their owning page.
+* Admin interface clarity: per-page guidance and next steps, unified translated states
+  (Ready/Blocked/Not configured/Pending), grouped settings with explicit field labels
+  (including the sensitive API-key field), and corrected heading order — display only,
+  no operational change.
+* Documentation aligned with the actual native UM/Amelia baseline and its real
+  limitations (this entry and the updated sections above/below).
+* Plugin header Author corrected to `Hossam Adel Law Firm`.
 
 = 1.1.4 =
 * Explicitly loads the Amelia API client and fields writer used by the HAL admin screen,

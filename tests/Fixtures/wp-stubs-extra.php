@@ -35,12 +35,16 @@ namespace {
 		'fs_available' => true,
 		'fs_fail_put'  => false,
 		'fs_corrupt'   => false,
-		'menu_pages'   => array(),
-		'counters'     => array(
+		'menu_pages'      => array(),
+		'submenu_pages'   => array(),
+		'options_pages'   => array(),
+		'counters'        => array(
 			'update_option'    => 0,
 			'delete_option'    => 0,
 			'delete_transient' => 0,
 			'add_menu_page'    => 0,
+			'add_submenu_page' => 0,
+			'add_options_page' => 0,
 		),
 		'settings_errors' => array(),
 	);
@@ -214,6 +218,30 @@ namespace {
 				array_merge( hal_wp_stub_extra( 'menu_pages' ), array( $args ) )
 			);
 			$GLOBALS['wp_stubs_extra']['counters']['add_menu_page']++;
+
+			return true;
+		}
+	}
+
+	if ( ! function_exists( 'add_submenu_page' ) ) {
+		function add_submenu_page( ...$args ): bool {
+			hal_wp_stub_extra_set(
+				'submenu_pages',
+				array_merge( hal_wp_stub_extra( 'submenu_pages' ), array( $args ) )
+			);
+			$GLOBALS['wp_stubs_extra']['counters']['add_submenu_page']++;
+
+			return true;
+		}
+	}
+
+	if ( ! function_exists( 'add_options_page' ) ) {
+		function add_options_page( ...$args ): bool {
+			hal_wp_stub_extra_set(
+				'options_pages',
+				array_merge( hal_wp_stub_extra( 'options_pages' ), array( $args ) )
+			);
+			$GLOBALS['wp_stubs_extra']['counters']['add_options_page']++;
 
 			return true;
 		}

@@ -179,7 +179,9 @@ final class Lifecycle {
 		$result = self::reconcile( self::STATUS_PENDING, true );
 
 		$redirect = wp_get_referer();
-		$redirect = $redirect ? $redirect : admin_url( 'admin.php' );
+		// Card S-04: the Repair command lives on the Diagnostics page, so the fallback
+		// return lands there when no referer exists.
+		$redirect = $redirect ? $redirect : admin_url( 'admin.php?page=hal-member-profiles-diagnostics' );
 		$redirect = add_query_arg(
 			'hal_member_profiles_repair',
 			$result['ok'] ? 'done' : sanitize_key( (string) $result['reason'] ),

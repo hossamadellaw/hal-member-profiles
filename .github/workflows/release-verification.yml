@@ -1,12 +1,10 @@
 name: Time-Bounded Target-Read-Only Release Verification
 
 on:
-  # Note: releases created with the repository GITHUB_TOKEN (as release.yml does)
-  # never fire this event listener. The automatic start signal for pipeline-published
-  # stable releases is the workflow_call job chained from release.yml; this
-  # release listener remains as a secondary path for manually published releases.
-  release:
-    types: [published]
+  # No `release` trigger exists by design (card S-07 / adaptation-status §4.8): a
+  # published Release proves publication, not target installation. Verification starts
+  # ONLY through workflow_dispatch after a confirmed manual install, or through
+  # workflow_call from a caller whose completed deployment job succeeded.
   workflow_dispatch:
     inputs:
       target_environment:
@@ -77,8 +75,7 @@ concurrency:
 jobs:
   preflight:
     name: Preflight
-    # Publication starts a bounded watcher only for a stable, non-draft Release. It is
-    # a trigger, never evidence that the release ZIP has reached the production target.
+    # A dispatch/call start is a trigger, never evidence that the release ZIP has reached the production target.
     if: ${{ github.event_name != 'release' || (github.event.release.draft == false && github.event.release.prerelease == false) }}
     # Standard Ubuntu runners are intended for public repositories only. The owner must
     # configure an external hard-stop Actions budget for exceptional shared-quota costs.

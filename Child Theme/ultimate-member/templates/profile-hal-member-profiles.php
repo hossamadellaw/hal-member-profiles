@@ -4,11 +4,12 @@
  *
  * HAL Member Profiles — alternative Profile template (Elementor bridge).
  *
- * An OPTIONAL alternative to Ultimate Member's own profile.php, built from the installed
- * UM version's real template structure (matching this site's existing
- * ultimate-member/templates/profile-hossam-legal.php wrappers, outer hooks, and
- * edit/preview behavior exactly). It does not replace, modify, or delete the original
- * profile.php or profile-hossam-legal.php — both remain untouched and selectable.
+ * An OPTIONAL alternative to Ultimate Member's own profile.php, reproducing Ultimate
+ * Member's own native profile pipeline (wrappers, outer hooks, and edit/preview
+ * behavior) so the original behavior is preserved exactly. It does not replace, modify,
+ * or delete the original profile.php — that template remains untouched and selectable.
+ * (v1.1.5 baseline: the former site-specific `custom UM` integration is deleted and is
+ * not a runtime source; this file is the HAL-managed bridge template only.)
  *
  * Activation: select "HAL Member Profiles" as the template for the relevant Ultimate
  * Member Profile Form(s) from Ultimate Member > Forms, manually, after staging QA — this

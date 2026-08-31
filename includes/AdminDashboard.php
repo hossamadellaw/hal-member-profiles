@@ -2,29 +2,31 @@
 /**
  * The HAL Member Profiles admin dashboard — development card D-06.
  *
- * Sole responsibility: one WordPress-admin screen (no SPA, no framework) presenting the
- * five limited sections — Overview/Health, Layouts/Templates, UM Fields/Dynamic Tags,
- * Amelia Elite, Compatibility/Diagnostics — plus the single delegated action button.
+ * Sole responsibility: the HAL Member Profiles admin menu (no SPA, no framework) with its
+ * six governed pages — Overview, Profiles, Account, Amelia, Diagnostics, Settings (card
+ * S-04) — plus the delegated Amelia action endpoints and the lifecycle Repair button.
  *
  * Hard rules implemented here:
- * - Read-only BY DESIGN: this class never writes options, transients, or files. The only
- *   POST it renders targets the nonce-and-capability-guarded Repair endpoint that card
- *   D-05 owns (`admin_post.php?action=hal_member_profiles_repair`), reusing
- *   Lifecycle::repair_nonce(). Existing Phase-1 settings remain owned by
- *   Settings::register_page() (Settings API, card 7.4); this dashboard links there
- *   instead of duplicating any save path.
+ * - Read-only DISPLAY, delegated ACTIONS: the six pages only ever render state (versions,
+ *   modes, gate verdicts, manifest rows) — no page render writes anything. The delegated
+ *   write paths are separate, capability- and nonce-guarded admin_post endpoints: the
+ *   lifecycle Repair/Sync endpoint (card D-05, `admin_post.php?action=hal_member_profiles_repair`,
+ *   reusing Lifecycle::repair_nonce()) and the six governed Amelia routes in
+ *   handle_amelia_post() (key save/revoke, connection test, snapshot refresh, desired-set
+ *   save, fields apply) — each performing only its own governed verbs. Editable settings
+ *   remain owned by Settings::register_page() (Settings API, card 7.4) on the Settings
+ *   page; this dashboard links there instead of duplicating any save path.
  * - Capability: every entry point requires manage_options (the documented project
  *   capability per compatibility-matrix §7). Non-authorized admins get a 403 wp_die;
  *   the page itself is only registered under the same capability.
  * - Fail-closed presentation: every section explains WHY a feature is unavailable
- *   (module not yet shipped, dependency missing, compatibility gate not passed,
- *   provisioning blocked) instead of hiding or guessing. Modules arriving in later
- *   cards (SecretStore D-07, AmeliaApiClient D-08, SchemaRegistry D-09) appear as named
- *   placeholders with their governing card numbers.
+ *   (dependency missing, compatibility gate not passed, provisioning blocked) instead
+ *   of hiding or guessing. The shipped modules (SecretStore, AmeliaApiClient,
+ *   SchemaRegistry) render their real state here.
  * - No secrets, no PII: diagnostics print versions, modes, booleans, relative paths,
  *   and machine slugs only — never user records, emails, meta values, or keys.
- * - Notices are resolvable: the repair-result notice renders once from its query arg
- *   and disappears on the next pageload, exactly matching the acceptance rule.
+ * - Notices are resolvable: the action-result notices render once from their query arg
+ *   and disappear on the next pageload, exactly matching the acceptance rule.
  *
  * Integration note for card D-14: this file registers nothing on include; wiring happens
  * exclusively through {@see AdminDashboard::register()} during bootstrapping. Until then
@@ -46,6 +48,13 @@ final class AdminDashboard {
 	public const AMELIA_QUERY_ARG = 'hal_amelia_result';
 	public const DESIRED_OPTION   = 'hal_member_profiles_amelia_desired_fields';
 
+	// Card S-04: the four section submenus, in the mandated order after Overview and
+	// before the Settings submenu (Settings::PAGE_SLUG).
+	public const PROFILES_PAGE_SLUG    = 'hal-member-profiles-profiles';
+	public const ACCOUNT_PAGE_SLUG     = 'hal-member-profiles-account';
+	public const AMELIA_PAGE_SLUG      = 'hal-member-profiles-amelia';
+	public const DIAGNOSTICS_PAGE_SLUG = 'hal-member-profiles-diagnostics';
+
 	private static bool $registered = false;
 
 	/**
@@ -62,7 +71,9 @@ final class AdminDashboard {
 
 		self::load_module_classes();
 
-		add_action( 'admin_menu', array( self::class, 'add_page' ) );
+		add_action( 'admin_menu', array( self::class, 'add_page' ), 5 );
+		add_action( 'admin_menu', array( self::class, 'add_overview_submenu' ), 15 );
+		add_action( 'admin_menu', array( self::class, 'add_section_submenus' ), 15 );
 		add_action( 'admin_notices', array( self::class, 'render_action_notice' ) );
 
 		// Integration Closure #6: governed Amelia management routes.
@@ -99,7 +110,7 @@ final class AdminDashboard {
 		self::load_module_classes();
 
 		$redirect = wp_get_referer();
-		$redirect = $redirect ? $redirect : admin_url( 'admin.php?page=' . self::PAGE_SLUG );
+		$redirect = $redirect ? $redirect : admin_url( 'admin.php?page=' . self::AMELIA_PAGE_SLUG );
 
 		switch ( $action ) {
 			case 'hal_member_profiles_key_save':
@@ -252,6 +263,78 @@ final class AdminDashboard {
 	}
 
 	/**
+	 * Registers the explicit Overview submenu carrying the parent slug (card S-03).
+	 * Runs at a later admin_menu priority than add_page(), so the parent always exists
+	 * first regardless of module creation order.
+	 *
+	 * @return void
+	 */
+	public static function add_overview_submenu(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		add_submenu_page(
+			self::PAGE_SLUG,
+			__( 'Overview', 'hal-member-profiles' ),
+			__( 'Overview', 'hal-member-profiles' ),
+			'manage_options',
+			self::PAGE_SLUG,
+			array( self::class, 'render_page' )
+		);
+	}
+
+	/**
+	 * Registers the four section submenus (card S-04) — Profiles, Account, Amelia,
+	 * Diagnostics, in the mandated order. Runs at the same later admin_menu priority as
+	 * the Overview submenu, right after it, so the parent always exists first and the
+	 * Settings submenu (priority 20, registered by Settings) appends last.
+	 *
+	 * @return void
+	 */
+	public static function add_section_submenus(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		add_submenu_page(
+			self::PAGE_SLUG,
+			__( 'Profiles', 'hal-member-profiles' ),
+			__( 'Profiles', 'hal-member-profiles' ),
+			'manage_options',
+			self::PROFILES_PAGE_SLUG,
+			array( self::class, 'render_profiles_page' )
+		);
+
+		add_submenu_page(
+			self::PAGE_SLUG,
+			__( 'Account', 'hal-member-profiles' ),
+			__( 'Account', 'hal-member-profiles' ),
+			'manage_options',
+			self::ACCOUNT_PAGE_SLUG,
+			array( self::class, 'render_account_page' )
+		);
+
+		add_submenu_page(
+			self::PAGE_SLUG,
+			__( 'Amelia', 'hal-member-profiles' ),
+			__( 'Amelia', 'hal-member-profiles' ),
+			'manage_options',
+			self::AMELIA_PAGE_SLUG,
+			array( self::class, 'render_amelia_page' )
+		);
+
+		add_submenu_page(
+			self::PAGE_SLUG,
+			__( 'Diagnostics', 'hal-member-profiles' ),
+			__( 'Diagnostics', 'hal-member-profiles' ),
+			'manage_options',
+			self::DIAGNOSTICS_PAGE_SLUG,
+			array( self::class, 'render_diagnostics_page' )
+		);
+	}
+
+	/**
 	 * One-shot notice for the delegated Repair action's redirect result. Renders only
 	 * while the query arg exists, so it disappears on the very next pageload.
 	 *
@@ -298,8 +381,8 @@ final class AdminDashboard {
 	}
 
 	/**
-	 * Renders the whole dashboard. Read-only output; every dynamic value escaped in its
-	 * own context.
+	 * Renders the Overview page (card S-04): system state, dependencies, and actionable
+	 * alerts only — brief by design; the sections moved to their own pages.
 	 *
 	 * @return void
 	 */
@@ -314,6 +397,8 @@ final class AdminDashboard {
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'HAL Member Profiles', 'hal-member-profiles' ); ?></h1>
+			<p class="description"><?php esc_html_e( 'Brief system state and dependency versions for HAL Member Profiles.', 'hal-member-profiles' ); ?></p>
+			<p class="description"><strong><?php esc_html_e( 'Next step:', 'hal-member-profiles' ); ?></strong> <?php esc_html_e( 'open Profiles or Account to review layout state, or Settings to edit values.', 'hal-member-profiles' ); ?></p>
 
 			<h2 class="title"><?php esc_html_e( 'Overview / Health', 'hal-member-profiles' ); ?></h2>
 			<table class="widefat striped" style="max-width:900px">
@@ -321,9 +406,62 @@ final class AdminDashboard {
 					<?php self::render_overview_rows( $bootstrap ); ?>
 				</tbody>
 			</table>
+		</div>
+		<?php
+	}
 
-			<h2 class="title"><?php esc_html_e( 'Layouts / Templates', 'hal-member-profiles' ); ?></h2>
-			<?php self::render_layouts_and_templates( $bootstrap ); ?>
+	/**
+	 * Profiles page (card S-04): read-only profile layout/template state plus the
+	 * profile-side UM fields/Dynamic Tags status, with guidance toward Settings.
+	 *
+	 * @return void
+	 */
+	public static function render_profiles_page(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You are not allowed to access this page.', 'hal-member-profiles' ), 403 );
+		}
+
+		self::load_module_classes();
+
+		$bootstrap = Bootstrap::instance();
+		?>
+		<div class="wrap">
+			<h1><?php esc_html_e( 'Profiles', 'hal-member-profiles' ); ?></h1>
+			<p class="description"><?php esc_html_e( 'Read-only profile layout state — the editable values live on the Settings page.', 'hal-member-profiles' ); ?></p>
+			<p class="description"><strong><?php esc_html_e( 'Next step:', 'hal-member-profiles' ); ?></strong> <?php esc_html_e( 'open the Settings page to configure the profile template.', 'hal-member-profiles' ); ?></p>
+
+			<h2 class="title"><?php esc_html_e( 'Profile layout / template', 'hal-member-profiles' ); ?></h2>
+			<table class="widefat striped" style="max-width:900px">
+				<tbody>
+					<?php
+					if ( null !== $bootstrap ) {
+						$settings = $bootstrap->get_settings();
+
+						$profile_mode = $settings->get_profile_layout_mode();
+
+						self::print_state_row(
+							__( 'Profile layout mode', 'hal-member-profiles' ),
+							'public_layout' === $profile_mode ? 'ready' : 'not_configured',
+							$profile_mode
+						);
+
+						$template_id = $settings->get_profile_library_template_id();
+
+						self::print_row(
+							__( 'Profile Elementor library template', 'hal-member-profiles' ),
+							null === $template_id
+								? self::state_label( 'not_configured' )
+								: '#' . (string) $template_id
+						);
+					} else {
+						self::print_row(
+							__( 'Profile layout state', 'hal-member-profiles' ),
+							__( 'unavailable — plugin core is unbooted (fail-closed).', 'hal-member-profiles' )
+						);
+					}
+					?>
+				</tbody>
+			</table>
 
 			<h2 class="title"><?php esc_html_e( 'UM Fields / Dynamic Tags', 'hal-member-profiles' ); ?></h2>
 			<table class="widefat striped" style="max-width:900px">
@@ -332,15 +470,130 @@ final class AdminDashboard {
 				</tbody>
 			</table>
 
-			<h2 class="title"><?php esc_html_e( 'Amelia Elite', 'hal-member-profiles' ); ?></h2>
-			<?php self::render_amelia_rows( $bootstrap ); ?>
+			<?php self::render_settings_link( $bootstrap ); ?>
+		</div>
+		<?php
+	}
 
-			<h2 class="title"><?php esc_html_e( 'Compatibility / Diagnostics', 'hal-member-profiles' ); ?></h2>
+	/**
+	 * Account page (card S-04): read-only account layout/template state and the
+	 * Account selectors/Tags state, with guidance toward Settings.
+	 *
+	 * @return void
+	 */
+	public static function render_account_page(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You are not allowed to access this page.', 'hal-member-profiles' ), 403 );
+		}
+
+		self::load_module_classes();
+
+		$bootstrap = Bootstrap::instance();
+		?>
+		<div class="wrap">
+			<h1><?php esc_html_e( 'Account', 'hal-member-profiles' ); ?></h1>
+			<p class="description"><?php esc_html_e( 'Read-only account layout state — the editable values live on the Settings page.', 'hal-member-profiles' ); ?></p>
+			<p class="description"><strong><?php esc_html_e( 'Next step:', 'hal-member-profiles' ); ?></strong> <?php esc_html_e( 'open the Settings page to configure the account template.', 'hal-member-profiles' ); ?></p>
+
+			<h2 class="title"><?php esc_html_e( 'Account layout / template', 'hal-member-profiles' ); ?></h2>
 			<table class="widefat striped" style="max-width:900px">
 				<tbody>
-					<?php self::render_diagnostics_rows( $bootstrap ); ?>
+					<?php
+					if ( null !== $bootstrap ) {
+						$settings     = $bootstrap->get_settings();
+						$field_schema = $bootstrap->get_field_schema();
+
+						$account_mode = $settings->get_account_layout_mode();
+
+						self::print_state_row(
+							__( 'Account layout mode', 'hal-member-profiles' ),
+							'public_layout' === $account_mode ? 'ready' : 'not_configured',
+							$account_mode
+						);
+
+						$template_id = $settings->get_account_library_template_id();
+
+						self::print_row(
+							__( 'Account Elementor library template', 'hal-member-profiles' ),
+							null === $template_id
+								? self::state_label( 'not_configured' )
+								: '#' . (string) $template_id
+						);
+
+						$selectors = null !== $field_schema ? $field_schema->get_account_selectors() : array();
+
+						self::print_state_row(
+							__( 'Account field selectors', 'hal-member-profiles' ),
+							empty( $selectors ) ? 'not_configured' : 'ready',
+							empty( $selectors )
+								? __( 'fields stay inside the native Account body until a verified field source exists', 'hal-member-profiles' )
+								/* translators: %s: number of registered selectors. */
+								: sprintf( __( '%s registered from the verified source', 'hal-member-profiles' ), (string) count( $selectors ) )
+						);
+					} else {
+						self::print_row(
+							__( 'Account layout state', 'hal-member-profiles' ),
+							__( 'unavailable — plugin core is unbooted (fail-closed).', 'hal-member-profiles' )
+						);
+					}
+					?>
 				</tbody>
 			</table>
+
+			<?php self::render_settings_link( $bootstrap ); ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Amelia page (card S-04): the existing render_amelia_rows() content and its
+	 * delegated operations, moved here unchanged.
+	 *
+	 * @return void
+	 */
+	public static function render_amelia_page(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You are not allowed to access this page.', 'hal-member-profiles' ), 403 );
+		}
+
+		self::load_module_classes();
+
+		$bootstrap = Bootstrap::instance();
+		?>
+		<div class="wrap">
+			<h1><?php esc_html_e( 'Amelia', 'hal-member-profiles' ); ?></h1>
+			<p class="description"><?php esc_html_e( 'Connection state and delegated Amelia operations — availability and booking always stay inside Amelia itself.', 'hal-member-profiles' ); ?></p>
+			<p class="description"><strong><?php esc_html_e( 'Next step:', 'hal-member-profiles' ); ?></strong> <?php esc_html_e( 'paste a key only when you intend to connect; every action shows its result banner once.', 'hal-member-profiles' ); ?></p>
+			<?php self::render_amelia_rows( $bootstrap ); ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Diagnostics page (card S-04): compatibility gate verdicts plus the managed
+	 * templates manifest/lifecycle state and its delegated Repair command.
+	 *
+	 * @return void
+	 */
+	public static function render_diagnostics_page(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You are not allowed to access this page.', 'hal-member-profiles' ), 403 );
+		}
+
+		self::load_module_classes();
+
+		$bootstrap = Bootstrap::instance();
+		?>
+		<div class="wrap">
+			<h1><?php esc_html_e( 'Diagnostics', 'hal-member-profiles' ); ?></h1>
+			<p class="description"><?php esc_html_e( 'Compatibility verdicts and the managed-template manifest/lifecycle state.', 'hal-member-profiles' ); ?></p>
+			<p class="description"><strong><?php esc_html_e( 'Next step:', 'hal-member-profiles' ); ?></strong> <?php esc_html_e( 'run Sync only after reviewing the manifest table below.', 'hal-member-profiles' ); ?></p>
+
+			<h2 class="title"><?php esc_html_e( 'Compatibility / Diagnostics', 'hal-member-profiles' ); ?></h2>
+			<?php self::render_diagnostics_rows( $bootstrap ); ?>
+
+			<h2 class="title"><?php esc_html_e( 'Managed templates / lifecycle', 'hal-member-profiles' ); ?></h2>
+			<?php self::render_managed_templates_block(); ?>
 		</div>
 		<?php
 	}
@@ -403,31 +656,28 @@ final class AdminDashboard {
 	}
 
 	/**
-	 * Layouts/Templates section: current layout configuration read-only, the managed
-	 * asset inspection table (the required pre-operation preview), and the single
-	 * delegated Repair/Sync button posting to D-05's guarded endpoint.
+	 * Settings-page link used by the read-only pages to guide operators to the editable
+	 * values (card S-04).
 	 *
 	 * @param Bootstrap|null $bootstrap Booted instance or null.
 	 * @return void
 	 */
-	private static function render_layouts_and_templates( ?Bootstrap $bootstrap ): void {
-		if ( null !== $bootstrap ) {
-			$settings = $bootstrap->get_settings();
-
-			self::print_row(
-				__( 'Profile layout mode', 'hal-member-profiles' ),
-				$settings->get_profile_layout_mode()
-			);
-			self::print_row(
-				__( 'Account layout mode', 'hal-member-profiles' ),
-				$settings->get_account_layout_mode()
-			);
-
-			echo '<p><a class="button" href="' . esc_url( admin_url( 'options-general.php?page=' . Settings::PAGE_SLUG ) ) . '">' . esc_html__( 'Open the classic settings page', 'hal-member-profiles' ) . '</a></p>';
-		} else {
-			echo '<p><em>' . esc_html__( 'Layout settings unavailable: plugin core is unbooted (fail-closed).', 'hal-member-profiles' ) . '</em></p>';
+	private static function render_settings_link( ?Bootstrap $bootstrap ): void {
+		if ( null === $bootstrap ) {
+			return;
 		}
 
+		echo '<p><a class="button" href="' . esc_url( admin_url( 'admin.php?page=' . Settings::PAGE_SLUG ) ) . '">' . esc_html__( 'Open the settings page', 'hal-member-profiles' ) . '</a></p>';
+	}
+
+	/**
+	 * Managed asset inspection table (the required pre-operation preview) and the single
+	 * delegated Repair/Sync button posting to D-05's guarded endpoint — moved to the
+	 * Diagnostics page by card S-04, content unchanged.
+	 *
+	 * @return void
+	 */
+	private static function render_managed_templates_block(): void {
 		if ( ! class_exists( ManagedTemplates::class ) ) {
 			echo '<p><em>' . esc_html__( 'Managed template module unavailable (fail-closed).', 'hal-member-profiles' ) . '</em></p>';
 
@@ -548,7 +798,7 @@ final class AdminDashboard {
 			endif;
 			?>
 
-			<h3><?php esc_html_e( 'Amelia API key', 'hal-member-profiles' ); ?></h3>
+			<h2 class="title"><?php esc_html_e( 'Amelia API key', 'hal-member-profiles' ); ?></h2>
 			<table class="widefat striped" style="max-width:900px"><tbody>
 				<?php
 				self::print_row(
@@ -573,7 +823,8 @@ final class AdminDashboard {
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:6px">
 				<input type="hidden" name="action" value="hal_member_profiles_key_save" />
 				<input type="hidden" name="_wpnonce" value="<?php echo esc_attr( wp_create_nonce( 'hal_member_profiles_key_save' ) ); ?>" />
-				<input type="password" name="amelia_api_key" autocomplete="new-password" style="min-width:320px" placeholder="<?php esc_attr_e( 'Paste a new Amelia Elite API key…', 'hal-member-profiles' ); ?>" />
+				<label for="hal-amelia-api-key" class="description"><?php esc_html_e( 'Amelia Elite API key — sensitive, stored encrypted:', 'hal-member-profiles' ); ?></label><br />
+				<input id="hal-amelia-api-key" type="password" name="amelia_api_key" autocomplete="new-password" style="min-width:320px" placeholder="<?php esc_attr_e( 'Paste a new Amelia Elite API key…', 'hal-member-profiles' ); ?>" />
 				<?php submit_button( __( 'Save key (encrypted)', 'hal-member-profiles' ), 'secondary', 'submit', false ); ?>
 			</form>
 
@@ -583,7 +834,7 @@ final class AdminDashboard {
 				<?php submit_button( __( 'Revoke stored key', 'hal-member-profiles' ), 'link-delete', 'submit', false ); ?>
 			</form>
 
-			<h3><?php esc_html_e( 'Connection & discovery', 'hal-member-profiles' ); ?></h3>
+			<h2 class="title"><?php esc_html_e( 'Connection & discovery', 'hal-member-profiles' ); ?></h2>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-top:4px">
 				<input type="hidden" name="action" value="hal_member_profiles_conn_test" />
 				<input type="hidden" name="_wpnonce" value="<?php echo esc_attr( wp_create_nonce( 'hal_member_profiles_conn_test' ) ); ?>" />
@@ -597,7 +848,7 @@ final class AdminDashboard {
 				<p class="description"><?php esc_html_e( 'Requires Amelia sync mode above Off. Builds a PII-free local catalog; employees appear as numeric IDs only.', 'hal-member-profiles' ); ?></p>
 			</form>
 
-			<h3><?php esc_html_e( 'Fields sync plan (diff preview) — managed modes only', 'hal-member-profiles' ); ?></h3>
+			<h2 class="title"><?php esc_html_e( 'Fields sync plan (diff preview) — managed modes only', 'hal-member-profiles' ); ?></h2>
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<input type="hidden" name="action" value="hal_member_profiles_desired_save" />
 				<input type="hidden" name="_wpnonce" value="<?php echo esc_attr( wp_create_nonce( 'hal_member_profiles_desired_save' ) ); ?>" />
@@ -697,21 +948,19 @@ final class AdminDashboard {
 	 * @return void
 	 */
 	private static function render_diagnostics_rows( ?Bootstrap $bootstrap ): void {
-		if ( null === $bootstrap ) {
-			self::print_row( __( 'Compatibility gate', 'hal-member-profiles' ), __( 'unavailable — plugin core unbooted; everything stays on native rendering', 'hal-member-profiles' ) );
+		?>
+		<table class="widefat striped" style="max-width:900px">
+			<tbody>
+			<?php
+			if ( null === $bootstrap ) {
+				self::print_row( __( 'Compatibility gate', 'hal-member-profiles' ), __( 'unavailable — plugin core unbooted; everything stays on native rendering', 'hal-member-profiles' ) );
+			} else {
+				$gate = $bootstrap->get_compatibility_gate();
 
-			return;
-		}
-
-		$gate = $bootstrap->get_compatibility_gate();
-
-		if ( null === $gate ) {
-			self::print_row( __( 'Compatibility gate', 'hal-member-profiles' ), __( 'not initialized (fail-closed)', 'hal-member-profiles' ) );
-
-			return;
-		}
-
-		// Integration Closure #5: enumerate ALL eight capabilities straight from the gate,
+				if ( null === $gate ) {
+					self::print_row( __( 'Compatibility gate', 'hal-member-profiles' ), __( 'not initialized (fail-closed)', 'hal-member-profiles' ) );
+				} else {
+					// Integration Closure #5: enumerate ALL eight capabilities straight from the gate,
 		// with a human reason derived from describe() for every single one.
 		$labels = array(
 			'profile'                => __( 'Profile Elementor layout', 'hal-member-profiles' ),
@@ -729,24 +978,68 @@ final class AdminDashboard {
 			$reason = $gate->describe( $capability );
 			$passes = $gate->passes( $capability );
 
+			// Card S-05: every verdict opens with one unified, translated state word;
+			// the machine reason text behind it stays unchanged.
+			$state = null;
+			$text  = '';
+
 			if ( $passes ) {
-				$text = __( 'approved composition', 'hal-component' );
+				$state = 'ready';
+				$text  = __( 'approved composition', 'hal-member-profiles' );
 			} elseif ( 0 === strpos( $reason, 'missing_components:' ) ) {
 				$missing = substr( $reason, strlen( 'missing_components:' ) );
+				$state   = 'blocked';
 
 				/* translators: %s: comma-separated component slugs. */
 				$text = sprintf( __( 'locked — missing components: %1$s (native fallback active)', 'hal-member-profiles' ), $missing );
 			} elseif ( 'awaiting_matrix_signoff' === $reason ) {
-				$text = __( 'awaiting matrix sign-off — observe mode until QA passes on this exact composition', 'hal-member-profiles' );
+				$state = 'pending';
+				$text  = __( 'awaiting matrix sign-off — observe mode until QA passes on this exact composition', 'hal-member-profiles' );
 			} elseif ( 'composition_mismatch' === $reason ) {
-				$text = __( 'current versions differ from the signed composition — native fallback active', 'hal-member-profiles' );
+				$state = 'blocked';
+				$text  = __( 'current versions differ from the signed composition — native fallback active', 'hal-member-profiles' );
 			} elseif ( 'unknown_capability' === $reason ) {
 				$text = $capability;
 			} else {
 				$text = $reason;
 			}
 
-			self::print_row( $label, $text );
+			self::print_state_row( $label, (string) $state, $text );
+				}
+			}
+			?>
+			</tbody>
+		</table>
+		<?php
+		// Card S-08: the evidence reporter is loaded lazily at its ONLY consumption
+		// point — never in load_module_classes(), never on frontend, never on other
+		// admin requests. The JSON is read-only, PII-free, escaped, and only ever
+		// displayed here behind the page's manage_options guard. Any failure in the
+		// collector degrades to an explicit fail-closed note — the page never fatals.
+		if ( null !== $bootstrap ) {
+			$evidence = null;
+
+			try {
+				if ( ! class_exists( RuntimeEvidenceReporter::class ) ) {
+					require_once HAL_MEMBER_PROFILES_DIR . 'includes/RuntimeEvidenceReporter.php';
+				}
+
+				$facts    = RuntimeEvidenceReporter::collect_runtime_facts( $bootstrap );
+				$evidence = ( new RuntimeEvidenceReporter( $facts ) )->generate_json();
+			} catch ( \Throwable $e ) {
+				$evidence = null;
+			}
+			?>
+			<h3 class="title"><?php esc_html_e( 'Runtime compatibility evidence (JSON)', 'hal-member-profiles' ); ?></h3>
+			<?php if ( null === $evidence ) : ?>
+				<p><em><?php esc_html_e( 'Evidence report unavailable (fail-closed) — no JSON is shown.', 'hal-member-profiles' ); ?></em></p>
+			<?php else : ?>
+				<p class="description"><?php esc_html_e( "Read-only JSON of this site's own HAL state — the external Production Verifier never reads it, and it never changes any compatibility verdict.", 'hal-member-profiles' ); ?></p>
+				<label for="hal-runtime-evidence-json" class="screen-reader-text"><?php esc_html_e( 'Runtime compatibility evidence JSON', 'hal-member-profiles' ); ?></label>
+				<textarea id="hal-runtime-evidence-json" readonly rows="14" aria-label="<?php esc_attr_e( 'Runtime compatibility evidence JSON', 'hal-member-profiles' ); ?>" style="max-width:900px;width:100%;font-family:monospace"><?php echo esc_textarea( $evidence ); ?></textarea>
+			<?php endif; ?>
+			<?php
+		}
 		}
 	}
 
@@ -763,5 +1056,48 @@ final class AdminDashboard {
 			esc_html( $label ),
 			esc_html( $value )
 		);
+	}
+
+	/**
+	 * Unified translated state words (card S-05). Display-only: the machine values and
+	 * the decisions behind them never change.
+	 *
+	 * @param string $state Machine state slug: ready|blocked|pending|not_configured.
+	 * @return string
+	 */
+	private static function state_label( string $state ): string {
+		$labels = array(
+			'ready'          => __( 'Ready', 'hal-member-profiles' ),
+			'blocked'        => __( 'Blocked', 'hal-member-profiles' ),
+			'pending'        => __( 'Pending', 'hal-member-profiles' ),
+			'not_configured' => __( 'Not configured', 'hal-member-profiles' ),
+		);
+
+		return $labels[ $state ] ?? $state;
+	}
+
+	/**
+	 * One row whose value opens with the unified state word followed by the unchanged
+	 * machine detail — states never rely on color alone (card S-05).
+	 *
+	 * @param string $label  Raw row label.
+	 * @param string $state  Machine state slug accepted by state_label().
+	 * @param string $detail Unchanged machine detail (may be empty).
+	 * @return void
+	 */
+	private static function print_state_row( string $label, string $state, string $detail = '' ): void {
+		$state_word = '' !== $state ? self::state_label( $state ) : '';
+
+		if ( '' === $state_word ) {
+			self::print_row( $label, $detail );
+
+			return;
+		}
+
+		$value = '' === $detail
+			? $state_word
+			: $state_word . ' — ' . $detail;
+
+		self::print_row( $label, $value );
 	}
 }

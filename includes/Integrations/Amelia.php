@@ -56,8 +56,6 @@ final class Amelia {
 	public function __construct( Settings $settings, ?array $catalog_override = null ) {
 		$this->settings         = $settings;
 		$this->catalog_override = $catalog_override;
-
-		add_filter( 'um_user_pre_updating_profile_array', array( $this, 'filter_profile_services_before_save' ), 20, 3 );
 	}
 
 	/**
@@ -214,8 +212,8 @@ final class Amelia {
 
 	/**
 	 * Server-side enforcement for selected_services posted by the UM Profile form.
-	 * Registered on um_user_pre_updating_profile_array in the constructor — this is the
-	 * single, server-side gate for this value.
+	 * The constructor does not register this callback automatically; consumers must wire
+	 * it explicitly to the documented um_user_pre_updating_profile_array hook.
 	 *
 	 * CONTRACT (remediation card F-16 + docs/compatibility-matrix.md §4): the value that
 	 * UM finally STORES must be an EMPTY array in exactly these three cases, because the
