@@ -1,6 +1,6 @@
 <?php
 /**
- * Ultimate Member's real Account navigation tabs.
+ * Legacy Account navigation widget retained only for saved Elementor data.
  *
  * @package HAL\MemberProfiles\Elementor\Widgets
  */
@@ -8,8 +8,6 @@
 namespace HAL\MemberProfiles\Elementor\Widgets;
 
 use Elementor\Widget_Base;
-use HAL\MemberProfiles\Bootstrap;
-use HAL\MemberProfiles\LayoutContract;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -38,61 +36,11 @@ final class AccountNavigation extends Widget_Base {
 	}
 
 	/**
-	 * Outputs UM's own Account tab navigation exactly as UM resolves it — the same tabs
-	 * and the same links for every active extension, in UM's own stored order, with no
-	 * independent fixed ordering imposed here. A tab UM itself does not include in its
-	 * resolved tabs (disabled/hidden) is simply never iterated, never fabricated. Registers
-	 * the account_navigation LayoutContract marker only after that output is actually
-	 * non-empty.
+	 * Legacy slug retained for saved Elementor documents. C2 makes the Account surface an
+	 * atomic UM-owned render, so this split widget is deliberately inert even when older
+	 * code instantiates it directly.
 	 */
 	protected function render(): void {
-		$bootstrap = Bootstrap::instance();
-
-		if ( null === $bootstrap ) {
-			return;
-		}
-
-		$account_context = $bootstrap->get_account_context();
-		$um_integration   = $bootstrap->get_um_integration();
-		$layout_contract  = $bootstrap->get_layout_contract();
-
-		if ( null === $account_context || null === $um_integration || null === $layout_contract ) {
-			return;
-		}
-
-		$resolved_context = $account_context->resolve();
-
-		if ( null === $resolved_context ) {
-			if ( $account_context->is_editor_preview() ) {
-				echo $this->render_missing_context_placeholder(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-			}
-
-			return;
-		}
-
-		$output = $um_integration->render_account_tabs();
-
-		if ( '' === trim( $output ) ) {
-			return;
-		}
-
-		$layout_contract->register( LayoutContract::MARKER_ACCOUNT_NAVIGATION );
-
-		// UM's own already-rendered, already-escaped native output — not regenerated here.
-		echo $output; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-	}
-
-	/**
-	 * Builds the safe, translatable "no account context/fixture" notice shown only inside
-	 * the Elementor editor canvas (edit or preview iframe) — never on the live frontend,
-	 * and never in place of Ultimate Member's own native account tab navigation.
-	 *
-	 * @return string
-	 */
-	private function render_missing_context_placeholder(): string {
-		return sprintf(
-			'<div class="hal-member-profiles-placeholder"><span class="hal-member-profiles-placeholder__text">%s</span></div>',
-			esc_html__( 'Account Navigation (UM): no account context. Choose a preview fixture in HAL Member Profiles → Settings to preview this widget here.', 'hal-member-profiles' )
-		);
+		return;
 	}
 }

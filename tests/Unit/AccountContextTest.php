@@ -25,6 +25,7 @@ final class AccountContextTest extends TestCase {
 		unset( $GLOBALS['wp_stubs']['logged_in'] );
 		unset( $GLOBALS['wp_stubs']['current_user'] );
 		unset( $GLOBALS['wp_stubs']['users'] );
+		unset( $GLOBALS['wp_stubs']['um_account_tab'] );
 		unset( $_GET['user_id'] );
 	}
 
@@ -72,6 +73,14 @@ final class AccountContextTest extends TestCase {
 		$GLOBALS['wp_stubs']['current_user'] = 7;
 
 		$this->assertSame( 'general', $this->context->resolve()->current_tab );
+	}
+
+	public function test_missing_um_current_tab_makes_context_unavailable(): void {
+		$this->seed_member_account();
+		$GLOBALS['wp_stubs']['current_user']   = 7;
+		$GLOBALS['wp_stubs']['um_account_tab'] = '__UNAVAILABLE__';
+
+		$this->assertNull( $this->context->resolve() );
 	}
 
 	/** Card 7.6: outside the account page there is no context at all. */

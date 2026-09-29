@@ -99,6 +99,15 @@ $um_native_inner_pipeline = function () use ( $args ) {
 		<?php endif; ?>
 
 		<?php
+		// Card C3: owner-only Profile Overview, rendered before the native/layout
+		// pipeline. ProfileOverview::render() itself returns '' for visitors, other
+		// users, unauthenticated requests, and any missing dependency (safe absence).
+		// The template passes its own verified form/mode through — never guessed.
+		if ( class_exists( '\HAL\MemberProfiles\ProfileOverview' ) ) {
+			echo \HAL\MemberProfiles\ProfileOverview::render( (int) $form_id, (string) $mode ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returned markup is fully escaped internally.
+		}
+		?>
+		<?php
 		if ( class_exists( '\HAL\MemberProfiles\Integrations\ProfileLayoutAdapter' ) ) {
 			\HAL\MemberProfiles\Integrations\ProfileLayoutAdapter::render_or_fallback(
 				$um_native_inner_pipeline,

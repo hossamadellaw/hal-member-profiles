@@ -1,0 +1,22 @@
+CMD: pwd -W
+D:/حسام عادل المحامي Hossam Adel Lawyer/website/plugins/hal-member-profiles
+CMD: sha256sum .phpunit.result.cache (BEFORE)
+sha_before=a70cac1ec71e6681d3f676949bd65a8942398be1e1889869f52529ea46a3d0d3
+CMD: php vendor/phpunit/phpunit/phpunit --testsuite unit --do-not-cache-result  (Stable Unit Gate — run ONCE; version bump must not change 229/1004/2)
+PHPUnit 9.6.36 by Sebastian Bergmann and contributors.
+
+...............................................................  63 / 229 ( 27%)
+............................................................... 126 / 229 ( 55%)
+...................................................S........... 189 / 229 ( 82%)
+...........................S............                        229 / 229 (100%)
+
+Time: 00:02.380, Memory: 10.00 MB
+
+OK, but incomplete, skipped, or risky tests!
+Tests: 229, Assertions: 1004, Skipped: 2.
+CACHE_AFTER_PROOF:
+a70cac1ec71e6681d3f676949bd65a8942398be1e1889869f52529ea46a3d0d3 *.phpunit.result.cache
+sha_before=a70cac1ec71e6681d3f676949bd65a8942398be1e1889869f52529ea46a3d0d3
+mtime_before=1790505668 mtime_after=1790505668
+DISCLOSURE: --do-not-cache-result writes nothing; the pre-existing .phpunit.result.cache (2026-09-27, prior standing run) is preserved untouched — hash and mtime above are identical before/after. The file is gitignored (.gitignore /.phpunit.result.cache).
+EXIT=0

@@ -3,6 +3,10 @@
  * Inserts an Elementor Library Template inside the UM Profile template only — never both
  * the Elementor path and the native pipeline at once.
  *
+ * Card C7 / OD-06: the rendered template is selected per the profile OWNER's member type
+ * (ProfileContext persona) from admin-configured EXISTING Elementor library templates;
+ * any unqualified selection falls back to the complete native pipeline with zero writes.
+ *
  * @package HAL\MemberProfiles\Integrations
  */
 
@@ -78,12 +82,17 @@ final class ProfileLayoutAdapter {
 		}
 
 		$profile_context = $bootstrap->get_profile_context();
+		$context         = null !== $profile_context ? $profile_context->resolve( $args, $form_id, $mode ) : null;
 
-		if ( null === $profile_context || null === $profile_context->resolve( $args, $form_id, $mode ) ) {
+		if ( null === $context ) {
 			return null;
 		}
 
-		$template_id = $settings->get_profile_library_template_id();
+		// C7 / OD-06: the public-profile template is selected per the OWNER's member type,
+		// as resolved by ProfileContext (never the current viewer). A configured ID that
+		// is deleted, unpublished, or of the wrong type returns null here, which is the
+		// Native fallback — a valid template is never silently substituted.
+		$template_id = $settings->get_public_profile_template_id_for_persona( (string) $context->persona );
 
 		if ( null === $template_id ) {
 			return null;

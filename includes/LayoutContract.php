@@ -98,13 +98,14 @@ final class LayoutContract {
 	}
 
 	/**
-	 * Whether Account Navigation and Account Body were each registered exactly once.
+	 * The legacy split Account contract is permanently invalid. Ultimate Member owns the
+	 * complete Account surface atomically; constants remain only so saved Elementor data
+	 * and older integrations do not lose their stable identifiers.
 	 *
 	 * @return bool
 	 */
 	public function is_account_contract_valid(): bool {
-		return 1 === $this->count( self::MARKER_ACCOUNT_NAVIGATION )
-			&& 1 === $this->count( self::MARKER_ACCOUNT_BODY );
+		return false;
 	}
 
 	/**

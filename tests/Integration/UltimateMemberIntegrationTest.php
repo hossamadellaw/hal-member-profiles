@@ -112,33 +112,38 @@ final class UltimateMemberIntegrationTest extends TestCase {
 		$this->assertSame( $saved_post, $post );
 	}
 
-	/** Card 7.12: guest never receives Account content. */
-	public function test_account_adapter_never_renders_for_guest(): void {
+	/** C2: the legacy adapter delegates the complete UM-owned Account render once. */
+	public function test_account_adapter_delegates_native_once_with_original_args(): void {
 		$this->assertNotNull( $this->boot() );
-		wp_set_current_user( 0 );
 
-		$ran = false;
+		$calls = array();
 		ob_start();
 		\HAL\MemberProfiles\Integrations\AccountLayoutAdapter::render_or_fallback(
-			function () use ( &$ran ): void { $ran = true; }
+			function ( array $args ) use ( &$calls ): void {
+				$calls[] = $args;
+				echo 'NATIVE-ACCOUNT';
+			},
+			array( 'mode' => 'account' )
 		);
-		ob_end_clean();
+		$out = ob_get_clean();
 
-		$this->assertFalse( $ran );
+		$this->assertSame( 'NATIVE-ACCOUNT', $out );
+		$this->assertSame( array( array( 'mode' => 'account' ) ), $calls );
 	}
 
-	/** Card 7.12: Elementor disabled => full native Account, never an empty page. */
-	public function test_account_native_pipeline_outputs_full_content(): void {
+	/** C2: HAL exposes no second Account navigation/body/native re-entry renderer. */
+	public function test_hal_account_render_helpers_are_inert(): void {
 		$this->assertNotNull( $this->boot()->get_um_integration() );
 
-		$out = $this->boot()->get_um_integration()->render_account_native_pipeline();
-
-		// Official channel produced SOMETHING (never an empty page) when UM is active.
-		$this->assertNotSame( '', trim( $out ) );
+		$um = $this->boot()->get_um_integration();
+		$this->assertSame( '', $um->render_account_tabs() );
+		$this->assertSame( '', $um->render_account_body() );
+		$this->assertSame( '', $um->render_account_native_full() );
+		$this->assertSame( '', $um->render_account_native_pipeline() );
 	}
 
-	/** Card 7.12: deleted Account Library Template falls back cleanly. */
-	public function test_account_adapter_falls_back_when_library_template_deleted(): void {
+	/** C2: stored legacy template IDs do not alter native Account delegation. */
+	public function test_account_adapter_ignores_legacy_library_template_id(): void {
 		$this->assertNotNull( $this->boot() );
 		$GLOBALS['hal_test_account_template_id'] = 999999;
 

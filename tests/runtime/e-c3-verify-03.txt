@@ -1,0 +1,10 @@
+No syntax errors detected in includes/ProfileOverview.php
+EXIT_PO=0
+No syntax errors detected in includes/Bootstrap.php
+EXIT_BOOT=0
+No syntax errors detected in resources/ultimate-member/profile-hal-member-profiles.php
+EXIT_TMPL_RES=0
+No syntax errors detected in Child Theme/ultimate-member/templates/profile-hal-member-profiles.php
+EXIT_TMPL_CHILD=0
+No syntax errors detected in tests/Unit/ProfileOverviewTest.php
+EXIT_TEST=0

@@ -1,0 +1,395 @@
+CMD: pwd -W
+D:/حسام عادل المحامي Hossam Adel Lawyer/website/plugins/hal-member-profiles
+CMD: node --version
+v22.20.0
+OFFLINE-PROOF (pre-run inspection of tests/external/verify.test.mjs): imports only node builtin modules (assert/events/fs/os/path/stream/test/url/zlib) — no https/dns/net/tls/fetch import in the test file; the engine module (verify.mjs) imports node:https/dns/net but EVERY test injects fake transports (performRequest / requestOnce / httpsRequest / resolvePublic / readFileSync / fs no-op sinks / sleep no-op); remote hostnames appear only as inert strings passed to fakes; filesystem writes go to os.tmpdir() and are removed in finally. No live endpoint is contacted.
+CMD: node --test tests/external/verify.test.mjs  (Verifier engine gate — run ONCE, offline)
+TAP version 13
+# Subtest: schema v2 supports direct targets and multiple version sources
+ok 1 - schema v2 supports direct targets and multiple version sources
+  ---
+  duration_ms: 30.804
+  type: 'test'
+  ...
+# Subtest: all environments are strict and primary target instances are one-to-one
+ok 2 - all environments are strict and primary target instances are one-to-one
+  ---
+  duration_ms: 11.3086
+  type: 'test'
+  ...
+# Subtest: environment and every target instance have globally canonical unique identities
+ok 3 - environment and every target instance have globally canonical unique identities
+  ---
+  duration_ms: 4.5473
+  type: 'test'
+  ...
+# Subtest: IPv4/IPv6 literals, duplicate origins and base-path escapes are rejected
+ok 4 - IPv4/IPv6 literals, duplicate origins and base-path escapes are rejected
+  ---
+  duration_ms: 4.614
+  type: 'test'
+  ...
+# Subtest: path isolation rejects raw, encoded and repeatedly encoded separator ambiguity
+ok 5 - path isolation rejects raw, encoded and repeatedly encoded separator ambiguity
+  ---
+  duration_ms: 5.7679
+  type: 'test'
+  ...
+# Subtest: config rejects unsafe capabilities and impossible limits
+ok 6 - config rejects unsafe capabilities and impossible limits
+  ---
+  duration_ms: 4.8029
+  type: 'test'
+  ...
+# Subtest: configuration rejects empty required evidence and required unobservable checks fail closed
+ok 7 - configuration rejects empty required evidence and required unobservable checks fail closed
+  ---
+  duration_ms: 24.5273
+  type: 'test'
+  ...
+# Subtest: unsafe IP ranges are rejected while public unicast is accepted
+ok 8 - unsafe IP ranges are rejected while public unicast is accepted
+  ---
+  duration_ms: 4.1294
+  type: 'test'
+  ...
+# Subtest: per-check fingerprints distinguish checks and survive companion faults
+ok 9 - per-check fingerprints distinguish checks and survive companion faults
+  ---
+  duration_ms: 4.1698
+  type: 'test'
+  ...
+# Subtest: attempt table and result priority are exact
+ok 10 - attempt table and result priority are exact
+  ---
+  duration_ms: 2.9065
+  type: 'test'
+  ...
+# Subtest: redirects are declared, base-confined, counted and strip cross-target auth
+ok 11 - redirects are declared, base-confined, counted and strip cross-target auth
+  ---
+  duration_ms: 7.1331
+  type: 'test'
+  ...
+# Subtest: bounded requests fall back to global timers when dependencies omit timer functions
+ok 12 - bounded requests fall back to global timers when dependencies omit timer functions
+  ---
+  duration_ms: 2.9757
+  type: 'test'
+  ...
+# Subtest: redirect and request budgets reject undeclared, downgrade and exhausted paths
+ok 13 - redirect and request budgets reject undeclared, downgrade and exhausted paths
+  ---
+  duration_ms: 4.1161
+  type: 'test'
+  ...
+# Subtest: headers, decompression and teardown paths are bounded
+ok 14 - headers, decompression and teardown paths are bounded
+  ---
+  duration_ms: 50.292
+  type: 'test'
+  ...
+# Subtest: requestOnce executes fixed lookup and destroys malformed responses
+ok 15 - requestOnce executes fixed lookup and destroys malformed responses
+  ---
+  duration_ms: 5.0407
+  type: 'test'
+  ...
+# Subtest: requestOnce fixed lookup honors Node all-address callback mode
+ok 16 - requestOnce fixed lookup honors Node all-address callback mode
+  ---
+  duration_ms: 1.4271
+  type: 'test'
+  ...
+# Subtest: DNS resolver blocks empty, private and network errors
+ok 17 - DNS resolver blocks empty, private and network errors
+  ---
+  duration_ms: 2.0224
+  type: 'test'
+  ...
+# Subtest: verification passes only after two consecutive complete observations
+ok 18 - verification passes only after two consecutive complete observations
+  ---
+  duration_ms: 6.4114
+  type: 'test'
+  ...
+# Subtest: stable_release_watcher claims round-trip through management payload and issue creation (regression)
+ok 19 - stable_release_watcher claims round-trip through management payload and issue creation (regression)
+  ---
+  duration_ms: 10.2649
+  type: 'test'
+  ...
+# Subtest: a failing required homepage can never produce a pass even with the exact Stable tag (regression)
+ok 20 - a failing required homepage can never produce a pass even with the exact Stable tag (regression)
+  ---
+  duration_ms: 3.8186
+  type: 'test'
+  ...
+# Subtest: mixed required version sources fail and never publish an observed stable version
+ok 21 - mixed required version sources fail and never publish an observed stable version
+  ---
+  duration_ms: 5.7193
+  type: 'test'
+  ...
+# Subtest: pass-fail-pass is a nonincident stability failure
+ok 22 - pass-fail-pass is a nonincident stability failure
+  ---
+  duration_ms: 2.8462
+  type: 'test'
+  ...
+# Subtest: missing configured Basic Auth still emits a bounded blocked report and evidence
+ok 23 - missing configured Basic Auth still emits a bounded blocked report and evidence
+  ---
+  duration_ms: 15.3985
+  type: 'test'
+  ...
+# Subtest: invalid setup is blocked and explicitly ineligible for incident management
+ok 24 - invalid setup is blocked and explicitly ineligible for incident management
+  ---
+  duration_ms: 5.5778
+  type: 'test'
+  ...
+# Subtest: JUnit reports real counts and all emitted evidence remains redacted
+ok 25 - JUnit reports real counts and all emitted evidence remains redacted
+  ---
+  duration_ms: 4.3034
+  type: 'test'
+  ...
+# Subtest: preflight accepts dispatch and successful call and rejects PR events
+ok 26 - preflight accepts dispatch and successful call and rejects PR events
+  ---
+  duration_ms: 9.9192
+  type: 'test'
+  ...
+# Subtest: preflight does not depend on GitHub Environments and rejects non-public repositories
+ok 27 - preflight does not depend on GitHub Environments and rejects non-public repositories
+  ---
+  duration_ms: 2.7505
+  type: 'test'
+  ...
+# Subtest: required GitHub release provenance binds release, asset, tag and deployment commit
+ok 28 - required GitHub release provenance binds release, asset, tag and deployment commit
+  ---
+  duration_ms: 2.5454
+  type: 'test'
+  ...
+# Subtest: GitHub control requests retain only safe rate-limit headers
+ok 29 - GitHub control requests retain only safe rate-limit headers
+  ---
+  duration_ms: 2.1002
+  type: 'test'
+  ...
+# Subtest: management payload schema and cross-field invariants are strict
+ok 30 - management payload schema and cross-field invariants are strict
+  ---
+  duration_ms: 4.1962
+  type: 'test'
+  ...
+# Subtest: nonincident results never search or write Issues
+ok 31 - nonincident results never search or write Issues
+  ---
+  duration_ms: 0.3113
+  type: 'test'
+  ...
+# Subtest: forged public Issues cannot poison, update, or close the automation lifecycle
+ok 32 - forged public Issues cannot poison, update, or close the automation lifecycle
+  ---
+  duration_ms: 0.8986
+  type: 'test'
+  ...
+# Subtest: 121 forged matching Issues cannot flood out a real incident creation
+ok 33 - 121 forged matching Issues cannot flood out a real incident creation
+  ---
+  duration_ms: 5.7342
+  type: 'test'
+  ...
+# Subtest: mixed forged and trusted results derive lifecycle decisions only from the bot record
+ok 34 - mixed forged and trusted results derive lifecycle decisions only from the bot record
+  ---
+  duration_ms: 3.7061
+  type: 'test'
+  ...
+# Subtest: forged flooding cannot block trusted recovery or supersession
+ok 35 - forged flooding cannot block trusted recovery or supersession
+  ---
+  duration_ms: 15.516
+  type: 'test'
+  ...
+# Subtest: trusted automation search is bounded to two pages and 120 records
+ok 36 - trusted automation search is bounded to two pages and 120 records
+  ---
+  duration_ms: 16.5301
+  type: 'test'
+  ...
+# Subtest: repeated fingerprints create exact marked issues and deduplicate stale runs
+ok 37 - repeated fingerprints create exact marked issues and deduplicate stale runs
+  ---
+  duration_ms: 4.0577
+  type: 'test'
+  ...
+# Subtest: recovery closes only newer matching incidents and preserves original evidence
+ok 38 - recovery closes only newer matching incidents and preserves original evidence
+  ---
+  duration_ms: 2.7772
+  type: 'test'
+  ...
+# Subtest: recovery freshness record prevents an older incident from reopening
+ok 39 - recovery freshness record prevents an older incident from reopening
+  ---
+  duration_ms: 3.3883
+  type: 'test'
+  ...
+# Subtest: supersession requires a newer proven and observed stable release
+ok 40 - supersession requires a newer proven and observed stable release
+  ---
+  duration_ms: 1.7153
+  type: 'test'
+  ...
+# Subtest: artifact inventory is exactly two small sanitized evidence files
+ok 41 - artifact inventory is exactly two small sanitized evidence files
+  ---
+  duration_ms: 10.162
+  type: 'test'
+  ...
+# Subtest: workflow has one global versionless concurrency key and exactly three isolated jobs
+ok 42 - workflow has one global versionless concurrency key and exactly three isolated jobs
+  ---
+  duration_ms: 1.8091
+  type: 'test'
+  ...
+# Subtest: workflow pins external actions and isolates target secrets from public and issue steps
+ok 43 - workflow pins external actions and isolates target secrets from public and issue steps
+  ---
+  duration_ms: 3.8724
+  type: 'test'
+  ...
+# Subtest: workflow exposes dispatch and call only, with no release trigger and no persistent schedule
+ok 44 - workflow exposes dispatch and call only, with no release trigger and no persistent schedule
+  ---
+  duration_ms: 2.7196
+  type: 'test'
+  ...
+# Subtest: release pipeline publishes without auto-starting verification; verification waits for a real deployment
+ok 45 - release pipeline publishes without auto-starting verification; verification waits for a real deployment
+  ---
+  duration_ms: 0.9671
+  type: 'test'
+  ...
+# Subtest: workflow enforces a sixteen-minute active-cycle bound and documents reusable permissions
+ok 46 - workflow enforces a sixteen-minute active-cycle bound and documents reusable permissions
+  ---
+  duration_ms: 2.8023
+  type: 'test'
+  ...
+# Subtest: template inventory is exactly the four contract files and contains no runtime language
+ok 47 - template inventory is exactly the four contract files and contains no runtime language
+  ---
+  duration_ms: 2.3002
+  type: 'test'
+  ...
+# Subtest: page and asset contracts classify every observable outcome without leaking content
+ok 48 - page and asset contracts classify every observable outcome without leaking content
+  ---
+  duration_ms: 2.5509
+  type: 'test'
+  ...
+# Subtest: all declarative version source modes and bounded failures are executable
+ok 49 - all declarative version source modes and bounded failures are executable
+  ---
+  duration_ms: 2.9097
+  type: 'test'
+  ...
+# Subtest: config validation covers optional observability, HEAD assets and JSON manifests
+ok 50 - config validation covers optional observability, HEAD assets and JSON manifests
+  ---
+  duration_ms: 6.306
+  type: 'test'
+  ...
+# Subtest: gzip, deflate and Brotli decoding share the post-decompression body bound
+ok 51 - gzip, deflate and Brotli decoding share the post-decompression body bound
+  ---
+  duration_ms: 48.0689
+  type: 'test'
+  ...
+# Subtest: error normalization and GitHub failure classification are finite and sanitized
+ok 52 - error normalization and GitHub failure classification are finite and sanitized
+  ---
+  duration_ms: 0.7439
+  type: 'test'
+  ...
+# Subtest: unknown machine error codes are reported without leaking error details
+ok 53 - unknown machine error codes are reported without leaking error details
+  ---
+  duration_ms: 0.9675
+  type: 'test'
+  ...
+# Subtest: strict management handles ineligible, not-observable, duplicate and invalid provenance payloads
+ok 54 - strict management handles ineligible, not-observable, duplicate and invalid provenance payloads
+  ---
+  duration_ms: 3.5536
+  type: 'test'
+  ...
+# Subtest: issue ordering, update, reopen, duplicate detection and version ordering are deterministic
+ok 55 - issue ordering, update, reopen, duplicate detection and version ordering are deterministic
+  ---
+  duration_ms: 2.0985
+  type: 'test'
+  ...
+# Subtest: verified provenance validation enforces every asset identity and digest field
+ok 56 - verified provenance validation enforces every asset identity and digest field
+  ---
+  duration_ms: 1.8811
+  type: 'test'
+  ...
+# Subtest: config loader bounds bytes, rejects malformed JSON and binds its digest
+ok 57 - config loader bounds bytes, rejects malformed JSON and binds its digest
+  ---
+  duration_ms: 3.0103
+  type: 'test'
+  ...
+# Subtest: missing production base URL secret blocks with the renamed code before any network request
+ok 58 - missing production base URL secret blocks with the renamed code before any network request
+  ---
+  duration_ms: 6.08
+  type: 'test'
+  ...
+# Subtest: resolved production base URL never reaches emitted evidence or the management payload
+ok 59 - resolved production base URL never reaches emitted evidence or the management payload
+  ---
+  duration_ms: 9.9944
+  type: 'test'
+  ...
+# Subtest: authenticated verification accepts bounded credentials without exposing them
+ok 60 - authenticated verification accepts bounded credentials without exposing them
+  ---
+  duration_ms: 2.9379
+  type: 'test'
+  ...
+# Subtest: ordering uses run, attempt, completion time and stable semantic precedence
+ok 61 - ordering uses run, attempt, completion time and stable semantic precedence
+  ---
+  duration_ms: 0.3446
+  type: 'test'
+  ...
+# Subtest: URL, path, identity and collection validation reject every unsafe declarative shape
+ok 62 - URL, path, identity and collection validation reject every unsafe declarative shape
+  ---
+  duration_ms: 6.8462
+  type: 'test'
+  ...
+# Subtest: special-use IPv4 ranges and malformed addresses remain non-public-unicast
+ok 63 - special-use IPv4 ranges and malformed addresses remain non-public-unicast
+  ---
+  duration_ms: 0.1929
+  type: 'test'
+  ...
+1..63
+# tests 63
+# suites 0
+# pass 63
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 876.4491
+EXIT=0

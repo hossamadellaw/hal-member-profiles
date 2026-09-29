@@ -1,0 +1,17 @@
+PHPUnit 9.6.36 by Sebastian Bergmann and contributors.
+
+........F.                                                        10 / 10 (100%)
+
+Time: 00:00.078, Memory: 6.00 MB
+
+There was 1 failure:
+
+1) HAL\MemberProfiles\Tests\Unit\DashboardLinkConsumerTest::test_readiness_gates_are_evaluated_inside_the_invocation
+the gate verdict was re-evaluated inside this invocation, not cached
+Failed asserting that actual size 3 matches expected size 2.
+
+D:\حسام عادل المحامي Hossam Adel Lawyer\website\plugins\hal-member-profiles\tests\Unit\DashboardLinkConsumerTest.php:382
+
+FAILURES!
+Tests: 10, Assertions: 41, Failures: 1.
+EXIT=1

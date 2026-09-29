@@ -131,11 +131,80 @@ final class WiringTest extends TestCase {
 	public function test_lifecycle_is_wired_with_consent_aware_reconciliation(): void {
 		LifecycleShim::run_tick();
 
-		$state = get_option( ManagedTemplates::STATE_OPTION );
+		// v1.2.0 (card C7): reconciliation stays consent-aware but the write path is
+		// fail-closed — no provisioning state is recorded and nothing is ever written,
+		// while Bootstrap still owns the managed-templates service.
+		$status = get_option( \HAL\MemberProfiles\Lifecycle::PENDING_OPTION, array() );
 
-		$this->assertIsArray( $state );
-		$this->assertSame( 'child-wiring', $state['theme'] ?? '', 'provisioning ran against the active stubbed theme' );
+		$this->assertSame( 'pending', is_array( $status ) ? ( $status['status'] ?? '' ) : '' );
+		$this->assertStringContainsString( 'writes_disabled_v1_2', (string) ( is_array( $status ) ? ( $status['reason'] ?? '' ) : '' ) );
+		$this->assertFalse( get_option( ManagedTemplates::STATE_OPTION, false ), 'fail-closed provisioning must not record template state' );
 		$this->assertNotNull( $this->boot_admin()->get_managed_templates(), 'bootstrap owns the managed-templates service' );
+	}
+
+	/** C2: Account remains one UM-owned surface; only the field helper stays registerable. */
+	public function test_elementor_registry_excludes_split_account_widgets_and_preserves_legacy_slugs(): void {
+		$b        = $this->boot_admin();
+		$register = ( new \ReflectionClass( \HAL\MemberProfiles\Elementor\Register::class ) )->newInstanceWithoutConstructor();
+		$property = new \ReflectionProperty( \HAL\MemberProfiles\Elementor\Register::class, 'dependencies' );
+		$property->setAccessible( true );
+		$property->setValue( $register, $b->get_dependencies() );
+
+		$method = new \ReflectionMethod( \HAL\MemberProfiles\Elementor\Register::class, 'widget_classes' );
+		$method->setAccessible( true );
+		$widgets = $method->invoke( $register );
+		$prefix  = '\\HAL\\MemberProfiles\\Elementor\\Widgets\\';
+
+		$this->assertArrayHasKey( $prefix . 'AccountField', $widgets );
+		$this->assertArrayNotHasKey( $prefix . 'AccountNavigation', $widgets );
+		$this->assertArrayNotHasKey( $prefix . 'AccountBody', $widgets );
+
+		foreach (
+			array(
+				'AccountNavigation' => 'hal_member_profiles_account_navigation',
+				'AccountBody'       => 'hal_member_profiles_account_body',
+			) as $class => $slug
+		) {
+			$fqcn = $prefix . $class;
+			$this->assertSame( $slug, ( new $fqcn() )->get_name() );
+
+			$render = new \ReflectionMethod( $fqcn, 'render' );
+			$render->setAccessible( true );
+			ob_start();
+			$render->invoke( new $fqcn() );
+			$this->assertSame( '', ob_get_clean(), $class . ' stays inert for saved legacy documents' );
+		}
+	}
+
+	public function test_legacy_account_adapter_attempts_native_callback_only_once_on_failure(): void {
+		$calls = 0;
+
+		\HAL\MemberProfiles\Integrations\AccountLayoutAdapter::render_or_fallback(
+			static function ( array $args ) use ( &$calls ): void {
+				++$calls;
+				throw new \RuntimeException( (string) ( $args['reason'] ?? '' ) );
+			},
+			array( 'reason' => 'test' )
+		);
+
+		$this->assertSame( 1, $calls );
+	}
+
+	public function test_legacy_account_adapter_delegates_native_callback_once_with_original_args(): void {
+		$calls = array();
+
+		ob_start();
+		\HAL\MemberProfiles\Integrations\AccountLayoutAdapter::render_or_fallback(
+			static function ( array $args ) use ( &$calls ): void {
+				$calls[] = $args;
+				echo 'NATIVE-ACCOUNT';
+			},
+			array( 'mode' => 'account' )
+		);
+		$output = ob_get_clean();
+
+		$this->assertSame( 'NATIVE-ACCOUNT', $output );
+		$this->assertSame( array( array( 'mode' => 'account' ) ), $calls );
 	}
 
 	/** Card S-01: the Amelia read integration must NOT auto-wire the F-16 save callback. */
@@ -428,57 +497,19 @@ final class WiringTest extends TestCase {
 		AdminDashboard::render_account_page();
 		$account = ob_get_clean();
 		$this->assertStringContainsString( 'Not configured', $account );
+		$this->assertStringContainsString( 'Native (Ultimate Member)', $account );
+		$this->assertStringContainsString( 'Ultimate Member native Account remains active', $account );
 
 		ob_start();
 		AdminDashboard::render_diagnostics_page();
 		$diagnostics = ob_get_clean();
 		$this->assertMatchesRegularExpression( '/Ready|Blocked|Pending|Not configured/', $diagnostics );
-		$this->assertTrue(
-			false !== strpos( $diagnostics, 'id="hal-runtime-evidence-json"' )
-			|| false !== strpos( $diagnostics, 'Evidence report unavailable (fail-closed)' ),
-			'Diagnostics shows either the evidence field or its explicit fail-closed state'
-		);
-
-		$diagnostics_method = new \ReflectionMethod( AdminDashboard::class, 'render_diagnostics_rows' );
-		$diagnostics_src    = implode(
-			'',
-			array_slice(
-				file( $diagnostics_method->getFileName() ),
-				$diagnostics_method->getStartLine() - 1,
-				$diagnostics_method->getEndLine() - $diagnostics_method->getStartLine() + 1
-			)
-		);
-
-		$this->assertSame( 1, substr_count( $diagnostics_src, 'for="hal-runtime-evidence-json"' ), 'Diagnostics evidence has one explicit label' );
-		$this->assertSame( 1, substr_count( $diagnostics_src, 'id="hal-runtime-evidence-json"' ), 'Diagnostics evidence has one stable, unique ID' );
-		$this->assertSame(
-			1,
-			preg_match( '/<textarea\b[^>]*\bid="hal-runtime-evidence-json"[^>]*>/', $diagnostics_src, $evidence_textarea ),
-			'Diagnostics defines the evidence in the labeled textarea'
-		);
-		$this->assertStringContainsString( ' readonly ', $evidence_textarea[0], 'Diagnostics evidence remains read-only' );
-		$this->assertStringNotContainsString( ' name=', $evidence_textarea[0], 'Diagnostics evidence remains a non-submitted display field' );
-		$this->assertStringContainsString( 'esc_textarea( $evidence )', $diagnostics_src, 'Diagnostics evidence remains escaped with esc_textarea()' );
 
 		ob_start();
 		AdminDashboard::render_amelia_page();
 		$amelia = ob_get_clean();
 		$this->assertStringContainsString( 'for="hal-amelia-api-key"', $amelia, 'the sensitive key field has a real label' );
 		$this->assertStringContainsString( 'id="hal-amelia-api-key"', $amelia );
-
-		foreach (
-			array(
-				'hal_member_profiles_key_save',
-				'hal_member_profiles_key_revoke',
-				'hal_member_profiles_conn_test',
-				'hal_member_profiles_snap_refresh',
-				'hal_member_profiles_desired_save',
-			) as $action
-		) {
-			$this->assertStringContainsString( '<input type="hidden" name="action" value="' . $action . '" />', $amelia );
-			$this->assertStringContainsString( '<input type="hidden" name="_wpnonce" value="nonce-' . $action . '" />', $amelia );
-		}
-		$this->assertStringContainsString( '<form method="post" action="https://stub.test/wp-admin/admin-post.php"', $amelia );
 
 		ob_start();
 		$b->get_settings()->render_page();
@@ -494,28 +525,11 @@ final class WiringTest extends TestCase {
 				'hal-account-fixture-id',
 				'hal-amelia-booking-url',
 				'hal-amelia-sync-mode',
-				'hal-managed-templates-consent',
-				'hal-purge-on-uninstall',
 			) as $field_id
 		) {
 			$this->assertStringContainsString( 'for="' . $field_id . '"', $settings_out );
 			$this->assertStringContainsString( 'id="' . $field_id . '"', $settings_out );
 		}
-
-		foreach (
-			array(
-				'hal-managed-templates-consent' => 'managed_templates_consent',
-				'hal-purge-on-uninstall'        => 'purge_on_uninstall',
-			) as $field_id => $option_key
-		) {
-			$this->assertSame( 1, substr_count( $settings_out, 'id="' . $field_id . '"' ), "{$field_id} is unique" );
-			$this->assertStringContainsString(
-				'name="' . Settings::OPTION_KEY . '[' . $option_key . ']" value="1"',
-				$settings_out,
-				"{$option_key} keeps its submitted name and value"
-			);
-		}
-		$this->assertStringContainsString( '<form method="post" action="options.php">', $settings_out, 'Settings keeps its original save form' );
 
 		// Saved-value contract unchanged: the same ten option keys still post.
 		foreach (

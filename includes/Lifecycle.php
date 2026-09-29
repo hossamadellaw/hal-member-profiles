@@ -271,10 +271,6 @@ final class Lifecycle {
 
 		$recorded = is_array( $state['assets'] ?? null ) ? $state['assets'] : array();
 
-		if ( count( $recorded ) !== count( $manifest ) ) {
-			return true;
-		}
-
 		foreach ( $manifest as $source_path => $asset ) {
 			if ( ! isset( $recorded[ $source_path ]['asset_version'], $recorded[ $source_path ]['source_hash'] ) ) {
 				return true;
@@ -287,6 +283,10 @@ final class Lifecycle {
 				return true;
 			}
 		}
+
+		// Retired manifest rows are deliberately ignored and retained in the historical
+		// ownership ledger. In particular, removing the legacy Account override from future
+		// provisioning must not delete its state or schedule reconciliation forever.
 
 		return false;
 	}

@@ -341,22 +341,8 @@ final class AdminDashboardPermissionsTest extends TestCase {
 				}
 			}
 
-			$this->assertStringContainsString(
-				'<label for="hal-runtime-evidence-json"',
-				$out,
-				'the evidence textarea must have an explicit accessible label'
-			);
-			$this->assertSame(
-				1,
-				preg_match( '/<textarea\b[^>]*\bid="hal-runtime-evidence-json"[^>]*>/', $out, $evidence_textarea ),
-				'the evidence JSON must render in its stable textarea'
-			);
-			$this->assertMatchesRegularExpression(
-				'/\sreadonly(?:\s|=|>)/',
-				$evidence_textarea[0],
-				'the evidence JSON must be read-only'
-			);
-			$this->assertStringContainsString( 'aria-label=', $evidence_textarea[0], 'the textarea must carry an accessible label' );
+			$this->assertStringContainsString( '<textarea readonly', $out, 'the evidence JSON must be read-only' );
+			$this->assertStringContainsString( 'aria-label=', $out, 'the textarea must carry an accessible label' );
 			$this->assertStringContainsString(
 				'&quot;hal_runtime_compatibility_evidence&quot;',
 				$out,

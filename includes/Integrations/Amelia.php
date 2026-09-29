@@ -127,7 +127,15 @@ final class Amelia {
 				continue;
 			}
 
-			$clean[ $service_id ] = trim( (string) $name );
+			$name = trim( (string) $name );
+
+			// Card C5: a display label longer than WordPress's own term-name ceiling is
+			// not a justified display value — it drops out rather than surfacing.
+			if ( mb_strlen( $name ) > 191 ) {
+				continue;
+			}
+
+			$clean[ $service_id ] = $name;
 		}
 
 		return $clean;
@@ -182,6 +190,228 @@ final class Amelia {
 		}
 
 		return $services;
+	}
+
+	/**
+	 * Card C5b: the professional's explicit, safe service-selection save contract.
+	 * INDEPENDENT of the S-01-closed direct-save body above (which stays byte-identical)
+	 * and of AmeliaFieldsWriter. Implements the mandated save-state table:
+	 *
+	 *   submitted values     -> normalize, then intersect with the CURRENT allowlist, then
+	 *                           MERGE with stored orphaned selections (kept in usermeta,
+	 *                           hidden from display, never deleted here).
+	 *   explicit empty       -> remove still-eligible stored selections only; stored
+	 *                           orphaned selections SURVIVE; result is [] only when the
+	 *                           owner had no orphaned selections at all.
+	 *   field omitted        -> the caller never reaches this method (hook checks presence).
+	 *   catalog unavailable  -> keep the previous stored value; return a safe reason,
+	 *                           never a wipe (unavailable must not erase choices).
+	 *   non-professional     -> reject the input, leave the stored value untouched.
+	 *   forged/ineligible    -> dropped server-side; the allowlist never widens from POST.
+	 *
+	 * Ownership/capability: the production path runs inside UM's own profile-save
+	 * lifecycle for the profile owner (the single registered hook), so the user being
+	 * saved is the user whose form UM is processing; the ordinary member fails the
+	 * professional-persona gate below and saves nothing.
+	 *
+	 * @param int   $user_id Profile owner whose UM form is saving.
+	 * @param mixed $posted  Raw posted selected_services value (array or scalar).
+	 * @return array{ok:bool, reason:string, value:array<int,int>} Safe machine-readable result; no service IDs or values in evidence.
+	 */
+	public function apply_selected_services_save( int $user_id, $posted ): array {
+		$user_id = absint( $user_id );
+
+		if ( $user_id <= 0 ) {
+			return array( 'ok' => false, 'reason' => 'invalid_user', 'value' => array() );
+		}
+
+		// Professional-persona gate (C1-owned mapping; ordinary members save nothing).
+		if ( ! $this->is_professional_persona( $user_id ) ) {
+			return array( 'ok' => false, 'reason' => 'persona_not_professional', 'value' => $this->get_selected_service_ids( $user_id ) );
+		}
+
+		// Catalog availability gate: unavailable is NOT an empty allowlist — the stored
+		// value must survive with a safe reason, never be wiped.
+		$registry_state = $this->catalog_state();
+
+		if ( 'valid_current' !== $registry_state['state'] && 'valid_empty' !== $registry_state['state'] ) {
+			return array(
+				'ok'     => false,
+				'reason' => 'catalog_' . $registry_state['state'],
+				'value'  => $this->get_selected_service_ids( $user_id ),
+			);
+		}
+
+		$catalog   = $this->get_service_catalog();
+		$stored    = $this->get_selected_service_ids( $user_id );
+		$eligible  = $this->get_allowed_service_ids( $user_id );
+		$submitted = $this->normalize_service_values( $posted );
+
+		// Stored selections outside today's allowlist are orphaned: kept in usermeta,
+		// hidden from display, merged back on every save; only an explicit owner/admin
+		// action with a future owner-approved deletion policy may remove them.
+		$orphaned = array_values( array_diff( $stored, $eligible ) );
+
+		$merged = array_values( array_unique( array_merge(
+			array_values( array_intersect( $submitted, $eligible ) ),
+			$orphaned
+		) ) );
+
+		sort( $merged );
+
+		return array( 'ok' => true, 'reason' => 'saved', 'value' => $merged );
+	}
+
+	/**
+	 * Card C5b: the SINGLE production save hook. Presence-checked (an omitted field never
+	 * reaches the contract method), registered exactly once by Bootstrap — never by the
+	 * constructor (S-01 stays intact).
+	 *
+	 * @param mixed $to_update Values UM is about to save.
+	 * @param mixed $user_id  Profile owner.
+	 * @return mixed
+	 */
+	public function hook_profile_services_save( $to_update, $user_id ) {
+		if ( ! is_array( $to_update ) || ! array_key_exists( 'selected_services', $to_update ) ) {
+			return $to_update; // Field omitted: previous value stays untouched.
+		}
+
+		$result = $this->apply_selected_services_save( absint( $user_id ), $to_update['selected_services'] );
+
+		if ( $result['ok'] ) {
+			$to_update['selected_services'] = $result['value'];
+		} else {
+			// Rejected input or unavailable catalog: keep the stored value, never wipe.
+			$to_update['selected_services'] = $result['value'];
+		}
+
+		return $to_update;
+	}
+
+	/**
+	 * Card C5b: one-time production registration of the single save hook. Called from
+	 * Bootstrap's wiring phase only; double registration is structurally impossible via
+	 * the static guard.
+	 *
+	 * @return void
+	 */
+	public static function register_selected_services_save_hook(): void {
+		static $registered = false;
+
+		if ( $registered ) {
+			return;
+		}
+
+		add_filter( 'um_user_pre_updating_profile_array', array( self::class, 'route_profile_services_save' ), 10, 2 );
+		$registered = true;
+	}
+
+	/**
+	 * Static router for the registered hook; resolves the shared Amelia instance through
+	 * Bootstrap so the hook uses the same catalog/settings wiring as the rest of the
+	 * plugin. Falls through untouched when Bootstrap is unavailable (fail-safe no-op).
+	 *
+	 * @param mixed $to_update Values UM is about to save.
+	 * @param mixed $user_id   Profile owner.
+	 * @return mixed
+	 */
+	public static function route_profile_services_save( $to_update, $user_id ) {
+		$bootstrap = \HAL\MemberProfiles\Bootstrap::instance();
+
+		if ( null === $bootstrap || null === $bootstrap->get_amelia() ) {
+			return $to_update;
+		}
+
+		return $bootstrap->get_amelia()->hook_profile_services_save( $to_update, $user_id );
+	}
+
+	/**
+	 * Card C5b: whether this user resolves to one of the two professional personas via
+	 * the C1-owned Settings mapping (role + account status). Unresolvable mapping is
+	 * fail-closed: not a professional.
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	private function is_professional_persona( int $user_id ): bool {
+		$user = get_userdata( $user_id );
+
+		if ( ! $user instanceof \WP_User ) {
+			return false;
+		}
+
+		$mapping = $this->settings->get_um_member_mapping();
+
+		if ( 'available' !== ( $mapping['availability'] ?? '' ) || ! is_array( $mapping['personas'] ?? null ) ) {
+			return false;
+		}
+
+		$status = $this->um_account_status( $user_id );
+
+		if ( null === $status ) {
+			return false;
+		}
+
+		foreach ( $mapping['personas'] as $persona => $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			if ( \HAL\MemberProfiles\Settings::PERSONA_LAWYER === $persona || \HAL\MemberProfiles\Settings::PERSONA_CONSULTANT === $persona ) {
+				if ( in_array( (string) ( $row['role'] ?? '' ), $user->roles, true ) && $status === (string) ( $row['status'] ?? '' ) ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Card C5b: raw account status through UM's own common()->users()->get_status(),
+	 * fail-closed to null when UM is unavailable (never a guess).
+	 *
+	 * @param int $user_id User ID.
+	 * @return string|null
+	 */
+	private function um_account_status( int $user_id ): ?string {
+		if ( ! function_exists( 'UM' ) ) {
+			return null;
+		}
+
+		try {
+			$um     = UM();
+			$common = is_object( $um ) && method_exists( $um, 'common' ) ? $um->common() : null;
+			$users  = is_object( $common ) && method_exists( $common, 'users' ) ? $common->users() : null;
+
+			if ( ! is_object( $users ) || ! method_exists( $users, 'get_status' ) ) {
+				return null;
+			}
+
+			$status = $users->get_status( $user_id );
+
+			return is_scalar( $status ) && '' !== (string) $status ? (string) $status : null;
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+	}
+
+	/**
+	 * Card C5b: the C5 taxonomy state, resolved through SchemaRegistry without this class
+	 * duplicating snapshot reading.
+	 *
+	 * @return array{state:string, reason:string, services:array<int,array<string,mixed>>}
+	 */
+	private function catalog_state(): array {
+		if ( ! $this->ensure_registry_loaded() ) {
+			return array( 'state' => 'unavailable', 'reason' => 'registry_missing', 'services' => array() );
+		}
+
+		try {
+			return ( new SchemaRegistry() )->amelia_catalog_state();
+		} catch ( \Throwable $e ) {
+			return array( 'state' => 'unavailable', 'reason' => 'registry_error', 'services' => array() );
+		}
 	}
 
 	/**
@@ -288,18 +518,23 @@ final class Amelia {
 		}
 
 		try {
-			$state = ( new SchemaRegistry() )->amelia_snapshot();
+			// Card C5: consume the five-state taxonomy instead of a bare ok/not-ok.
+			$state = ( new SchemaRegistry() )->amelia_catalog_state();
 		} catch ( \Throwable $e ) {
 			return array();
 		}
 
-		if ( empty( $state['ok'] ) || ! is_array( $state['snapshot']['services'] ?? null ) ) {
+		if ( ! is_array( $state['services'] ?? null ) ) {
 			return array();
 		}
 
+		// valid_current/valid_empty serve the stored catalog; stale_previous_valid keeps
+		// serving the LAST valid snapshot (a later failure never erases it — C5 invariant);
+		// unavailable is NOT a valid empty list, so its services array arrives empty and
+		// nothing surfaces; not_configured was already resolved by the taxonomy itself.
 		$pairs = array();
 
-		foreach ( $state['snapshot']['services'] as $service ) {
+		foreach ( $state['services'] as $service ) {
 			$id = isset( $service['id'] ) ? absint( $service['id'] ) : 0;
 
 			if ( $id <= 0 || ! isset( $service['title'] ) || ! is_scalar( $service['title'] ) ) {
@@ -401,8 +636,16 @@ final class Amelia {
 		$ids    = array();
 
 		foreach ( $values as $value ) {
-			if ( is_numeric( $value ) && absint( $value ) ) {
-				$ids[] = absint( $value );
+			// Card C5b: only strict integer strings enter the ID set — a forged
+			// fractional value like "11.5" drops out entirely instead of being
+			// floor-rounded into a real service ID by absint().
+			if ( is_int( $value ) || ( is_string( $value ) && preg_match( '/^[1-9][0-9]*$/', trim( $value ) ) ) ) {
+				$int = absint( $value );
+
+				if ( $int > 0 ) {
+					$ids[] = $int;
+				}
+
 				continue;
 			}
 

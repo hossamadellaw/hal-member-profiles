@@ -1,0 +1,74 @@
+CMD: pwd -W
+D:/حسام عادل المحامي Hossam Adel Lawyer/website/plugins/hal-member-profiles
+CMD: grep -rn --include="*.php" --include="*.txt" --include="*.json" --include="*.pot" --include="*.css" --include="*.yml" "1\.2\.0" . | grep -v "^./build/" | grep -v "^./docs/" | grep -v "versions updates" | grep -v SESSION-CHANNEL | grep -v "^./tests/runtime/"
+readme.txt:7:Stable tag: 1.2.0
+readme.txt:183:= 1.2.0 =
+includes\Settings.php:165:				<p class="description"><?php esc_html_e( 'Ultimate Member owns and renders the complete Account page. Legacy HAL Account layout values are retained for backward compatibility but are not active in v1.2.0.', 'hal-member-profiles' ); ?></p>
+includes\Settings.php:354:	 * the effective v1.2.0 behavior is always UM Native/observe.
+hal-member-profiles.php:5: * Version:           1.2.0
+hal-member-profiles.php:25:	define( 'HAL_MEMBER_PROFILES_VERSION', '1.2.0' );
+includes\Integrations\AmeliaFieldsWriter.php:22: * - Payload allowlists (v1.2.0): create sends title + type only (after the shared
+includes\Integrations\AmeliaFieldsWriter.php:151:			// Update payload allowlist (v1.2.0): title ONLY — `type` never travels here.
+includes\Integrations\AmeliaFieldsWriter.php:351:	 * Normalizes one desired title per the pinned v1.2.0 payload discipline — the same
+includes\ManagedTemplates.php:34: * v1.2.0 (card C7 / F-05): provisioning into the Child Theme is DISAPPROVED entirely —
+includes\ManagedTemplates.php:177:	 * v1.2.0 (card C7 / F-05): Child Theme writes are DISAPPROVED in every mode. The
+includes\ManagedTemplates.php:181:	 * re-approves writes; it never runs in v1.2.0 and no template or file is ever touched.
+includes\ManagedTemplates.php:194:		// v1.2.0 (card C7 / F-05): fail-closed BEFORE any filesystem, lock, or state work.
+includes\ManagedTemplates.php:646:	 * v1.2.0 (card C7 / F-05): whether Child Theme writes are disapproved entirely.
+tests\runtime\e-c10-verify-01.txt:4:5: * Version:           1.2.0
+tests\runtime\e-c10-verify-01.txt:5:CMD: grep -n "HAL_MEMBER_PROFILES_VERSION', '1.2.0'" hal-member-profiles.php
+tests\runtime\e-c10-verify-01.txt:6:25:	define( 'HAL_MEMBER_PROFILES_VERSION', '1.2.0' );
+tests\runtime\e-c10-verify-01.txt:8:7:Stable tag: 1.2.0
+tests\runtime\e-c10-verify-01.txt:9:CMD: grep -n "^= 1.2.0 =$" readme.txt
+tests\runtime\e-c10-verify-01.txt:10:183:= 1.2.0 =
+tests\runtime\e-c10-verify-01.txt:19:NOTE: version bump applied in exactly 4 identity places (plugin header line 5, HAL_MEMBER_PROFILES_VERSION constant line 25, readme Stable tag line 7, new readme changelog entry "= 1.2.0 =" before "= 1.1.5 ="). Prior "= 1.1.5 =" entry preserved unchanged.
+tests\Unit\LifecycleReconciliationTest.php:3: * Unit tests for Lifecycle reconciliation semantics (cards D-05/D-17 / v1.2.0 C7):
+tests\Unit\LifecycleReconciliationTest.php:5: * under the v1.2.0 write closure (zero Child Theme writes, named reason, pending marker
+tests\Unit\LifecycleReconciliationTest.php:107:	 * v1.2.0 (card C7): reconciliation is consent-aware but the write path is closed —
+tests\Unit\LifecycleReconciliationTest.php:113:		Lifecycle::maybe_reconcile(); // fresh env -> drift -> but v1.2.0 disapproves writes
+tests\Unit\LifecycleReconciliationTest.php:130:		// v1.2.0 (card C7): the historical ledger is seeded directly — the writer can no
+tests\Unit\LifecycleReconciliationTest.php:153:		// v1.2.0 (card C7): the write closure fires before any filesystem work, so the
+tests\Unit\ManagedTemplatesTest.php:3: * Unit tests for ManagedTemplates (card D-04 / D-17 / v1.2.0 C7): hash ownership,
+tests\Unit\ManagedTemplatesTest.php:4: * conflicts, and silent-delete prevention under READ-ONLY inspection; the v1.2.0
+tests\Unit\ManagedTemplatesTest.php:145:	 * C7: the v1.2.0 write closure fires BEFORE any WP_Filesystem connection — even a
+tests\Unit\ManagedTemplatesTest.php:254:		$this->assertFileDoesNotExist( $this->target_in( $theme ), 'drift must schedule no write while v1.2.0 disapproves them' );
+tests\Unit\ManagedTemplatesTest.php:283:	 * the test itself, since v1.2.0 never writes) is never trusted in a NEW theme, and
+tests\Unit\WiringTest.php:134:		// v1.2.0 (card C7): reconciliation stays consent-aware but the write path is
+CMD: grep -rn --include="*.php" --include="*.txt" --include="*.pot" "1\.1\.5" . (same excludes) — REMAINING historical references inventory
+Child Theme\ultimate-member\templates\profile-hal-member-profiles.php:11: * (v1.1.5 baseline: the former site-specific `custom UM` integration is deleted and is
+readme.txt:14:**Baseline (v1.1.5):** the runtime baseline is the ORIGINAL Ultimate Member and Amelia
+readme.txt:135:  contract intact inside the method) is NOT auto-wired in v1.1.5: it no longer registers
+readme.txt:204:= 1.1.5 =
+includes\Integrations\AmeliaApiClient.php:9: * Verbs are strictly split (v1.1.5 documentation, card S-06):
+tests\runtime\e-c10-verify-01.txt:11:CMD: grep -c "^= 1.1.5 =$" readme.txt
+tests\runtime\e-c10-verify-01.txt:19:NOTE: version bump applied in exactly 4 identity places (plugin header line 5, HAL_MEMBER_PROFILES_VERSION constant line 25, readme Stable tag line 7, new readme changelog entry "= 1.2.0 =" before "= 1.1.5 ="). Prior "= 1.1.5 =" entry preserved unchanged.
+tests\runtime\e-recon-03.txt:16:Root cause (single, both test files): ManagedTemplates::provision() source_matches_manifest() hashes RAW DISK BYTES; manifest SHA is the LF-blob pre-C3 hash; C3 modified the template (content layer) and autocrlf=true wrote CRLF (environment layer). The guard works exactly as designed (fail-closed integrity gate, v1.1.5 D-17 baseline contract).
+tests\runtime\e-c10-verify-02.txt:24:tests\runtime\e-c10-verify-01.txt:19:NOTE: version bump applied in exactly 4 identity places (plugin header line 5, HAL_MEMBER_PROFILES_VERSION constant line 25, readme Stable tag line 7, new readme changelog entry "= 1.2.0 =" before "= 1.1.5 ="). Prior "= 1.1.5 =" entry preserved unchanged.
+tests\Unit\AdminDashboardPermissionsTest.php:309:			define( 'HAL_MEMBER_PROFILES_VERSION', '1.1.5' );
+tests\Unit\RuntimeEvidenceReporterTest.php:43:			define( 'HAL_MEMBER_PROFILES_VERSION', '1.1.5' );
+tests\Unit\RuntimeEvidenceReporterTest.php:63:			'plugin_version'    => '1.1.5',
+tests\Unit\SelectedServicesSaveContractTest.php:238:	/** S-01 proof: the closed direct-save body keeps its documented v1.1.5 verdicts. */
+CMD: grep -rn "Project-Id-Version" --include="*.pot" languages/
+languages/\hal-member-profiles.pot:17:"Project-Id-Version: HAL Member Profiles 1.0.0\n"
+CMD: unzip -p build/hal-member-profiles-1.1.5.zip hal-member-profiles/languages/hal-member-profiles.pot | grep Project-Id-Version (precedent: shipped 1.1.5 package)
+"Project-Id-Version: HAL Member Profiles 1.0.0\n"
+CMD: grep -rn "Stable tag\|@version" --include="*.php" --include="*.txt" . (same excludes)
+readme.txt:7:Stable tag: 1.2.0
+tests\runtime\e-c10-verify-01.txt:7:CMD: grep -n "^Stable tag:" readme.txt
+tests\runtime\e-c10-verify-01.txt:8:7:Stable tag: 1.2.0
+tests\runtime\e-c10-verify-01.txt:19:NOTE: version bump applied in exactly 4 identity places (plugin header line 5, HAL_MEMBER_PROFILES_VERSION constant line 25, readme Stable tag line 7, new readme changelog entry "= 1.2.0 =" before "= 1.1.5 ="). Prior "= 1.1.5 =" entry preserved unchanged.
+tests\runtime\e-c10-verify-02.txt:4:readme.txt:7:Stable tag: 1.2.0
+tests\runtime\e-c10-verify-02.txt:21:tests\runtime\e-c10-verify-01.txt:8:7:Stable tag: 1.2.0
+tests\runtime\e-c10-verify-02.txt:24:tests\runtime\e-c10-verify-01.txt:19:NOTE: version bump applied in exactly 4 identity places (plugin header line 5, HAL_MEMBER_PROFILES_VERSION constant line 25, readme Stable tag line 7, new readme changelog entry "= 1.2.0 =" before "= 1.1.5 ="). Prior "= 1.1.5 =" entry preserved unchanged.
+tests\runtime\e-c10-verify-02.txt:44:tests\runtime\e-c10-verify-01.txt:19:NOTE: version bump applied in exactly 4 identity places (plugin header line 5, HAL_MEMBER_PROFILES_VERSION constant line 25, readme Stable tag line 7, new readme changelog entry "= 1.2.0 =" before "= 1.1.5 ="). Prior "= 1.1.5 =" entry preserved unchanged.
+tests\runtime\e-c10-verify-02.txt:46:tests\runtime\e-c10-verify-02.txt:24:tests\runtime\e-c10-verify-01.txt:19:NOTE: version bump applied in exactly 4 identity places (plugin header line 5, HAL_MEMBER_PROFILES_VERSION constant line 25, readme Stable tag line 7, new readme changelog entry "= 1.2.0 =" before "= 1.1.5 ="). Prior "= 1.1.5 =" entry preserved unchanged.
+tests\runtime\e-c10-verify-02.txt:55:CMD: grep -rn "Stable tag\|@version" --include="*.php" --include="*.txt" . (same excludes)
+CMD: grep -n "version" uninstall.php (expect: none)
+(grep exit 1 = 1 means no version assertion in uninstall.php)
+INVENTORY DECISIONS:
+1. CHANGED (4 identity places): hal-member-profiles.php:5 header Version; hal-member-profiles.php:25 HAL_MEMBER_PROFILES_VERSION constant; readme.txt:7 Stable tag; readme.txt:183 new "= 1.2.0 =" changelog entry.
+2. NOT CHANGED - languages/hal-member-profiles.pot:17 "Project-Id-Version: HAL Member Profiles 1.0.0": draft hand-compiled template; the SHIPPED 1.1.5 package carried the same stale 1.0.0 value (proven above), so this field is not maintained per release; changing it would alter package contents beyond the 4 mandated places with no identity effect.
+3. NOT CHANGED - tests/Unit/RuntimeEvidenceReporterTest.php:43,63 and tests/Unit/AdminDashboardPermissionsTest.php:309: guarded per-test defines/synthetic fixture values (process isolation; unit bootstrap never loads the plugin main file, proven in tests/bootstrap.php); they do not assert the release identity and stay self-consistent after the bump.
+4. NOT CHANGED - historical prose references (readme.txt Baseline/history lines, Child Theme template header comment, includes/Integrations/AmeliaApiClient.php:9 doc comment, tests/runtime/e-recon-03.txt evidence): history/documentation only, not version identity.
+5. uninstall.php: no version assertion (grep exit 1).
+EXIT=0

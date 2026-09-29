@@ -184,8 +184,6 @@ final class Register {
 			$namespace . 'ProfileNavigation'          => 'includes/Elementor/Widgets/ProfileNavigation.php',
 			$namespace . 'ProfileBody'                => 'includes/Elementor/Widgets/ProfileBody.php',
 			$namespace . 'AccountField'               => 'includes/Elementor/Widgets/AccountField.php',
-			$namespace . 'AccountNavigation'          => 'includes/Elementor/Widgets/AccountNavigation.php',
-			$namespace . 'AccountBody'                => 'includes/Elementor/Widgets/AccountBody.php',
 		);
 
 		if ( $this->dependencies->has_amelia() ) {

@@ -1,0 +1,7 @@
+CMD: disclosure of .phpunit.result.cache (non-)write around the card C9 Deployment Matrix gate run (--do-not-cache-result must write NOTHING; any mtime/size change would be a disclosed secondary write)
+before: 2026-09-27 13:41:08.659913400 +0300 | 44794 bytes   (stat captured in the pre-gate check of this session, before the gate run; same value also documented in build/audit/2026-09-27-c8-cons-fix-01/phpunit-cache-absence.txt era)
+after:  2026-09-27 13:41:08.659913400 +0300 | 44794 bytes   (stat captured immediately after the gate run)
+find . -name ".phpunit.result.cache" -not -path "./vendor/*":
+./.phpunit.result.cache
+result: mtime and size UNCHANGED -> the gate run wrote NOTHING to .phpunit.result.cache
+EXIT=0

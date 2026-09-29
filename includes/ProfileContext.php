@@ -42,8 +42,8 @@ final class ProfileContext {
 	 * unverifiable).
 	 *
 	 * Ultimate Member's own routing already enforces the "Profile Privacy" setting before
-	 * its profile template loads; the is_private_profile() check below is an additional,
-	 * deliberately conservative safety net here, not the primary access decision.
+	 * its profile template loads; um_can_view_profile() below repeats UM's full verdict as
+	 * a deliberately conservative safety net.
 	 *
 	 * @param array  $args    Raw $args the UM profile template received.
 	 * @param int    $form_id UM form ID the profile template received.
@@ -187,16 +187,17 @@ final class ProfileContext {
 		$visitor_id = get_current_user_id();
 		$is_owner   = $visitor_id > 0 && $visitor_id === $target_id;
 
-		// Fail closed (remediation F-08 #1): when UM's own privacy verdict is
-		// UNAVAILABLE we cannot verify access at all, so no target is exposed — the old
-		// code assumed "not private" on a missing API, which failed open.
-		$private = $this->is_private_profile( $target_id );
+		// Delegate the complete profile-level decision to UM. Missing/throwing APIs are
+		// unavailable and fail closed; HAL does not reproduce UM's role/privacy policy.
+		$may_view = $this->can_view_profile( $target_id );
 
-		if ( null === $private ) {
+		if ( null === $may_view || ! $may_view ) {
 			return null;
 		}
 
-		if ( $private && ! $is_owner && ! current_user_can( 'manage_options' ) ) {
+		$persona = $this->resolve_persona( $target_user );
+
+		if ( null === $persona ) {
 			return null;
 		}
 
@@ -208,6 +209,7 @@ final class ProfileContext {
 			'is_preview'  => $this->is_um_preview(),
 			'form_id'     => $form_id,
 			'mode'        => $mode,
+			'persona'     => $persona,
 		);
 	}
 
@@ -235,6 +237,12 @@ final class ProfileContext {
 			return null;
 		}
 
+		$persona = $this->resolve_persona( $target_user );
+
+		if ( null === $persona ) {
+			return null;
+		}
+
 		return (object) array(
 			'target_user' => $target_user,
 			'visitor_id'  => get_current_user_id(),
@@ -243,11 +251,67 @@ final class ProfileContext {
 			'is_preview'  => true,
 			'form_id'     => $form_id,
 			'mode'        => $mode,
+			'persona'     => $persona,
 		);
 	}
 
 	/**
-	 * Checks Ultimate Member's own profile privacy flag for a user.
+	 * Single owner of target classification. It combines the target's actual UM role and
+	 * raw account status with Settings' explicit three-persona mapping. Zero or multiple
+	 * matches are ambiguous and force the native path.
+	 */
+	private function resolve_persona( \WP_User $target_user ): ?string {
+		$mapping = $this->settings->get_um_member_mapping();
+
+		if ( 'available' !== $mapping['availability'] || ! is_array( $mapping['personas'] ?? null ) ) {
+			return null;
+		}
+
+		$status = $this->um_account_status( (int) $target_user->ID );
+
+		if ( null === $status ) {
+			return null;
+		}
+
+		$matches = array();
+
+		foreach ( $mapping['personas'] as $persona => $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+
+			if ( in_array( (string) ( $row['role'] ?? '' ), $target_user->roles, true ) && $status === (string) ( $row['status'] ?? '' ) ) {
+				$matches[] = (string) $persona;
+			}
+		}
+
+		return 1 === count( $matches ) ? $matches[0] : null;
+	}
+
+	private function um_account_status( int $user_id ): ?string {
+		if ( ! function_exists( 'UM' ) ) {
+			return null;
+		}
+
+		try {
+			$um     = UM();
+			$common = is_object( $um ) && method_exists( $um, 'common' ) ? $um->common() : null;
+			$users  = is_object( $common ) && method_exists( $common, 'users' ) ? $common->users() : null;
+
+			if ( ! is_object( $users ) || ! method_exists( $users, 'get_status' ) ) {
+				return null;
+			}
+
+			$status = $users->get_status( $user_id );
+
+			return is_scalar( $status ) && '' !== (string) $status ? (string) $status : null;
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+	}
+
+	/**
+	 * Asks Ultimate Member for its complete profile visibility decision.
 	 *
 	 * Tri-state on purpose: null means "UM's verdict is unavailable", which callers must
 	 * treat as UNVERIFIABLE (fail closed) — never as "not private".
@@ -255,18 +319,16 @@ final class ProfileContext {
 	 * @param int $user_id User ID.
 	 * @return bool|null True/false per UM; null when the API cannot be consulted.
 	 */
-	private function is_private_profile( int $user_id ): ?bool {
-		if ( ! function_exists( 'UM' ) ) {
+	private function can_view_profile( int $user_id ): ?bool {
+		if ( ! function_exists( 'um_can_view_profile' ) ) {
 			return null;
 		}
 
-		$user = UM()->user();
-
-		if ( ! is_object( $user ) || ! method_exists( $user, 'is_private_profile' ) ) {
+		try {
+			return (bool) um_can_view_profile( $user_id );
+		} catch ( \Throwable $e ) {
 			return null;
 		}
-
-		return (bool) $user->is_private_profile( $user_id );
 	}
 
 	/**

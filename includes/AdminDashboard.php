@@ -476,8 +476,8 @@ final class AdminDashboard {
 	}
 
 	/**
-	 * Account page (card S-04): read-only account layout/template state and the
-	 * Account selectors/Tags state, with guidance toward Settings.
+	 * Account page (card S-04/C2): read-only native ownership and legacy-state
+	 * observations, plus the Account selectors/Tags state.
 	 *
 	 * @return void
 	 */
@@ -492,8 +492,8 @@ final class AdminDashboard {
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'Account', 'hal-member-profiles' ); ?></h1>
-			<p class="description"><?php esc_html_e( 'Read-only account layout state — the editable values live on the Settings page.', 'hal-member-profiles' ); ?></p>
-			<p class="description"><strong><?php esc_html_e( 'Next step:', 'hal-member-profiles' ); ?></strong> <?php esc_html_e( 'open the Settings page to configure the account template.', 'hal-member-profiles' ); ?></p>
+			<p class="description"><?php esc_html_e( 'Ultimate Member owns and renders the complete Account page, including navigation, active state, forms, nonces, and extension tabs.', 'hal-member-profiles' ); ?></p>
+			<p class="description"><strong><?php esc_html_e( 'Next step:', 'hal-member-profiles' ); ?></strong> <?php esc_html_e( 'review the legacy override observation below; HAL never changes or deletes that file.', 'hal-member-profiles' ); ?></p>
 
 			<h2 class="title"><?php esc_html_e( 'Account layout / template', 'hal-member-profiles' ); ?></h2>
 			<table class="widefat striped" style="max-width:900px">
@@ -503,22 +503,27 @@ final class AdminDashboard {
 						$settings     = $bootstrap->get_settings();
 						$field_schema = $bootstrap->get_field_schema();
 
-						$account_mode = $settings->get_account_layout_mode();
-
 						self::print_state_row(
 							__( 'Account layout mode', 'hal-member-profiles' ),
-							'public_layout' === $account_mode ? 'ready' : 'not_configured',
-							$account_mode
+							'ready',
+							__( 'Native (Ultimate Member)', 'hal-member-profiles' )
 						);
 
 						$template_id = $settings->get_account_library_template_id();
 
 						self::print_row(
-							__( 'Account Elementor library template', 'hal-member-profiles' ),
+							__( 'Legacy Account Elementor template (retained, inactive)', 'hal-member-profiles' ),
 							null === $template_id
 								? self::state_label( 'not_configured' )
 								: '#' . (string) $template_id
 						);
+
+						if ( class_exists( ManagedTemplates::class ) ) {
+							self::print_row(
+								__( 'Legacy theme Account override', 'hal-member-profiles' ),
+								self::legacy_account_override_text( ( new ManagedTemplates() )->inspect_legacy_account_override() )
+							);
+						}
 
 						$selectors = null !== $field_schema ? $field_schema->get_account_selectors() : array();
 
@@ -684,7 +689,16 @@ final class AdminDashboard {
 			return;
 		}
 
-		$inspection = ( new ManagedTemplates() )->inspect();
+		$managed    = new ManagedTemplates();
+		$inspection = $managed->inspect();
+		$legacy     = $managed->inspect_legacy_account_override();
+
+		echo '<table class="widefat striped" style="max-width:900px"><tbody>';
+		self::print_row(
+			__( 'Legacy theme Account override (observe only)', 'hal-member-profiles' ),
+			self::legacy_account_override_text( $legacy )
+		);
+		echo '</tbody></table>';
 
 		if ( empty( $inspection['ok'] ) ) {
 			$reason = isset( $inspection['reason'] ) && is_string( $inspection['reason'] ) ? $inspection['reason'] : 'unknown';
@@ -741,6 +755,26 @@ final class AdminDashboard {
 	}
 
 	/**
+	 * Converts the fixed, read-only legacy Account override verdict into operator text.
+	 * No path, hash, contents, or user data are exposed.
+	 *
+	 * @param array{ok?:bool,status?:string} $observation Legacy override observation.
+	 * @return string
+	 */
+	private static function legacy_account_override_text( array $observation ): string {
+		$status = is_string( $observation['status'] ?? null ) ? $observation['status'] : 'unknown';
+		$labels = array(
+			ManagedTemplates::STATUS_LEGACY_OVERRIDE_PRESENT    => __( 'present — retained and never managed by HAL', 'hal-member-profiles' ),
+			ManagedTemplates::STATUS_LEGACY_OVERRIDE_ABSENT     => __( 'absent — Ultimate Member native Account remains active', 'hal-member-profiles' ),
+			ManagedTemplates::STATUS_LEGACY_OVERRIDE_UNREADABLE => __( 'present but unreadable — retained and never managed by HAL', 'hal-member-profiles' ),
+			ManagedTemplates::STATUS_NEEDS_CREDENTIALS          => __( 'unavailable — filesystem access is not ready', 'hal-member-profiles' ),
+			'denied'                                            => __( 'unavailable — inspection was denied', 'hal-member-profiles' ),
+		);
+
+		return $labels[ $status ] ?? __( 'unavailable — unknown observation state', 'hal-member-profiles' );
+	}
+
+	/**
 	 * UM Fields / Dynamic Tags rows: availability facts only. SchemaRegistry (card D-09)
 	 * does not exist yet, so this section names its placeholder honestly.
 	 *
@@ -787,6 +821,22 @@ final class AdminDashboard {
 				__( 'Amelia sync mode', 'hal-member-profiles' ),
 				class_exists( SchemaRegistry::class ) ? SchemaRegistry::current_sync_mode() : __( 'unknown (fail-closed)', 'hal-member-profiles' )
 			);
+
+			if ( class_exists( SchemaRegistry::class ) ) {
+				// Card C6a: the dashboard reports the mode's PROVEN capabilities from the
+				// server-side gates — the UI never claims an ability the mode does not have.
+				self::print_row(
+					__( 'Field-definition capabilities (card C6a)', 'hal-member-profiles' ),
+					sprintf(
+						/* translators: 1: read verdict, 2: diff verdict, 3: create verdict, 4: update verdict. */
+						__( 'read: %1$s · diff: %2$s · create missing: %3$s · update: %4$s (delete: never)', 'hal-member-profiles' ),
+						SchemaRegistry::mode_allows_read() ? __( 'yes', 'hal-member-profiles' ) : __( 'no', 'hal-member-profiles' ),
+						SchemaRegistry::mode_allows_read() ? __( 'yes', 'hal-member-profiles' ) : __( 'no', 'hal-member-profiles' ),
+						SchemaRegistry::mode_allows_create() ? __( 'yes', 'hal-member-profiles' ) : __( 'no', 'hal-member-profiles' ),
+						SchemaRegistry::mode_allows_update() ? __( 'yes', 'hal-member-profiles' ) : __( 'no', 'hal-member-profiles' )
+					)
+				);
+			}
 			?>
 			</tbody>
 			</table>
@@ -881,6 +931,7 @@ final class AdminDashboard {
 							'to_update' => __( 'update', 'hal-member-profiles' ),
 							'unchanged' => __( 'unchanged', 'hal-member-profiles' ),
 							'orphaned'  => __( 'orphaned — manual handling only, never auto-deleted', 'hal-member-profiles' ),
+							'conflicts' => __( 'conflict — manual resolution required, never auto-corrected', 'hal-member-profiles' ),
 						)
 						as $section => $label
 					) :
@@ -1035,8 +1086,7 @@ final class AdminDashboard {
 				<p><em><?php esc_html_e( 'Evidence report unavailable (fail-closed) — no JSON is shown.', 'hal-member-profiles' ); ?></em></p>
 			<?php else : ?>
 				<p class="description"><?php esc_html_e( "Read-only JSON of this site's own HAL state — the external Production Verifier never reads it, and it never changes any compatibility verdict.", 'hal-member-profiles' ); ?></p>
-				<label for="hal-runtime-evidence-json" class="screen-reader-text"><?php esc_html_e( 'Runtime compatibility evidence JSON', 'hal-member-profiles' ); ?></label>
-				<textarea id="hal-runtime-evidence-json" readonly rows="14" aria-label="<?php esc_attr_e( 'Runtime compatibility evidence JSON', 'hal-member-profiles' ); ?>" style="max-width:900px;width:100%;font-family:monospace"><?php echo esc_textarea( $evidence ); ?></textarea>
+				<textarea readonly rows="14" aria-label="<?php esc_attr_e( 'Runtime compatibility evidence JSON', 'hal-member-profiles' ); ?>" style="max-width:900px;width:100%;font-family:monospace"><?php echo esc_textarea( $evidence ); ?></textarea>
 			<?php endif; ?>
 			<?php
 		}

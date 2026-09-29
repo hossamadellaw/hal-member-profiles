@@ -1,0 +1,24 @@
+CMD: pwd -W
+D:/حسام عادل المحامي Hossam Adel Lawyer/website/plugins/hal-member-profiles
+CMD: grep -o "\"version\": \"[^\"]*\"" build/runtime-evidence-ci_fixture.json (artifact BEFORE regeneration)
+"version": "1.1.5"
+CMD: php tests/runtime/generate-report.php  (Runtime Evidence ci_fixture gate — run ONCE, offline, writes build/ only)
+runtime-evidence-ci_fixture written: D:\حسام عادل المحامي Hossam Adel Lawyer\website\plugins\hal-member-profiles/build/runtime-evidence-ci_fixture.json
+sha256: afddf2ebe48397477bd2f764e8806351e560008b1ec329319b3b55405abbd779
+NOT LIVE — contract_fixture evidence only; insufficient for compatibility sign-off
+CMD: python -c validate emitted artifact against closed contract fields
+PASS schema_version==1
+PASS report_kind
+PASS source==ci_fixture
+PASS plugin.version==1.2.0
+PASS evidence_level==contract_fixture
+PASS production_observation_claimed==false
+PASS network_calls==false
+PASS writes==false
+PASS pii_free==true
+PASS junk operator_notes dropped
+PASS junk amelia_service_ids dropped
+ALL_PASS=True
+WHERE_IT_LANDS: build/runtime-evidence-ci_fixture.json (build/ is gitignored per .gitignore "/build/" and structurally outside the release ZIP allowlist).
+LIMIT (standing): this artifact is NOT LIVE — evidence_level=contract_fixture, production_observation_claimed=false; it proves report-contract shape/enums/redaction/size stability only; it is never a compatibility sign-off.
+EXIT=0 (generator) / 0 (schema re-validation)

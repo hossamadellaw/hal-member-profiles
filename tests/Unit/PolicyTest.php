@@ -21,10 +21,20 @@ final class PolicyTest extends TestCase {
 
 	public function setUp(): void {
 		$this->policy = new Policy( new FieldSchema() );
+		add_filter(
+			'um_get_form_fields',
+			static function ( $fields, $form_id ) {
+				unset( $fields );
+				return get_post_meta( (int) $form_id, '_um_custom_fields', true );
+			},
+			99,
+			2
+		);
 	}
 
 	public function tearDown(): void {
 		unset( $GLOBALS['wp_stubs']['user_meta'] );
+		unset( $GLOBALS['wp_stubs']['user_meta_reads'] );
 		unset( $GLOBALS['wp_stubs']['post_meta'] );
 		unset( $GLOBALS['wp_stubs']['users'] );
 		unset( $GLOBALS['wp_stubs']['current_user'] );
@@ -32,9 +42,75 @@ final class PolicyTest extends TestCase {
 		unset( $GLOBALS['wp_stubs']['private_map'] );
 		unset( $GLOBALS['wp_stubs']['can_edit_map'] );
 		unset( $GLOBALS['wp_stubs']['um_options'] );
+		unset( $GLOBALS['wp_stubs']['um_builtin_fields'] );
+		unset( $GLOBALS['wp_stubs']['um_target'] );
+		remove_all_filters( 'um_get_form_fields' );
+		remove_all_filters( 'um_account_page_default_tabs_hook' );
+		remove_all_filters( 'um_account_tab_general_fields' );
+		remove_all_filters( 'um_account_tab_privacy_fields' );
+		remove_all_filters( 'um_can_view_field' );
+	}
+
+	public function test_account_field_lookup_enforces_current_tab_scope(): void {
+		$GLOBALS['wp_stubs']['um_builtin_fields'] = array(
+			'general_note' => array( 'title' => 'General note', 'type' => 'text', 'public' => '1' ),
+			'privacy_note' => array( 'title' => 'Privacy note', 'type' => 'text', 'public' => '1' ),
+			'locked_note'  => array( 'title' => 'Locked note', 'type' => 'text', 'public' => '1', 'editable' => false ),
+		);
+
+		add_filter(
+			'um_account_page_default_tabs_hook',
+			static fn (): array => array( 100 => array( 'general' => array(), 'privacy' => array() ) )
+		);
+		add_filter( 'um_account_tab_general_fields', static fn (): string => 'general_note,locked_note' );
+		add_filter( 'um_account_tab_privacy_fields', static fn (): string => 'privacy_note' );
+		$schema = new FieldSchema();
+		apply_filters( 'um_account_page_default_tabs_hook', array( 100 => array( 'general' => array(), 'privacy' => array() ) ) );
+		apply_filters( 'um_account_tab_general_fields', 'general_note,locked_note', array() );
+		apply_filters( 'um_account_tab_privacy_fields', 'privacy_note', array() );
+
+		$GLOBALS['wp_stubs']['current_user'] = 5;
+		$GLOBALS['wp_stubs']['um_target']    = 5;
+		$GLOBALS['wp_stubs']['users'][5]     = array( 'ID' => 5 );
+		$GLOBALS['wp_stubs']['user_meta'][5]['general_note'] = 'General value';
+		$GLOBALS['wp_stubs']['user_meta'][5]['locked_note']  = 'Must not be read';
+
+		$policy   = new Policy( $schema );
+		$same_tab = $policy->can_view_account_field( 5, 5, 'general_note', 'general' );
+
+		$this->assertIsArray( $same_tab );
+		$this->assertSame( 'General value', $same_tab['value'] );
+		$this->assertSame( 1, $GLOBALS['wp_stubs']['user_meta_reads'][5]['general_note'] );
+		$this->assertNull( $policy->can_view_account_field( 5, 5, 'locked_note', 'general' ) );
+		$this->assertArrayNotHasKey( 'locked_note', $GLOBALS['wp_stubs']['user_meta_reads'][5] );
+		$this->assertNull( $policy->can_view_account_field( 5, 5, 'privacy_note', 'general' ) );
+		$this->assertNull( $policy->can_view_account_field( 5, 5, 'general_note' ) );
+	}
+
+	public function test_profile_field_lookup_rejects_noneditable_before_reading_meta(): void {
+		$this->seed_users();
+		$this->seed_form_77(
+			array(
+				'eligible_note' => array( 'type' => 'text', 'public' => '1', 'editable' => true ),
+				'locked_note'   => array( 'type' => 'text', 'public' => '1', 'editable' => false ),
+			)
+		);
+		$GLOBALS['wp_stubs']['current_user'] = 5;
+		$GLOBALS['wp_stubs']['um_target']    = 5;
+		$GLOBALS['wp_stubs']['user_meta'][5]['eligible_note'] = 'Eligible value';
+		$GLOBALS['wp_stubs']['user_meta'][5]['locked_note']   = 'Must not be read';
+
+		$eligible = $this->policy->can_view_field( 5, 5, 77, 'eligible_note' );
+
+		$this->assertSame( 'Eligible value', $eligible['value'] ?? null );
+		$this->assertSame( 1, $GLOBALS['wp_stubs']['user_meta_reads'][5]['eligible_note'] );
+		$this->assertNull( $this->policy->can_view_field( 5, 5, 77, 'locked_note' ) );
+		$this->assertArrayNotHasKey( 'locked_note', $GLOBALS['wp_stubs']['user_meta_reads'][5] );
 	}
 
 	private function privacy_decision_for( int $viewer_id, array $field ): bool {
+		$GLOBALS['wp_stubs']['um_target']    = 5;
+		$GLOBALS['wp_stubs']['current_user'] = $viewer_id;
 		$m = new \ReflectionMethod( $this->policy, 'passes_privacy' );
 		$m->setAccessible( true );
 
@@ -123,12 +199,19 @@ final class PolicyTest extends TestCase {
 	public function test_unrecognized_privacy_values_fail_closed(): void {
 		$this->seed_users();
 
-		foreach ( array( '99', 'x', '', 3, 4, 5, -7, null, array( '1' ), true, 1.5 ) as $bad ) {
+		foreach ( array( '99', 'x', '', 3, 4, 5, -7, null, array( '1' ), 1.5 ) as $bad ) {
 			$this->assertFalse(
 				$this->privacy_decision_for( 7, array( 'public' => $bad ) ),
 				'value: ' . var_export( $bad, true )
 			);
 		}
+	}
+
+	public function test_um_field_visibility_filter_remains_authoritative(): void {
+		$this->seed_users();
+		add_filter( 'um_can_view_field', static fn( $allowed ) => false, 10, 1 );
+
+		$this->assertFalse( $this->privacy_decision_for( 0, array( 'public' => '1' ) ) );
 	}
 
 	public function test_missing_public_key_defaults_to_everyone(): void {
@@ -159,6 +242,8 @@ final class PolicyTest extends TestCase {
 	}
 
 	private function header( string $element, int $viewer ): ?array {
+		$GLOBALS['wp_stubs']['um_target']    = 5;
+		$GLOBALS['wp_stubs']['current_user'] = $viewer;
 		return $this->policy->can_view_header_element( 5, $viewer, $element, 77 );
 	}
 

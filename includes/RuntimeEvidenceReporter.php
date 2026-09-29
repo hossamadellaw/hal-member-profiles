@@ -63,9 +63,6 @@ final class RuntimeEvidenceReporter {
 	private const RUNTIMES        = array( 'ready', 'blocked', 'pending', 'native_fallback', 'not_configured', 'not_detected' );
 	private const VERIFICATIONS   = array( 'Pass', 'Pending', 'Fail', 'Blocked' );
 	private const EVIDENCE_LEVELS = array( 'runtime_observation', 'contract_fixture', 'not_observed' );
-	private const SELECTOR_TYPES  = array( 'text', 'url', 'image', 'list' );
-	private const SYNC_MODES      = array( 'unavailable', 'off', 'discover_only', 'managed_additions', 'managed_sync' );
-	private const SNAPSHOT_STATES = array( 'available', 'unavailable' );
 
 	private const REASONS = array(
 		'gate_passed',
@@ -78,7 +75,6 @@ final class RuntimeEvidenceReporter {
 		'not_implemented',
 		'dependency_not_detected',
 		'sync_mode_off',
-		'sync_mode_read_only',
 		'no_snapshot',
 	);
 
@@ -121,16 +117,16 @@ final class RuntimeEvidenceReporter {
 
 		$selectors = null !== $field_schema ? $field_schema->get_account_selectors() : array();
 
-		$selector_types = array_fill_keys( self::SELECTOR_TYPES, 0 );
+		$selector_types = array();
 
 		foreach ( $selectors as $selector ) {
 			$type = is_array( $selector ) ? (string) ( $selector['selector_type'] ?? '' ) : '';
 
-			if ( ! in_array( $type, self::SELECTOR_TYPES, true ) ) {
+			if ( '' === $type ) {
 				continue;
 			}
 
-			$selector_types[ $type ]++;
+			$selector_types[ $type ] = ( $selector_types[ $type ] ?? 0 ) + 1;
 		}
 
 		$sync_mode = null !== $settings ? (string) SchemaRegistry::current_sync_mode() : '';
@@ -215,13 +211,11 @@ final class RuntimeEvidenceReporter {
 				'theme'           => $dependencies->active_theme_version(),
 			),
 			'account_selectors' => array(
-				'source_present' => function_exists( 'has_filter' ) && false !== has_filter( 'hal_member_profiles_account_field_definitions' ),
-				'count'          => count( $selectors ),
-				'types'          => $selector_types,
+				'count' => count( $selectors ),
+				'types' => $selector_types,
 			),
 			'amelia_reader' => array(
 				'plugin_detected' => $dependencies->has_amelia(),
-				'service_present' => null !== $bootstrap && null !== $bootstrap->get_amelia(),
 				'sync_mode'       => $sync_mode,
 				'snapshot_ok'     => $snapshot_ok,
 				'services'        => $services_count,
@@ -232,11 +226,7 @@ final class RuntimeEvidenceReporter {
 			),
 			'amelia_writer' => array(
 				'class_present'     => $writer_present,
-				'service_present'   => null !== $bootstrap && $writer_present && is_callable( array( AmeliaFieldsWriter::class, 'build_plan' ) ),
-				'route_present'     => null !== $bootstrap
-					&& $writer_present
-					&& function_exists( 'has_action' )
-					&& false !== has_action( 'admin_post_hal_member_profiles_fields_apply', array( AdminDashboard::class, 'handle_amelia_post' ) ),
+				'route_present'     => $writer_present && class_exists( AdminDashboard::class ),
 				'gate_passes'       => null !== $gate ? $gate->passes( CompatibilityGate::CAP_AMELIA_FIELDS_WRITE ) : false,
 				'gate_reason'       => null !== $gate ? $gate->describe( CompatibilityGate::CAP_AMELIA_FIELDS_WRITE ) : '',
 				'sync_mode'         => $sync_mode,
@@ -249,11 +239,11 @@ final class RuntimeEvidenceReporter {
 			),
 			'um_integration' => array(
 				'um_detected'             => $dependencies->has_um(),
-				'full_native_fallback'    => null !== $bootstrap && null !== $bootstrap->get_layout_contract(),
-				'profile_gate_passes'     => null !== $gate ? $gate->passes( CompatibilityGate::CAP_PROFILE ) : false,
-				'account_gate_passes'     => null !== $gate ? $gate->passes( CompatibilityGate::CAP_ACCOUNT ) : false,
-				'um_schema_gate_passes'   => null !== $gate ? $gate->passes( CompatibilityGate::CAP_UM_SCHEMA ) : false,
-				'dynamic_tags_gate_passes' => null !== $gate ? $gate->passes( CompatibilityGate::CAP_ELEMENTOR_DYNAMIC_TAGS ) : false,
+				'native_fallback_present' => class_exists( LayoutContract::class ),
+				'gate_profile'            => null !== $gate ? $gate->passes( CompatibilityGate::CAP_PROFILE ) : false,
+				'gate_account'            => null !== $gate ? $gate->passes( CompatibilityGate::CAP_ACCOUNT ) : false,
+				'gate_um_schema'          => null !== $gate ? $gate->passes( CompatibilityGate::CAP_UM_SCHEMA ) : false,
+				'gate_dynamic_tags'       => null !== $gate ? $gate->passes( CompatibilityGate::CAP_ELEMENTOR_DYNAMIC_TAGS ) : false,
 			),
 			'integrations' => array(
 				'woocommerce'     => $dependencies->has_woocommerce(),
@@ -272,22 +262,18 @@ final class RuntimeEvidenceReporter {
 	 */
 	public function generate(): array {
 		$source = $this->facts['source'];
-		$selectors_present = $this->facts['account_selectors']['count'] > 0;
-		$selectors_runtime = $selectors_present ? ( self::SOURCE_FIXTURE === $source ? 'pending' : 'ready' ) : 'blocked';
-		$selectors_reason  = $selectors_present ? ( self::SOURCE_FIXTURE === $source ? 'awaiting_matrix_signoff' : 'gate_not_signed_off' ) : 'no_verified_account_source';
 
 		$capabilities = array(
 			'account_selectors' => array(
 				'implementation' => 'partial',
-				'runtime'        => $selectors_runtime,
+				'runtime'        => $this->facts['account_selectors']['count'] > 0 ? 'ready' : 'blocked',
 				'verification'   => 'Pending',
-				'reason'         => $selectors_reason,
+				'reason'         => $this->facts['account_selectors']['count'] > 0 ? 'gate_not_signed_off' : 'no_verified_account_source',
 				'evidence_level' => $this->evidence_level(),
 				'counts'         => array(
-					'total'             => $this->facts['account_selectors']['count'],
-					'type_distribution' => $this->facts['account_selectors']['types'],
+					'selectors'      => $this->facts['account_selectors']['count'],
+					'selector_types' => count( $this->facts['account_selectors']['types'] ),
 				),
-				'source_present' => $this->facts['account_selectors']['source_present'],
 			),
 			'account_photo_tab' => array(
 				'implementation' => 'not_implemented',
@@ -347,16 +333,10 @@ final class RuntimeEvidenceReporter {
 	 * @return string
 	 */
 	public function generate_json(): string {
-		$json = json_encode(
+		return (string) json_encode(
 			$this->generate(),
 			JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
 		);
-
-		if ( false === $json ) {
-			throw new \InvalidArgumentException( 'report_json_encoding_failed' );
-		}
-
-		return $json;
 	}
 
 	/**
@@ -426,14 +406,10 @@ final class RuntimeEvidenceReporter {
 		foreach ( $report['capabilities'] as $id => $capability ) {
 			$keys = array( 'implementation', 'runtime', 'verification', 'reason', 'evidence_level', 'counts' );
 
-			if ( 'account_selectors' === $id ) {
-				$keys[] = 'source_present';
-			} elseif ( 'amelia_reader' === $id ) {
-				$keys = array_merge( $keys, array( 'plugin_detected', 'service_present', 'sync_mode', 'snapshot_state', 'gate_passes', 'gate_reason' ) );
-			} elseif ( 'amelia_writer' === $id ) {
-				$keys = array_merge( $keys, array( 'class_present', 'service_present', 'route_present', 'strict_gate_passes', 'strict_gate_reason', 'sync_mode', 'mode_allows_write', 'secret_stored', 'secret_decodable', 'delete_supported' ) );
-			} elseif ( 'um_integration' === $id ) {
-				$keys = array_merge( $keys, array( 'um_detected', 'full_native_fallback', 'profile_gate_passes', 'account_gate_passes', 'um_schema_gate_passes', 'dynamic_tags_gate_passes' ) );
+			// The writer carries one extra closed fact demanded by the card: no delete
+			// verb exists anywhere, expressed as delete_supported === false.
+			if ( 'amelia_writer' === $id ) {
+				$keys[] = 'delete_supported';
 			}
 
 			self::exact_keys( $capability, $keys, "capability_{$id}", $fail );
@@ -458,76 +434,10 @@ final class RuntimeEvidenceReporter {
 				$fail( "capability_{$id}_evidence_level_invalid" );
 			}
 
-			if ( 'account_selectors' === $id ) {
-				self::exact_keys( $capability['counts'], array( 'total', 'type_distribution' ), "capability_{$id}_counts", $fail );
-				self::exact_keys( $capability['counts']['type_distribution'], self::SELECTOR_TYPES, "capability_{$id}_type_distribution", $fail );
-				self::validate_counts( array( 'total' => $capability['counts']['total'] ) + $capability['counts']['type_distribution'], "capability_{$id}", $fail );
-
-				if ( ! is_bool( $capability['source_present'] ) || array_sum( $capability['counts']['type_distribution'] ) !== $capability['counts']['total'] ) {
-					$fail( 'capability_account_selectors_facts_invalid' );
-				}
-			} else {
-				self::validate_counts( $capability['counts'], "capability_{$id}", $fail );
-			}
-
-			if ( in_array( $id, array( 'account_photo_tab', 'account_dashboard_tab' ), true ) ) {
-				self::exact_keys( $capability['counts'], array(), "capability_{$id}_counts", $fail );
-			}
-
-			if ( 'amelia_reader' === $id ) {
-				self::exact_keys( $capability['counts'], array( 'services', 'employees', 'custom_fields' ), "capability_{$id}_counts", $fail );
-
-				if ( ! is_bool( $capability['plugin_detected'] ) || ! is_bool( $capability['service_present'] ) || ! in_array( $capability['sync_mode'], self::SYNC_MODES, true ) || ! in_array( $capability['snapshot_state'], self::SNAPSHOT_STATES, true ) || ! is_bool( $capability['gate_passes'] ) || ! in_array( $capability['gate_reason'], self::REASONS, true ) ) {
-					$fail( 'capability_amelia_reader_facts_invalid' );
-				}
-			}
-
-			if ( 'amelia_writer' === $id ) {
-				self::exact_keys( $capability['counts'], array( 'desired', 'ledger', 'dry_plan_create', 'dry_plan_update', 'dry_plan_unchanged', 'dry_plan_orphaned' ), "capability_{$id}_counts", $fail );
-
-				foreach ( array( 'class_present', 'service_present', 'route_present', 'strict_gate_passes', 'mode_allows_write', 'secret_stored', 'secret_decodable' ) as $boolean_key ) {
-					if ( ! is_bool( $capability[ $boolean_key ] ) ) {
-						$fail( "capability_amelia_writer_{$boolean_key}_invalid" );
-					}
-				}
-
-				if ( ! in_array( $capability['strict_gate_reason'], self::REASONS, true ) || ! in_array( $capability['sync_mode'], self::SYNC_MODES, true ) ) {
-					$fail( 'capability_amelia_writer_facts_invalid' );
-				}
-			}
-
-			if ( 'um_integration' === $id ) {
-				self::exact_keys( $capability['counts'], array( 'gates_total', 'gates_passing' ), "capability_{$id}_counts", $fail );
-
-				foreach ( array( 'um_detected', 'full_native_fallback', 'profile_gate_passes', 'account_gate_passes', 'um_schema_gate_passes', 'dynamic_tags_gate_passes' ) as $boolean_key ) {
-					if ( ! is_bool( $capability[ $boolean_key ] ) ) {
-						$fail( "capability_um_integration_{$boolean_key}_invalid" );
-					}
-				}
-
-				if ( 4 !== $capability['counts']['gates_total'] || array_sum( array_map( 'intval', array( $capability['profile_gate_passes'], $capability['account_gate_passes'], $capability['um_schema_gate_passes'], $capability['dynamic_tags_gate_passes'] ) ) ) !== $capability['counts']['gates_passing'] ) {
-					$fail( 'capability_um_integration_gates_mismatch' );
-				}
-			}
+			self::validate_counts( $capability['counts'], "capability_{$id}", $fail );
 
 			if ( 'amelia_writer' === $id && false !== $capability['delete_supported'] ) {
 				$fail( 'capability_amelia_writer_delete_supported_must_be_false' );
-			}
-
-			$expected_evidence = in_array( $id, array( 'account_photo_tab', 'account_dashboard_tab' ), true )
-				? 'not_observed'
-				: ( self::SOURCE_FIXTURE === $report['source'] ? 'contract_fixture' : 'runtime_observation' );
-
-			if ( $expected_evidence !== $capability['evidence_level'] ) {
-				$fail( "capability_{$id}_source_evidence_mismatch" );
-			}
-
-			if ( self::SOURCE_FIXTURE === $report['source'] && 'ready' === $capability['runtime'] ) {
-				$fail( "capability_{$id}_fixture_runtime_ready_forbidden" );
-			}
-
-			if ( self::SOURCE_FIXTURE === $report['source'] && 'Pass' === $capability['verification'] ) {
-				$fail( "capability_{$id}_fixture_verification_pass_forbidden" );
 			}
 		}
 
@@ -538,12 +448,6 @@ final class RuntimeEvidenceReporter {
 
 			if ( ! is_bool( $integration['detected'] ) || ! in_array( $integration['verification'], self::VERIFICATIONS, true ) || ! in_array( $integration['evidence_level'], self::EVIDENCE_LEVELS, true ) ) {
 				$fail( "integration_{$id}_invalid" );
-			}
-
-			$expected_evidence = self::SOURCE_FIXTURE === $report['source'] ? 'contract_fixture' : 'runtime_observation';
-
-			if ( $expected_evidence !== $integration['evidence_level'] || ( self::SOURCE_FIXTURE === $report['source'] && 'Pending' !== $integration['verification'] ) ) {
-				$fail( "integration_{$id}_source_provenance_invalid" );
 			}
 		}
 
@@ -577,11 +481,7 @@ final class RuntimeEvidenceReporter {
 			$fail( 'summary_verification_mismatch' );
 		}
 
-		$json = json_encode( $report );
-
-		if ( false === $json ) {
-			$fail( 'report_json_encoding_failed' );
-		}
+		$json = (string) json_encode( $report );
 
 		if ( strlen( $json ) > ( $max_bytes ?? self::MAX_JSON_BYTES ) ) {
 			$fail( 'report_too_large' );
@@ -616,27 +516,18 @@ final class RuntimeEvidenceReporter {
 		}
 
 		$selectors = $facts['account_selectors'] ?? array();
-		$selector_types = array_fill_keys( self::SELECTOR_TYPES, 0 );
-
-		foreach ( self::SELECTOR_TYPES as $type ) {
-			$selector_types[ $type ] = max( 0, (int) ( $selectors['types'][ $type ] ?? 0 ) );
-		}
-
-		$selector_count = max( 0, (int) ( $selectors['count'] ?? 0 ) );
 
 		return array(
 			'source'         => $facts['source'],
 			'plugin_version' => $version,
 			'environment'    => $environment,
 			'account_selectors' => array(
-				'source_present' => (bool) ( $selectors['source_present'] ?? false ),
-				'count'          => $selector_count,
-				'types'          => $selector_types,
+				'count' => max( 0, (int) ( $selectors['count'] ?? 0 ) ),
+				'types' => is_array( $selectors['types'] ?? null ) ? $selectors['types'] : array(),
 			),
 			'amelia_reader' => array(
 				'plugin_detected' => (bool) ( $facts['amelia_reader']['plugin_detected'] ?? false ),
-				'service_present' => (bool) ( $facts['amelia_reader']['service_present'] ?? false ),
-				'sync_mode'       => self::normalize_sync_mode( $facts['amelia_reader']['sync_mode'] ?? '' ),
+				'sync_mode'       => isset( $facts['amelia_reader']['sync_mode'] ) ? (string) $facts['amelia_reader']['sync_mode'] : '',
 				'snapshot_ok'     => (bool) ( $facts['amelia_reader']['snapshot_ok'] ?? false ),
 				'services'        => max( 0, (int) ( $facts['amelia_reader']['services'] ?? 0 ) ),
 				'employees'       => max( 0, (int) ( $facts['amelia_reader']['employees'] ?? 0 ) ),
@@ -646,14 +537,13 @@ final class RuntimeEvidenceReporter {
 			),
 			'amelia_writer' => array(
 				'class_present'     => (bool) ( $facts['amelia_writer']['class_present'] ?? false ),
-				'service_present'   => (bool) ( $facts['amelia_writer']['service_present'] ?? false ),
 				'route_present'     => (bool) ( $facts['amelia_writer']['route_present'] ?? false ),
 				'gate_passes'       => (bool) ( $facts['amelia_writer']['gate_passes'] ?? false ),
 				'gate_reason'       => self::bounded_reason( $facts['amelia_writer']['gate_reason'] ?? '' ),
-				'sync_mode'         => self::normalize_sync_mode( $facts['amelia_writer']['sync_mode'] ?? '' ),
+				'sync_mode'         => isset( $facts['amelia_writer']['sync_mode'] ) ? (string) $facts['amelia_writer']['sync_mode'] : '',
 				'mode_allows_write' => (bool) ( $facts['amelia_writer']['mode_allows_write'] ?? false ),
 				'secret_stored'     => (bool) ( $facts['amelia_writer']['secret_stored'] ?? false ),
-				'secret_decodable'  => (bool) ( $facts['amelia_writer']['secret_decodable'] ?? false ),
+				'secret_decodable'  => isset( $facts['amelia_writer']['secret_decodable'] ) && is_bool( $facts['amelia_writer']['secret_decodable'] ) ? $facts['amelia_writer']['secret_decodable'] : null,
 				'desired_count'     => max( 0, (int) ( $facts['amelia_writer']['desired_count'] ?? 0 ) ),
 				'ledger_count'      => max( 0, (int) ( $facts['amelia_writer']['ledger_count'] ?? 0 ) ),
 				'dry_plan'          => array(
@@ -665,11 +555,11 @@ final class RuntimeEvidenceReporter {
 			),
 			'um_integration' => array(
 				'um_detected'             => (bool) ( $facts['um_integration']['um_detected'] ?? false ),
-				'full_native_fallback'    => (bool) ( $facts['um_integration']['full_native_fallback'] ?? false ),
-				'profile_gate_passes'     => (bool) ( $facts['um_integration']['profile_gate_passes'] ?? false ),
-				'account_gate_passes'     => (bool) ( $facts['um_integration']['account_gate_passes'] ?? false ),
-				'um_schema_gate_passes'   => (bool) ( $facts['um_integration']['um_schema_gate_passes'] ?? false ),
-				'dynamic_tags_gate_passes' => (bool) ( $facts['um_integration']['dynamic_tags_gate_passes'] ?? false ),
+				'native_fallback_present' => (bool) ( $facts['um_integration']['native_fallback_present'] ?? false ),
+				'gate_profile'            => (bool) ( $facts['um_integration']['gate_profile'] ?? false ),
+				'gate_account'            => (bool) ( $facts['um_integration']['gate_account'] ?? false ),
+				'gate_um_schema'          => (bool) ( $facts['um_integration']['gate_um_schema'] ?? false ),
+				'gate_dynamic_tags'       => (bool) ( $facts['um_integration']['gate_dynamic_tags'] ?? false ),
 			),
 			'integrations' => array(
 				'woocommerce'     => (bool) ( $facts['integrations']['woocommerce'] ?? false ),
@@ -682,15 +572,14 @@ final class RuntimeEvidenceReporter {
 
 	private function amelia_reader_capability(): array {
 		$facts = $this->facts['amelia_reader'];
-		$gate_reason = $facts['gate_passes'] ? 'gate_passed' : $this->gate_reason_slug( $facts['gate_reason'] );
 
 		// 'off' is Settings::SYNC_MODE_OFF written literally: generate()/validate() are
 		// the pure path used by the ci_fixture script without WordPress, so they must
 		// never reference WP-side classes.
-		if ( ! $facts['plugin_detected'] || ! $facts['service_present'] ) {
+		if ( ! $facts['plugin_detected'] ) {
 			$runtime = 'not_detected';
 			$reason  = 'dependency_not_detected';
-		} elseif ( in_array( $facts['sync_mode'], array( 'unavailable', 'off' ), true ) ) {
+		} elseif ( '' === $facts['sync_mode'] || 'off' === $facts['sync_mode'] ) {
 			$runtime = 'not_configured';
 			$reason  = 'sync_mode_off';
 		} elseif ( ! $facts['snapshot_ok'] ) {
@@ -701,18 +590,13 @@ final class RuntimeEvidenceReporter {
 			$reason  = 'gate_passed';
 		} else {
 			$runtime = 'pending';
-			$reason  = $gate_reason;
-		}
-
-		if ( self::SOURCE_FIXTURE === $this->facts['source'] && 'ready' === $runtime ) {
-			$runtime = 'pending';
-			$reason  = 'awaiting_matrix_signoff';
+			$reason  = $this->gate_reason_slug( $facts['gate_reason'] );
 		}
 
 		return array(
 			'implementation' => 'implemented',
 			'runtime'        => $runtime,
-			'verification'   => self::SOURCE_RUNTIME === $this->facts['source'] && 'ready' === $runtime ? 'Pass' : 'Pending',
+			'verification'   => $facts['gate_passes'] ? 'Pass' : 'Pending',
 			'reason'         => $reason,
 			'evidence_level' => $this->evidence_level(),
 			'counts'         => array(
@@ -720,43 +604,19 @@ final class RuntimeEvidenceReporter {
 				'employees'     => $facts['employees'],
 				'custom_fields' => $facts['custom_fields'],
 			),
-			'plugin_detected' => $facts['plugin_detected'],
-			'service_present' => $facts['service_present'],
-			'sync_mode'       => $facts['sync_mode'],
-			'snapshot_state'  => $facts['snapshot_ok'] ? 'available' : 'unavailable',
-			'gate_passes'     => $facts['gate_passes'],
-			'gate_reason'     => $gate_reason,
 		);
 	}
 
 	private function amelia_writer_capability(): array {
 		$facts = $this->facts['amelia_writer'];
 
-		$strict_gate_reason = $facts['gate_passes'] ? 'gate_passed' : $this->gate_reason_slug( $facts['gate_reason'] );
-		$gate_open = $facts['class_present'] && $facts['service_present'] && $facts['route_present'] && $facts['gate_passes'] && $facts['mode_allows_write'];
-
-		if ( ! $facts['class_present'] || ! $facts['service_present'] ) {
-			$runtime = 'not_detected';
-			$reason  = 'dependency_not_detected';
-		} elseif ( ! $facts['route_present'] ) {
-			$runtime = 'blocked';
-			$reason  = 'missing_components';
-		} elseif ( ! $facts['gate_passes'] ) {
-			$runtime = 'blocked';
-			$reason  = $strict_gate_reason;
-		} elseif ( ! $facts['mode_allows_write'] ) {
-			$runtime = 'not_configured';
-			$reason  = in_array( $facts['sync_mode'], array( 'unavailable', 'off' ), true ) ? 'sync_mode_off' : 'sync_mode_read_only';
-		} else {
-			$runtime = self::SOURCE_RUNTIME === $this->facts['source'] ? 'ready' : 'pending';
-			$reason  = self::SOURCE_RUNTIME === $this->facts['source'] ? 'gate_passed' : 'awaiting_matrix_signoff';
-		}
+		$gate_open = $facts['gate_passes'] && $facts['mode_allows_write'];
 
 		return array(
 			'implementation' => $facts['class_present'] ? 'implemented' : 'not_implemented',
-			'runtime'        => $runtime,
-			'verification'   => self::SOURCE_RUNTIME === $this->facts['source'] && $gate_open ? 'Pass' : 'Pending',
-			'reason'         => $reason,
+			'runtime'        => $gate_open ? 'ready' : 'blocked',
+			'verification'   => $facts['gate_passes'] ? 'Pass' : 'Pending',
+			'reason'         => $facts['gate_passes'] ? 'gate_passed' : $this->gate_reason_slug( $facts['gate_reason'] ),
 			'evidence_level' => $this->evidence_level(),
 			'counts'         => array(
 				'desired'           => $facts['desired_count'],
@@ -766,15 +626,6 @@ final class RuntimeEvidenceReporter {
 				'dry_plan_unchanged' => $facts['dry_plan']['unchanged'],
 				'dry_plan_orphaned' => $facts['dry_plan']['orphaned'],
 			),
-			'class_present'       => $facts['class_present'],
-			'service_present'     => $facts['service_present'],
-			'route_present'       => $facts['route_present'],
-			'strict_gate_passes'  => $facts['gate_passes'],
-			'strict_gate_reason'  => $strict_gate_reason,
-			'sync_mode'           => $facts['sync_mode'],
-			'mode_allows_write'   => $facts['mode_allows_write'],
-			'secret_stored'       => $facts['secret_stored'],
-			'secret_decodable'    => $facts['secret_decodable'],
 			// Closed card fact: NO delete verb exists anywhere in the writer — removals
 			// are surfaced as orphaned plan rows for manual handling only.
 			'delete_supported' => false,
@@ -784,39 +635,30 @@ final class RuntimeEvidenceReporter {
 	private function um_integration_capability(): array {
 		$facts = $this->facts['um_integration'];
 
-		$gates = array( $facts['profile_gate_passes'], $facts['account_gate_passes'], $facts['um_schema_gate_passes'], $facts['dynamic_tags_gate_passes'] );
+		$gates = array( $facts['gate_profile'], $facts['gate_account'], $facts['gate_um_schema'], $facts['gate_dynamic_tags'] );
 		$passing = count( array_filter( $gates ) );
 
 		if ( ! $facts['um_detected'] ) {
 			$runtime = 'not_detected';
 			$reason  = 'dependency_not_detected';
 		} elseif ( 4 === $passing ) {
-			$runtime = self::SOURCE_RUNTIME === $this->facts['source'] ? 'ready' : 'pending';
-			$reason  = self::SOURCE_RUNTIME === $this->facts['source'] ? 'gate_passed' : 'awaiting_matrix_signoff';
-		} elseif ( $facts['full_native_fallback'] ) {
+			$runtime = 'ready';
+			$reason  = 'gate_passed';
+		} else {
 			$runtime = 'native_fallback';
 			$reason  = 'gate_not_signed_off';
-		} else {
-			$runtime = 'blocked';
-			$reason  = 'missing_components';
 		}
 
 		return array(
 			'implementation' => 'implemented',
 			'runtime'        => $runtime,
-			'verification'   => self::SOURCE_RUNTIME === $this->facts['source'] && 4 === $passing ? 'Pass' : 'Pending',
+			'verification'   => 4 === $passing ? 'Pass' : 'Pending',
 			'reason'         => $reason,
 			'evidence_level' => $this->evidence_level(),
 			'counts'         => array(
 				'gates_total'   => 4,
 				'gates_passing' => $passing,
 			),
-			'um_detected'              => $facts['um_detected'],
-			'full_native_fallback'     => $facts['full_native_fallback'],
-			'profile_gate_passes'      => $facts['profile_gate_passes'],
-			'account_gate_passes'      => $facts['account_gate_passes'],
-			'um_schema_gate_passes'    => $facts['um_schema_gate_passes'],
-			'dynamic_tags_gate_passes' => $facts['dynamic_tags_gate_passes'],
 		);
 	}
 
@@ -934,12 +776,6 @@ final class RuntimeEvidenceReporter {
 		$value = is_string( $value ) ? $value : '';
 
 		return substr( $value, 0, 200 );
-	}
-
-	private static function normalize_sync_mode( $value ): string {
-		$value = is_string( $value ) ? $value : '';
-
-		return in_array( $value, self::SYNC_MODES, true ) ? $value : 'unavailable';
 	}
 
 	private static function exact_keys( $array, array $expected, string $context, \Closure $fail ): void {

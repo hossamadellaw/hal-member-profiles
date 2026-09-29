@@ -23,23 +23,10 @@ final class Policy {
 	 *   '-2' Only visitors holding one of the field's specific roles (NO owner exception)
 	 *   '-3' The profile owner OR visitors holding one of the field's specific roles
 	 *
-	 * They are stored as strings in _um_custom_fields, so they are compared as strings
-	 * here after normalization. Anything else — including legacy positive integers such
-	 * as 3/4/5 from older assumptions — normalizes to null and FAILS CLOSED (denied);
-	 * UM's own default filter would let unrecognized values through, and this bridge is
-	 * deliberately stricter.
-	 *
-	 * These mappings mirror upstream master, NOT necessarily the installed site version.
-	 * Before any public_layout release, compatibility-matrix QA must create one test
-	 * field per privacy option on staging, inspect the saved _um_custom_fields values,
-	 * and record the installed UM version — updating this adapter if the site diverges.
+	 * The installed UM runtime remains authoritative: um_can_view_field() evaluates these
+	 * definitions and its public filter may further restrict them. HAL keeps no parallel
+	 * privacy mapping.
 	 */
-	private const PRIVACY_EVERYONE      = '1';
-	private const PRIVACY_MEMBERS       = '2';
-	private const PRIVACY_OWNER_EDITORS = '-1';
-	private const PRIVACY_ROLES_ONLY    = '-2';
-	private const PRIVACY_OWNER_ROLES   = '-3';
-
 	private FieldSchema $field_schema;
 
 	public function __construct( FieldSchema $field_schema ) {
@@ -53,14 +40,15 @@ final class Policy {
 	 * @param int    $viewer_id      Current visitor, 0 for guest.
 	 * @param int    $form_id        UM Form the field belongs to.
 	 * @param string $metakey        Field meta key.
+	 * @param string $persona        Resolved HAL persona.
 	 * @return array{type:string,value:mixed}|null
 	 */
-	public function can_view_field( int $target_user_id, int $viewer_id, int $form_id, string $metakey ): ?array {
+	public function can_view_field( int $target_user_id, int $viewer_id, int $form_id, string $metakey, string $persona = '' ): ?array {
 		if ( $target_user_id <= 0 || '' === $metakey ) {
 			return null;
 		}
 
-		$field = $this->find_field( $form_id, $metakey );
+		$field = $this->find_field( $form_id, $metakey, $persona );
 
 		if ( null === $field ) {
 			return null;
@@ -78,14 +66,26 @@ final class Policy {
 	 * @param int    $target_user_id Account owner (always the current viewer, per AccountContext).
 	 * @param int    $viewer_id      Current visitor; equals $target_user_id on live renders.
 	 * @param string $metakey        Field meta key.
+	 * @param string $current_tab    Server-resolved current Account tab.
 	 * @return array{type:string,value:mixed}|null
 	 */
-	public function can_view_account_field( int $target_user_id, int $viewer_id, string $metakey ): ?array {
+	public function can_view_account_field( int $target_user_id, int $viewer_id, string $metakey, string $current_tab = '' ): ?array {
 		if ( $target_user_id <= 0 || '' === $metakey ) {
 			return null;
 		}
 
-		$field = $this->field_schema->get_account_field_definition( $metakey );
+		$current_tab = sanitize_key( $current_tab );
+		if ( '' === $current_tab ) {
+			return null;
+		}
+
+		$field = $this->field_schema->get_account_field_definition(
+			$metakey,
+			array(
+				'context'     => 'account',
+				'current_tab' => $current_tab,
+			)
+		);
 
 		if ( null === $field ) {
 			return null;
@@ -138,14 +138,14 @@ final class Policy {
 	 * @param int    $form_id        UM Form the profile is using, for privacy lookups.
 	 * @return array{type:string,value:mixed}|null
 	 */
-	public function can_view_header_element( int $target_user_id, int $viewer_id, string $element, int $form_id = 0 ): ?array {
+	public function can_view_header_element( int $target_user_id, int $viewer_id, string $element, int $form_id = 0, string $persona = '' ): ?array {
 		if ( $target_user_id <= 0 || $form_id <= 0 ) {
 			return null;
 		}
 
 		switch ( $element ) {
 			case 'name':
-				if ( ! $this->header_name_fields_pass( $target_user_id, $viewer_id, $form_id ) ) {
+				if ( ! $this->header_name_fields_pass( $target_user_id, $viewer_id, $form_id, $persona ) ) {
 					return null;
 				}
 
@@ -158,14 +158,14 @@ final class Policy {
 					return null;
 				}
 
-				if ( ! $this->passes_header_field_privacy( $target_user_id, $viewer_id, $form_id, 'description' ) ) {
+				if ( ! $this->passes_header_field_privacy( $target_user_id, $viewer_id, $form_id, 'description', $persona ) ) {
 					return null;
 				}
 
 				return $this->format_text( get_user_meta( $target_user_id, 'description', true ) );
 
 			case 'avatar':
-				if ( ! $this->passes_header_field_privacy( $target_user_id, $viewer_id, $form_id, 'profile_photo' ) ) {
+				if ( ! $this->passes_header_field_privacy( $target_user_id, $viewer_id, $form_id, 'profile_photo', $persona ) ) {
 					return null;
 				}
 
@@ -174,7 +174,7 @@ final class Policy {
 				return $url ? array( 'type' => FieldSchema::TYPE_IMAGE, 'value' => esc_url( (string) $url, array( 'http', 'https' ) ) ) : null;
 
 			case 'cover':
-				if ( ! $this->passes_header_field_privacy( $target_user_id, $viewer_id, $form_id, 'cover_photo' ) ) {
+				if ( ! $this->passes_header_field_privacy( $target_user_id, $viewer_id, $form_id, 'cover_photo', $persona ) ) {
 					return null;
 				}
 
@@ -193,34 +193,14 @@ final class Policy {
 	}
 
 	/**
-	 * Finds a raw field definition by metakey inside a Form's stored fields.
+	 * Finds a raw field definition inside UM's verified runtime Form provider.
 	 *
 	 * @param int    $form_id UM Form ID.
 	 * @param string $metakey Field meta key.
 	 * @return array|null
 	 */
-	private function find_field( int $form_id, string $metakey ): ?array {
-		if ( $form_id <= 0 ) {
-			return null;
-		}
-
-		$fields = get_post_meta( $form_id, '_um_custom_fields', true );
-
-		if ( ! is_array( $fields ) ) {
-			return null;
-		}
-
-		if ( isset( $fields[ $metakey ] ) && is_array( $fields[ $metakey ] ) ) {
-			return $fields[ $metakey ];
-		}
-
-		foreach ( $fields as $field ) {
-			if ( is_array( $field ) && isset( $field['metakey'] ) && $field['metakey'] === $metakey ) {
-				return $field;
-			}
-		}
-
-		return null;
+	private function find_field( int $form_id, string $metakey, string $persona = '' ): ?array {
+		return $this->field_schema->get_profile_field_definition( $form_id, $metakey, $persona );
 	}
 
 	/**
@@ -249,83 +229,21 @@ final class Policy {
 	 * @return bool
 	 */
 	private function passes_privacy( int $target_user_id, int $viewer_id, array $field ): bool {
-		if ( current_user_can( 'manage_options' ) ) {
-			return true;
-		}
-
-		$level = array_key_exists( 'public', $field )
-			? $this->normalize_privacy_level( $field['public'] )
-			: self::PRIVACY_EVERYONE;
-
-		if ( null === $level ) {
+		if ( ! function_exists( 'um_can_view_field' ) || ! function_exists( 'um_user' ) ) {
 			return false;
 		}
 
-		switch ( $level ) {
-			case self::PRIVACY_EVERYONE:
-				return true;
-
-			case self::PRIVACY_MEMBERS:
-				return $viewer_id > 0;
-
-			case self::PRIVACY_OWNER_EDITORS:
-				return $this->viewer_is_owner( $viewer_id, $target_user_id )
-					|| $this->viewer_can_edit_target( $target_user_id );
-
-			case self::PRIVACY_ROLES_ONLY:
-				return $this->viewer_has_allowed_role( $viewer_id, $field );
-
-			case self::PRIVACY_OWNER_ROLES:
-				return $this->viewer_is_owner( $viewer_id, $target_user_id )
-					|| $this->viewer_has_allowed_role( $viewer_id, $field );
-
-			default:
-				return false;
-		}
-	}
-
-	/**
-	 * Normalizes a raw stored privacy value to an official level constant. Only the
-	 * storage types UM actually writes — strings and integers — are considered; booleans,
-	 * floats, arrays, and everything else return null (fail closed), so e.g. a boolean
-	 * true can never masquerade as "Everyone" through string coercion.
-	 *
-	 * @param mixed $raw Raw 'public' value from a field definition.
-	 * @return string|null
-	 */
-	private function normalize_privacy_level( $raw ): ?string {
-		if ( ! is_string( $raw ) && ! is_int( $raw ) ) {
-			return null;
+		// UM evaluates against its current requested user and authenticated visitor. Refuse
+		// caller-supplied identities that do not match that already-resolved runtime state.
+		if ( (int) um_user( 'ID' ) !== $target_user_id || get_current_user_id() !== $viewer_id ) {
+			return false;
 		}
 
-		$value = trim( (string) $raw );
-
-		if ( in_array(
-			$value,
-			array(
-				self::PRIVACY_EVERYONE,
-				self::PRIVACY_MEMBERS,
-				self::PRIVACY_OWNER_EDITORS,
-				self::PRIVACY_ROLES_ONLY,
-				self::PRIVACY_OWNER_ROLES,
-			),
-			true
-		) ) {
-			return $value;
+		try {
+			return (bool) um_can_view_field( $field );
+		} catch ( \Throwable $e ) {
+			return false;
 		}
-
-		return null;
-	}
-
-	/**
-	 * Whether the viewer is the profile/account owner themselves.
-	 *
-	 * @param int $viewer_id      Current visitor, 0 for guest.
-	 * @param int $target_user_id Profile/account owner.
-	 * @return bool
-	 */
-	private function viewer_is_owner( int $viewer_id, int $target_user_id ): bool {
-		return $viewer_id > 0 && $viewer_id === $target_user_id;
 	}
 
 	/**
@@ -339,8 +257,8 @@ final class Policy {
 	 * @param string $metakey        Predefined field meta key to check, if defined.
 	 * @return bool
 	 */
-	private function passes_header_field_privacy( int $target_user_id, int $viewer_id, int $form_id, string $metakey ): bool {
-		$field = $this->find_field( $form_id, $metakey );
+	private function passes_header_field_privacy( int $target_user_id, int $viewer_id, int $form_id, string $metakey, string $persona = '' ): bool {
+		$field = $this->field_schema->get_profile_header_field_definition( $form_id, $metakey, $persona );
 
 		if ( null === $field ) {
 			return false;
@@ -360,11 +278,11 @@ final class Policy {
 	 * @param int $form_id        UM Form ID.
 	 * @return bool
 	 */
-	private function header_name_fields_pass( int $target_user_id, int $viewer_id, int $form_id ): bool {
+	private function header_name_fields_pass( int $target_user_id, int $viewer_id, int $form_id, string $persona = '' ): bool {
 		$saw_definition = false;
 
 		foreach ( array( 'first_name', 'last_name' ) as $metakey ) {
-			$field = $this->find_field( $form_id, $metakey );
+			$field = $this->field_schema->get_profile_header_field_definition( $form_id, $metakey, $persona );
 
 			if ( null === $field ) {
 				continue;
@@ -401,41 +319,6 @@ final class Policy {
 		}
 
 		return (bool) $options->get( 'profile_show_bio' );
-	}
-
-	/**
-	 * Whether the viewer has UM's own "can edit other member accounts" permission for the target.
-	 *
-	 * @param int $target_user_id Target user ID.
-	 * @return bool
-	 */
-	private function viewer_can_edit_target( int $target_user_id ): bool {
-		if ( ! function_exists( 'UM' ) || ! method_exists( UM()->roles(), 'um_current_user_can' ) ) {
-			return false;
-		}
-
-		return (bool) UM()->roles()->um_current_user_can( 'edit', $target_user_id );
-	}
-
-	/**
-	 * Whether the viewer holds one of the field's explicitly allowed roles.
-	 *
-	 * @param int   $viewer_id Current visitor, 0 for guest.
-	 * @param array $field     Raw UM field definition.
-	 * @return bool
-	 */
-	private function viewer_has_allowed_role( int $viewer_id, array $field ): bool {
-		if ( $viewer_id <= 0 || empty( $field['roles'] ) || ! is_array( $field['roles'] ) ) {
-			return false;
-		}
-
-		$user = get_userdata( $viewer_id );
-
-		if ( ! $user instanceof \WP_User ) {
-			return false;
-		}
-
-		return count( array_intersect( $user->roles, $field['roles'] ) ) > 0;
 	}
 
 	/**

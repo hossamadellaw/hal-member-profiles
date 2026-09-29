@@ -1,0 +1,8 @@
+No syntax errors detected in includes/SchemaRegistry.php
+EXIT_SR=0
+No syntax errors detected in includes/Integrations/Amelia.php
+EXIT_AM=0
+No syntax errors detected in includes/Integrations/AmeliaApiClient.php
+EXIT_AC=0
+No syntax errors detected in tests/Unit/AmeliaCatalogStateTest.php
+EXIT_TEST=0

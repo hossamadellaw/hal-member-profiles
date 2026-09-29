@@ -66,10 +66,9 @@ final class AccountField extends Widget_Base {
 	}
 
 	/**
-	 * FieldSchema::get_account_selectors() is currently always empty (no verified Account
-	 * field source yet), so this control has nothing to offer until that is confirmed — a
-	 * field with no qualified schema stays inside the native AccountBody instead, exactly
-	 * as this card requires.
+	 * FieldSchema supplies only fields discovered for UM's server-resolved current Account
+	 * tab. A field with no eligible discovered definition stays inside the native
+	 * AccountBody.
 	 *
 	 * @return array<string,string>
 	 */
@@ -88,7 +87,10 @@ final class AccountField extends Widget_Base {
 			return $options;
 		}
 
-		foreach ( $field_schema->get_account_selectors() as $selector ) {
+		$context = null !== $bootstrap->get_account_context() ? $bootstrap->get_account_context()->resolve() : null;
+		$scope   = array( 'context' => 'account', 'tab' => null !== $context ? (string) $context->current_tab : '' );
+
+		foreach ( $field_schema->get_account_selectors( 0, $scope ) as $selector ) {
 			$options[ $selector['metakey'] ] = $selector['label'];
 		}
 
@@ -140,13 +142,13 @@ final class AccountField extends Widget_Base {
 			return;
 		}
 
-		$result = $policy->can_view_account_field( $account_user_id, $account_user_id, $metakey );
+		$result = $policy->can_view_account_field( $account_user_id, $account_user_id, $metakey, (string) $context->current_tab );
 
 		if ( null === $result ) {
 			return;
 		}
 
-		$label = $this->field_label( $field_schema, $metakey );
+		$label = $this->field_label( $field_schema, $metakey, (string) $context->current_tab );
 
 		// Policy already returned typed, escaped-ready values; format() below applies the
 		// final semantic markup and escaping per type.
@@ -161,8 +163,8 @@ final class AccountField extends Widget_Base {
 	 * @param string      $metakey      Field meta key.
 	 * @return string
 	 */
-	private function field_label( FieldSchema $field_schema, string $metakey ): string {
-		foreach ( $field_schema->get_account_selectors() as $selector ) {
+	private function field_label( FieldSchema $field_schema, string $metakey, string $tab ): string {
+		foreach ( $field_schema->get_account_selectors( 0, array( 'context' => 'account', 'tab' => $tab ) ) as $selector ) {
 			if ( $selector['metakey'] === $metakey ) {
 				return $selector['label'];
 			}

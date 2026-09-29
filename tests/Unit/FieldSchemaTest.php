@@ -18,11 +18,25 @@ final class FieldSchemaTest extends TestCase {
 
 	public function setUp(): void {
 		$this->schema = new FieldSchema();
+		add_filter(
+			'um_get_form_fields',
+			static function ( $fields, $form_id ) {
+				unset( $fields );
+				return get_post_meta( (int) $form_id, '_um_custom_fields', true );
+			},
+			99,
+			2
+		);
 	}
 
 	public function tearDown(): void {
 		unset( $GLOBALS['wp_stubs']['post_meta'] );
 		unset( $GLOBALS['wp_stubs']['can_manage'] );
+		unset( $GLOBALS['wp_stubs']['um_builtin_fields'] );
+		remove_all_filters( 'um_get_form_fields' );
+		remove_all_filters( 'um_account_page_default_tabs_hook' );
+		remove_all_filters( 'um_account_tab_general_fields' );
+		remove_all_filters( 'um_account_tab_custom_fields' );
 		if ( class_exists( '\Elementor\Plugin', false ) ) {
 			\Elementor\Plugin::$instance = null;
 		}
@@ -94,12 +108,62 @@ final class FieldSchemaTest extends TestCase {
 		$this->assertSame( 'text', $this->schema->get_profile_selectors( 11 )[0]['selector_type'] );
 	}
 
-	/** Account selectors stay empty until a verified source exists (matrix §6 note). */
-	public function test_account_selectors_empty_by_default(): void {
-		$this->markTestSkipped(
-			'Account source registration fires apply_filters(), which needs the WP plugin '
-			. 'environment; covered by Integration suite under WP_TESTS_DIR.'
+	public function test_profile_provider_distinguishes_valid_empty_from_unavailable(): void {
+		$this->seed_form( 15, array() );
+		$this->assertSame( 'valid_empty', $this->schema->profile_field_state( 15 )['reason'] );
+
+		remove_all_filters( 'um_get_form_fields' );
+		$this->assertSame( 'unavailable', $this->schema->profile_field_state( 15 )['availability'] );
+	}
+
+	public function test_account_discovers_field_specs_but_keeps_html_only_tabs_native(): void {
+		$GLOBALS['wp_stubs']['um_builtin_fields'] = array(
+			'first_name' => array( 'title' => 'First name', 'type' => 'text' ),
 		);
+
+		apply_filters(
+			'um_account_page_default_tabs_hook',
+			array( 100 => array( 'general' => array(), 'custom' => array() ) )
+		);
+		apply_filters( 'um_account_tab_general_fields', 'first_name', array() );
+		apply_filters( 'um_account_content_hook_custom', '<p>native</p>', array() );
+
+		$state = $this->schema->account_field_state();
+		$this->assertSame( 'available', $state['availability'] );
+		$this->assertSame( array( 'first_name' ), array_keys( $state['items'] ) );
+		$this->assertArrayNotHasKey( 'custom', $state['items'] );
+	}
+
+	public function test_account_runtime_can_be_available_and_valid_empty(): void {
+		apply_filters( 'um_account_page_default_tabs_hook', array() );
+
+		$state = $this->schema->account_field_state();
+		$this->assertSame( 'available', $state['availability'] );
+		$this->assertSame( 'valid_empty', $state['reason'] );
+		$this->assertSame( array(), $state['items'] );
+	}
+
+	public function test_metadata_is_retained_and_ineligible_fields_never_reach_selector(): void {
+		$this->seed_form(
+			16,
+			array(
+				'ok'               => array( 'type' => 'text', 'public' => '1', 'editable' => true, 'context' => 'profile', 'persona' => 'lawyer', 'tab' => 'profile' ),
+				'private'          => array( 'type' => 'text', 'public' => '2', 'editable' => true, 'context' => 'profile', 'persona' => 'lawyer' ),
+				'wrong_context'    => array( 'type' => 'text', 'public' => '1', 'editable' => true, 'context' => 'account', 'persona' => 'lawyer' ),
+				'wrong_persona'    => array( 'type' => 'text', 'public' => '1', 'editable' => true, 'context' => 'profile', 'persona' => 'consultant' ),
+				'not_editable'     => array( 'type' => 'text', 'public' => '1', 'editable' => false, 'context' => 'profile', 'persona' => 'lawyer' ),
+			)
+		);
+
+		$state = $this->schema->profile_field_state( 16, array( 'context' => 'profile', 'persona' => 'lawyer', 'tab' => 'profile' ) );
+
+		$this->assertSame( array( 'ok' ), array_keys( $state['items'] ) );
+		$this->assertSame(
+			array( 'tab', 'personas', 'contexts', 'privacy', 'editable' ),
+			array_keys( $state['items']['ok']['_hal_schema'] )
+		);
+		$this->assertSame( array( 'ok' ), $this->keys( $this->schema->get_profile_selectors( 16, array( 'context' => 'profile', 'persona' => 'lawyer', 'tab' => 'profile' ) ) ) );
+		$this->assertSame( array(), $this->schema->get_profile_selectors( 16, array( 'context' => 'account', 'persona' => 'lawyer' ) ) );
 	}
 
 	// ------------------------------------------------------------------

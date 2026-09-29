@@ -71,9 +71,15 @@ final class AccountContext {
 			return null;
 		}
 
+		$current_tab = $this->current_tab();
+
+		if ( null === $current_tab ) {
+			return null;
+		}
+
 		return (object) array(
 			'account_user'      => $account_user,
-			'current_tab'       => $this->current_tab(),
+			'current_tab'       => $current_tab,
 			'is_editor_preview' => false,
 		);
 	}
@@ -102,9 +108,15 @@ final class AccountContext {
 			return null;
 		}
 
+		$current_tab = $this->current_tab();
+
+		if ( null === $current_tab ) {
+			return null;
+		}
+
 		return (object) array(
 			'account_user'      => $account_user,
-			'current_tab'       => $this->current_tab(),
+			'current_tab'       => $current_tab,
 			'is_editor_preview' => true,
 		);
 	}
@@ -112,14 +124,24 @@ final class AccountContext {
 	/**
 	 * Reads the active Account tab Ultimate Member has already resolved.
 	 *
-	 * @return string
+	 * @return string|null
 	 */
-	private function current_tab(): string {
-		if ( function_exists( 'UM' ) && isset( UM()->account()->current_tab ) ) {
-			return (string) UM()->account()->current_tab;
+	private function current_tab(): ?string {
+		if ( ! function_exists( 'UM' ) ) {
+			return null;
 		}
 
-		return 'general';
+		try {
+			$um      = UM();
+			$account = is_object( $um ) && method_exists( $um, 'account' ) ? $um->account() : null;
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+		$tab     = is_object( $account ) && isset( $account->current_tab )
+			? sanitize_key( (string) $account->current_tab )
+			: '';
+
+		return '' !== $tab ? $tab : null;
 	}
 
 	/**

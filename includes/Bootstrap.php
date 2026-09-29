@@ -225,6 +225,7 @@ final class Bootstrap {
 		require_once HAL_MEMBER_PROFILES_DIR . 'includes/FieldSchema.php';
 		require_once HAL_MEMBER_PROFILES_DIR . 'includes/Policy.php';
 		require_once HAL_MEMBER_PROFILES_DIR . 'includes/LayoutContract.php';
+		require_once HAL_MEMBER_PROFILES_DIR . 'includes/ProfileOverview.php';
 
 		$this->profile_context = new ProfileContext( $this->settings );
 		$this->account_context = new AccountContext( $this->settings );
@@ -249,11 +250,21 @@ final class Bootstrap {
 			require_once HAL_MEMBER_PROFILES_DIR . 'includes/Integrations/Amelia.php';
 
 			$this->amelia = new Amelia( $this->settings );
+
+			// Card C5b: the ONE production save hook for selected_services, registered
+			// here (never in the constructor — S-01 stays intact), guarded against double
+			// registration inside the registrar itself.
+			Amelia::register_selected_services_save_hook();
 		}
 
 		require_once HAL_MEMBER_PROFILES_DIR . 'includes/Integrations/OptionalIntegrations.php';
 
 		$this->optional_integrations = new OptionalIntegrations( $this->dependencies );
+
+		// Card C8: the ONE production consumer registration on the external Dashboard's
+		// public link-contract filter, wired at boot exactly like the Amelia save hook
+		// above; the guard against double registration lives inside the registrar itself.
+		OptionalIntegrations::register_dashboard_link_consumer();
 
 		// 6) ManagedTemplates/Lifecycle — ADMIN-ONLY: on frontend requests this entire
 		// block (and its filesystem-capable service) never even loads (acceptance:

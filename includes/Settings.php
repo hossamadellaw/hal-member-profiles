@@ -23,10 +23,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 final class Settings {
+	public const PERSONA_LAWYER          = 'lawyer';
+	public const PERSONA_CONSULTANT      = 'consultant';
+	public const PERSONA_ORDINARY_MEMBER = 'ordinary_member';
 
 	const OPTION_KEY   = 'hal_member_profiles_settings';
 	const OPTION_GROUP = 'hal_member_profiles_settings_group';
 	const PAGE_SLUG    = 'hal-member-profiles-settings';
+	const UM_MAPPING_NONCE_ACTION = 'hal_member_profiles_save_um_mapping';
+	const UM_MAPPING_NONCE_NAME   = 'hal_member_profiles_um_mapping_nonce';
 
 	const LAYOUT_MODE_OBSERVE       = 'observe';
 	const LAYOUT_MODE_PUBLIC_LAYOUT = 'public_layout';
@@ -110,6 +115,8 @@ final class Settings {
 		}
 
 		$settings = $this->all();
+		$roles    = $this->get_um_role_options();
+		$statuses = $this->get_um_status_options();
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'HAL Member Profiles', 'hal-member-profiles' ); ?></h1>
@@ -118,6 +125,7 @@ final class Settings {
 			<?php settings_errors(); ?>
 			<form method="post" action="options.php">
 				<?php settings_fields( self::OPTION_GROUP ); ?>
+				<?php wp_nonce_field( self::UM_MAPPING_NONCE_ACTION, self::UM_MAPPING_NONCE_NAME ); ?>
 
 				<h2 class="title"><?php esc_html_e( 'Profile layout', 'hal-member-profiles' ); ?></h2>
 				<table class="form-table" role="presentation">
@@ -134,6 +142,16 @@ final class Settings {
 						<th scope="row"><label for="hal-profile-template-id"><?php esc_html_e( 'Profile Elementor library template ID', 'hal-member-profiles' ); ?></label></th>
 						<td><input id="hal-profile-template-id" type="number" min="0" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[profile_library_template_id]" value="<?php echo esc_attr( (string) $settings['profile_library_template_id'] ); ?>" /></td>
 					</tr>
+					<?php $persona_template_ids = is_array( $settings['profile_library_template_ids'] ?? null ) ? $settings['profile_library_template_ids'] : array(); ?>
+					<?php foreach ( $this->persona_labels() as $persona => $persona_label ) : ?>
+						<tr>
+							<th scope="row"><label for="hal-profile-template-id-<?php echo esc_attr( $persona ); ?>"><?php echo esc_html( sprintf( /* translators: %s: member type label. */ __( '%s profile template ID', 'hal-member-profiles' ), $persona_label ) ); ?></label></th>
+							<td>
+								<input id="hal-profile-template-id-<?php echo esc_attr( $persona ); ?>" type="number" min="0" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[profile_library_template_ids][<?php echo esc_attr( $persona ); ?>]" value="<?php echo esc_attr( (string) ( $persona_template_ids[ $persona ] ?? 0 ) ); ?>" />
+								<p class="description"><?php esc_html_e( 'Existing Elementor library template for this member type public profile only. Empty or unqualified values fall back to the single template ID above; a configured but invalid ID stays on the native Ultimate Member view. HAL never creates, edits, or writes any template or file.', 'hal-member-profiles' ); ?></p>
+							</td>
+						</tr>
+					<?php endforeach; ?>
 					<tr>
 						<th scope="row"><label for="hal-profile-fixture-id"><?php esc_html_e( 'Profile preview fixture user ID', 'hal-member-profiles' ); ?></label></th>
 						<td>
@@ -143,28 +161,61 @@ final class Settings {
 					</tr>
 				</table>
 
-				<h2 class="title"><?php esc_html_e( 'Account layout', 'hal-member-profiles' ); ?></h2>
+				<h2 class="title"><?php esc_html_e( 'Account ownership', 'hal-member-profiles' ); ?></h2>
+				<p class="description"><?php esc_html_e( 'Ultimate Member owns and renders the complete Account page. Legacy HAL Account layout values are retained for backward compatibility but are not active in v1.2.0.', 'hal-member-profiles' ); ?></p>
 				<table class="form-table" role="presentation">
 					<tr>
 						<th scope="row"><label for="hal-account-layout-mode"><?php esc_html_e( 'Account layout mode', 'hal-member-profiles' ); ?></label></th>
 						<td>
-							<select id="hal-account-layout-mode" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[account_layout_mode]">
-								<option value="observe" <?php selected( $settings['account_layout_mode'], self::LAYOUT_MODE_OBSERVE ); ?>><?php esc_html_e( 'Observe (no visual change)', 'hal-member-profiles' ); ?></option>
-								<option value="public_layout" <?php selected( $settings['account_layout_mode'], self::LAYOUT_MODE_PUBLIC_LAYOUT ); ?>><?php esc_html_e( 'Public layout (Elementor template)', 'hal-member-profiles' ); ?></option>
+							<select id="hal-account-layout-mode" disabled>
+								<option selected><?php esc_html_e( 'Native (Ultimate Member)', 'hal-member-profiles' ); ?></option>
 							</select>
+							<input type="hidden" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[account_layout_mode]" value="<?php echo esc_attr( (string) $settings['account_layout_mode'] ); ?>" />
 						</td>
 					</tr>
 					<tr>
 						<th scope="row"><label for="hal-account-template-id"><?php esc_html_e( 'Account Elementor library template ID', 'hal-member-profiles' ); ?></label></th>
-						<td><input id="hal-account-template-id" type="number" min="0" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[account_library_template_id]" value="<?php echo esc_attr( (string) $settings['account_library_template_id'] ); ?>" /></td>
+						<td><input id="hal-account-template-id" type="number" min="0" value="<?php echo esc_attr( (string) $settings['account_library_template_id'] ); ?>" disabled /><input type="hidden" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[account_library_template_id]" value="<?php echo esc_attr( (string) $settings['account_library_template_id'] ); ?>" /></td>
 					</tr>
 					<tr>
 						<th scope="row"><label for="hal-account-fixture-id"><?php esc_html_e( 'Account preview fixture user ID', 'hal-member-profiles' ); ?></label></th>
 						<td>
-							<input id="hal-account-fixture-id" type="number" min="0" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[account_fixture_user_id]" value="<?php echo esc_attr( (string) $settings['account_fixture_user_id'] ); ?>" />
-							<p class="description"><?php esc_html_e( 'Only used to preview this layout inside the Elementor editor, for administrators only — never shown on the live frontend or in a public preview.', 'hal-member-profiles' ); ?></p>
+							<input id="hal-account-fixture-id" type="number" min="0" value="<?php echo esc_attr( (string) $settings['account_fixture_user_id'] ); ?>" disabled />
+							<input type="hidden" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[account_fixture_user_id]" value="<?php echo esc_attr( (string) $settings['account_fixture_user_id'] ); ?>" />
+							<p class="description"><?php esc_html_e( 'Retained only so older saved settings are not deleted; HAL does not preview or replace the native Account page.', 'hal-member-profiles' ); ?></p>
 						</td>
 					</tr>
+				</table>
+
+				<h2 class="title"><?php esc_html_e( 'Ultimate Member membership mapping', 'hal-member-profiles' ); ?></h2>
+				<p class="description"><?php esc_html_e( 'HAL reads roles and account approval from Ultimate Member. If this mapping is missing or no longer valid, the native Ultimate Member view remains active.', 'hal-member-profiles' ); ?></p>
+				<table class="form-table" role="presentation">
+					<?php foreach ( $this->persona_labels() as $persona => $persona_label ) : ?>
+						<?php $persona_mapping = is_array( $settings['um_persona_mapping'][ $persona ] ?? null ) ? $settings['um_persona_mapping'][ $persona ] : array(); ?>
+						<tr>
+							<th scope="row"><?php echo esc_html( $persona_label ); ?></th>
+							<td>
+								<label>
+									<?php esc_html_e( 'Role', 'hal-member-profiles' ); ?>
+									<select name="<?php echo esc_attr( self::OPTION_KEY ); ?>[um_persona_mapping][<?php echo esc_attr( $persona ); ?>][role]">
+										<option value=""><?php esc_html_e( '— Select discovered role —', 'hal-member-profiles' ); ?></option>
+										<?php foreach ( $roles as $role_key => $role_label ) : ?>
+											<option value="<?php echo esc_attr( $role_key ); ?>" <?php selected( (string) ( $persona_mapping['role'] ?? '' ), $role_key ); ?>><?php echo esc_html( $role_label ); ?></option>
+										<?php endforeach; ?>
+									</select>
+								</label>
+								<label>
+									<?php esc_html_e( 'Approved status', 'hal-member-profiles' ); ?>
+									<select name="<?php echo esc_attr( self::OPTION_KEY ); ?>[um_persona_mapping][<?php echo esc_attr( $persona ); ?>][status]">
+										<option value=""><?php esc_html_e( '— Select discovered status —', 'hal-member-profiles' ); ?></option>
+										<?php foreach ( $statuses as $status_key => $status_label ) : ?>
+											<option value="<?php echo esc_attr( $status_key ); ?>" <?php selected( (string) ( $persona_mapping['status'] ?? '' ), $status_key ); ?>><?php echo esc_html( $status_label ); ?></option>
+										<?php endforeach; ?>
+									</select>
+								</label>
+							</td>
+						</tr>
+					<?php endforeach; ?>
 				</table>
 
 				<h2 class="title"><?php esc_html_e( 'Amelia', 'hal-member-profiles' ); ?></h2>
@@ -179,8 +230,8 @@ final class Settings {
 							<select id="hal-amelia-sync-mode" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[amelia_sync_mode]">
 								<option value="off" <?php selected( $settings['amelia_sync_mode'], self::SYNC_MODE_OFF ); ?>><?php esc_html_e( 'Off — no connection', 'hal-member-profiles' ); ?></option>
 								<option value="discover_only" <?php selected( $settings['amelia_sync_mode'], self::SYNC_MODE_DISCOVER_ONLY ); ?>><?php esc_html_e( 'Discover only — read and show diffs, never write', 'hal-member-profiles' ); ?></option>
-								<option value="managed_additions" <?php selected( $settings['amelia_sync_mode'], self::SYNC_MODE_MANAGED_ADDITIONS ); ?>><?php esc_html_e( 'Managed additions — create/update HAL-owned items only', 'hal-member-profiles' ); ?></option>
-								<option value="managed_sync" <?php selected( $settings['amelia_sync_mode'], self::SYNC_MODE_MANAGED_SYNC ); ?>><?php esc_html_e( 'Managed sync — full managed mappings (deletions stay manual)', 'hal-member-profiles' ); ?></option>
+							<option value="managed_additions" <?php selected( $settings['amelia_sync_mode'], self::SYNC_MODE_MANAGED_ADDITIONS ); ?>><?php esc_html_e( 'Managed additions — create missing HAL-owned fields only, never update', 'hal-member-profiles' ); ?></option>
+							<option value="managed_sync" <?php selected( $settings['amelia_sync_mode'], self::SYNC_MODE_MANAGED_SYNC ); ?>><?php esc_html_e( 'Managed sync — create missing and update HAL-owned fields (deletions stay manual)', 'hal-member-profiles' ); ?></option>
 							</select>
 							<p class="description"><?php esc_html_e( 'Turning this off stops future synchronization only — it never deletes catalog data or files.', 'hal-member-profiles' ); ?></p>
 						</td>
@@ -192,8 +243,8 @@ final class Settings {
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Managed templates consent', 'hal-member-profiles' ); ?></th>
 						<td>
-							<label for="hal-managed-templates-consent">
-								<input id="hal-managed-templates-consent" type="checkbox" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[managed_templates_consent]" value="1" <?php checked( $settings['managed_templates_consent'] ); ?> />
+							<label>
+								<input type="checkbox" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[managed_templates_consent]" value="1" <?php checked( $settings['managed_templates_consent'] ); ?> />
 								<?php esc_html_e( 'Allow HAL to provision and sync its managed templates into the active Child Theme', 'hal-member-profiles' ); ?>
 							</label>
 							<p class="description"><?php esc_html_e( 'Revoking this consent stops provisioning/syncing — it never deletes your files or stored data.', 'hal-member-profiles' ); ?></p>
@@ -202,8 +253,8 @@ final class Settings {
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Purge on uninstall', 'hal-member-profiles' ); ?></th>
 						<td>
-							<label for="hal-purge-on-uninstall">
-								<input id="hal-purge-on-uninstall" type="checkbox" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[purge_on_uninstall]" value="1" <?php checked( $settings['purge_on_uninstall'] ); ?> />
+							<label>
+								<input type="checkbox" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[purge_on_uninstall]" value="1" <?php checked( $settings['purge_on_uninstall'] ); ?> />
 								<?php esc_html_e( 'Delete these bridge settings on uninstall', 'hal-member-profiles' ); ?>
 							</label>
 							<p class="description"><?php esc_html_e( 'Irreversible: once the plugin is uninstalled with this enabled, the deletion cannot be undone.', 'hal-member-profiles' ); ?></p>
@@ -229,12 +280,16 @@ final class Settings {
 
 		$defaults = $this->defaults();
 		$clean    = $defaults;
+		$current  = $this->all();
 
 		$clean['profile_layout_mode'] = $this->sanitize_layout_mode( $input['profile_layout_mode'] ?? '', CompatibilityGate::CAP_PROFILE );
-		$clean['account_layout_mode'] = $this->sanitize_layout_mode( $input['account_layout_mode'] ?? '', CompatibilityGate::CAP_ACCOUNT );
+		$clean['account_layout_mode'] = self::LAYOUT_MODE_PUBLIC_LAYOUT === ( $current['account_layout_mode'] ?? '' )
+			? self::LAYOUT_MODE_PUBLIC_LAYOUT
+			: self::LAYOUT_MODE_OBSERVE;
 
 		$clean['profile_library_template_id'] = $this->sanitize_library_template_id( $input['profile_library_template_id'] ?? 0 );
-		$clean['account_library_template_id'] = $this->sanitize_library_template_id( $input['account_library_template_id'] ?? 0 );
+		$clean['profile_library_template_ids'] = $this->sanitize_persona_template_ids( $input['profile_library_template_ids'] ?? array() );
+		$clean['account_library_template_id'] = absint( $current['account_library_template_id'] ?? 0 );
 
 		$clean['amelia_booking_url'] = $this->sanitize_booking_url( $input['amelia_booking_url'] ?? '' );
 
@@ -245,7 +300,33 @@ final class Settings {
 		// exposure in get_profile_fixture_user_id()/get_account_fixture_user_id() below, where
 		// it is still correctly applied.
 		$clean['profile_fixture_user_id'] = $this->sanitize_fixture_user_id( $input['profile_fixture_user_id'] ?? 0 );
-		$clean['account_fixture_user_id'] = $this->sanitize_fixture_user_id( $input['account_fixture_user_id'] ?? 0 );
+		$clean['account_fixture_user_id'] = absint( $current['account_fixture_user_id'] ?? 0 );
+
+		if ( $this->um_mapping_nonce_is_valid() ) {
+			$role_source   = $this->discover_um_roles();
+			$status_source = $this->discover_um_statuses();
+
+			if ( $role_source['available'] && $status_source['available'] ) {
+				$clean['um_persona_mapping'] = $this->sanitize_persona_mapping(
+					$input['um_persona_mapping'] ?? array(),
+					$role_source['items'],
+					$status_source['items']
+				);
+				// Retain the C1 draft aggregate keys for backward-compatible readers only.
+				$clean['um_member_roles']      = array_values( array_unique( array_column( $clean['um_persona_mapping'], 'role' ) ) );
+				$clean['um_approved_statuses'] = array_values( array_unique( array_column( $clean['um_persona_mapping'], 'status' ) ) );
+			} else {
+				$clean['um_persona_mapping']   = $this->stored_persona_mapping( $current['um_persona_mapping'] ?? array() );
+				$clean['um_member_roles']      = $this->stored_mapping_keys( $current['um_member_roles'] ?? array() );
+				$clean['um_approved_statuses'] = $this->stored_mapping_keys( $current['um_approved_statuses'] ?? array() );
+			}
+		} else {
+			// The Settings API verifies its own nonce before reaching this callback. This
+			// dedicated token protects the C1 mapping if sanitize() is invoked elsewhere.
+			$clean['um_member_roles']      = $this->stored_mapping_keys( $current['um_member_roles'] ?? array() );
+			$clean['um_approved_statuses'] = $this->stored_mapping_keys( $current['um_approved_statuses'] ?? array() );
+			$clean['um_persona_mapping']   = $this->stored_persona_mapping( $current['um_persona_mapping'] ?? array() );
+		}
 
 		$clean['purge_on_uninstall'] = ! empty( $input['purge_on_uninstall'] );
 
@@ -265,16 +346,17 @@ final class Settings {
 	 * @return string
 	 */
 	public function get_profile_layout_mode(): string {
-		return $this->enforced_layout_mode( $this->all()['profile_layout_mode'], CompatibilityGate::CAP_PROFILE );
+		return $this->enforce_um_mapping( $this->enforced_layout_mode( $this->all()['profile_layout_mode'], CompatibilityGate::CAP_PROFILE ) );
 	}
 
 	/**
-	 * Active account layout mode, re-checked against the compatibility gate at read time.
+	 * Active Account mode. C2 keeps the stored value for backward compatibility, while
+	 * the effective v1.2.0 behavior is always UM Native/observe.
 	 *
 	 * @return string
 	 */
 	public function get_account_layout_mode(): string {
-		return $this->enforced_layout_mode( $this->all()['account_layout_mode'], CompatibilityGate::CAP_ACCOUNT );
+		return self::LAYOUT_MODE_OBSERVE;
 	}
 
 	/**
@@ -284,6 +366,38 @@ final class Settings {
 	 */
 	public function get_profile_library_template_id(): ?int {
 		return $this->valid_template_id_or_null( (int) $this->all()['profile_library_template_id'] );
+	}
+
+	/**
+	 * The public-profile Elementor library template ID for ONE member type (OD-06 /
+	 * card C7), re-validated at read time. Read-only: no template is ever created,
+	 * edited, published, or written.
+	 *
+	 * A configured per-member-type ID that no longer validates — deleted, unpublished,
+	 * wrong post type, not Elementor-built — returns null, which callers must treat as
+	 * the Native fallback; a valid template is never silently substituted for another.
+	 * When the member type has no per-type selection, the legacy single
+	 * profile_library_template_id is read backward-compatibly (the key is never deleted
+	 * or migrated) with the exact same validation.
+	 *
+	 * @param string $persona One of this class's PERSONA_* constants.
+	 * @return int|null
+	 */
+	public function get_public_profile_template_id_for_persona( string $persona ): ?int {
+		$stored = $this->all();
+		$map    = is_array( $stored['profile_library_template_ids'] ?? null )
+			? $stored['profile_library_template_ids']
+			: array();
+
+		if ( isset( $this->persona_labels()[ $persona ] ) ) {
+			$configured = absint( $map[ $persona ] ?? 0 );
+
+			if ( $configured > 0 ) {
+				return $this->valid_template_id_or_null( $configured );
+			}
+		}
+
+		return $this->get_profile_library_template_id();
 	}
 
 	/**
@@ -363,6 +477,61 @@ final class Settings {
 		return (string) $this->all()['amelia_sync_mode'];
 	}
 
+	/** @return array<string,string> Runtime UM role key => label. */
+	public function get_um_role_options(): array {
+		$source = $this->discover_um_roles();
+
+		return $source['available'] ? $source['items'] : array();
+	}
+
+	/** @return array<string,string> Runtime UM status key => label. */
+	public function get_um_status_options(): array {
+		$source = $this->discover_um_statuses();
+
+		return $source['available'] ? $source['items'] : array();
+	}
+
+	/**
+	 * Returns the revalidated runtime mapping. No role/status is inferred and no user
+	 * membership value is copied into HAL storage.
+	 *
+	 * @return array{availability:string,reason:string,personas:array<string,array{role:string,status:string}>,member_roles:array<int,string>,approved_statuses:array<int,string>}
+	 */
+	public function get_um_member_mapping(): array {
+		$role_source   = $this->discover_um_roles();
+		$status_source = $this->discover_um_statuses();
+
+		if ( ! $role_source['available'] || ! $status_source['available'] ) {
+			return $this->unavailable_mapping( 'um_mapping_provider_unavailable' );
+		}
+
+		$stored            = $this->all();
+		$stored_mapping = $this->stored_persona_mapping( $stored['um_persona_mapping'] ?? array() );
+		$valid_mapping  = $this->sanitize_persona_mapping( $stored_mapping, $role_source['items'], $status_source['items'] );
+
+		if ( $stored_mapping !== $valid_mapping ) {
+			return $this->unavailable_mapping( 'um_mapping_stale' );
+		}
+
+		if ( count( $valid_mapping ) !== count( $this->persona_labels() ) ) {
+			return $this->unavailable_mapping( 'um_mapping_missing' );
+		}
+
+		$roles = array_column( $valid_mapping, 'role' );
+
+		if ( count( $roles ) !== count( array_unique( $roles ) ) ) {
+			return $this->unavailable_mapping( 'um_mapping_conflict' );
+		}
+
+		return array(
+			'availability'      => 'available',
+			'reason'            => 'configured',
+			'personas'          => $valid_mapping,
+			'member_roles'      => $roles,
+			'approved_statuses' => array_values( array_unique( array_column( $valid_mapping, 'status' ) ) ),
+		);
+	}
+
 	/**
 	 * Reads the stored option merged over safe defaults.
 	 *
@@ -388,14 +557,202 @@ final class Settings {
 			'profile_layout_mode'         => self::LAYOUT_MODE_OBSERVE,
 			'account_layout_mode'         => self::LAYOUT_MODE_OBSERVE,
 			'profile_library_template_id' => 0,
+			'profile_library_template_ids' => array(
+				self::PERSONA_LAWYER          => 0,
+				self::PERSONA_CONSULTANT      => 0,
+				self::PERSONA_ORDINARY_MEMBER => 0,
+			),
 			'account_library_template_id' => 0,
 			'profile_fixture_user_id'     => 0,
 			'account_fixture_user_id'     => 0,
+			'um_member_roles'             => array(),
+			'um_approved_statuses'        => array(),
+			'um_persona_mapping'           => array(),
 			'amelia_booking_url'          => '',
 			'purge_on_uninstall'          => false,
 			'managed_templates_consent'   => false,
 			'amelia_sync_mode'            => self::SYNC_MODE_OFF,
 		);
+	}
+
+	/** @return array{available:bool,reason:string,items:array<string,string>} */
+	private function discover_um_roles(): array {
+		if ( ! function_exists( 'um_get_roles' ) ) {
+			return array( 'available' => false, 'reason' => 'um_roles_unavailable', 'items' => array() );
+		}
+
+		try {
+			return $this->normalize_mapping_options( um_get_roles(), 'um_roles_invalid' );
+		} catch ( \Throwable $e ) {
+			return array( 'available' => false, 'reason' => 'um_roles_unavailable', 'items' => array() );
+		}
+	}
+
+	/** @return array{available:bool,reason:string,items:array<string,string>} */
+	private function discover_um_statuses(): array {
+		if ( ! function_exists( 'UM' ) ) {
+			return array( 'available' => false, 'reason' => 'um_statuses_unavailable', 'items' => array() );
+		}
+
+		try {
+			$um     = UM();
+			$common = is_object( $um ) && method_exists( $um, 'common' ) ? $um->common() : null;
+			$users  = is_object( $common ) && method_exists( $common, 'users' ) ? $common->users() : null;
+
+			if ( ! is_object( $users ) || ! method_exists( $users, 'statuses_list' ) ) {
+				return array( 'available' => false, 'reason' => 'um_statuses_unavailable', 'items' => array() );
+			}
+
+			return $this->normalize_mapping_options( $users->statuses_list(), 'um_statuses_invalid' );
+		} catch ( \Throwable $e ) {
+			return array( 'available' => false, 'reason' => 'um_statuses_unavailable', 'items' => array() );
+		}
+	}
+
+	/** @return array{available:bool,reason:string,items:array<string,string>} */
+	private function normalize_mapping_options( $raw, string $invalid_reason ): array {
+		if ( ! is_array( $raw ) ) {
+			return array( 'available' => false, 'reason' => $invalid_reason, 'items' => array() );
+		}
+
+		$items = array();
+
+		foreach ( $raw as $key => $label ) {
+			$key = (string) $key;
+
+			if ( '' !== $key && is_scalar( $label ) ) {
+				$items[ $key ] = (string) $label;
+			}
+		}
+
+		return array(
+			'available' => true,
+			'reason'    => empty( $items ) ? 'valid_empty' : 'discovered',
+			'items'     => $items,
+		);
+	}
+
+	/** @return array<string,string> */
+	private function persona_labels(): array {
+		return array(
+			self::PERSONA_LAWYER          => __( 'Lawyer', 'hal-member-profiles' ),
+			self::PERSONA_CONSULTANT      => __( 'Consultant', 'hal-member-profiles' ),
+			self::PERSONA_ORDINARY_MEMBER => __( 'Ordinary member', 'hal-member-profiles' ),
+		);
+	}
+
+	/** @return array<string,array{role:string,status:string}> */
+	private function sanitize_persona_mapping( $raw, array $roles, array $statuses ): array {
+		if ( ! is_array( $raw ) ) {
+			return array();
+		}
+
+		$mapping = array();
+
+		foreach ( array_keys( $this->persona_labels() ) as $persona ) {
+			$row    = is_array( $raw[ $persona ] ?? null ) ? $raw[ $persona ] : array();
+			$role   = is_scalar( $row['role'] ?? null ) ? (string) $row['role'] : '';
+			$status = is_scalar( $row['status'] ?? null ) ? (string) $row['status'] : '';
+
+			if ( '' !== $role && '' !== $status && array_key_exists( $role, $roles ) && array_key_exists( $status, $statuses ) ) {
+				$mapping[ $persona ] = array( 'role' => $role, 'status' => $status );
+			}
+		}
+
+		return $mapping;
+	}
+
+	/** @return array<string,array{role:string,status:string}> */
+	private function stored_persona_mapping( $raw ): array {
+		if ( ! is_array( $raw ) ) {
+			return array();
+		}
+
+		$mapping = array();
+
+		foreach ( array_keys( $this->persona_labels() ) as $persona ) {
+			$row = is_array( $raw[ $persona ] ?? null ) ? $raw[ $persona ] : array();
+
+			if ( is_scalar( $row['role'] ?? null ) && is_scalar( $row['status'] ?? null ) ) {
+				$mapping[ $persona ] = array(
+					'role'   => (string) $row['role'],
+					'status' => (string) $row['status'],
+				);
+			}
+		}
+
+		return $mapping;
+	}
+
+	/** @return array<int,string> */
+	private function sanitize_mapping_keys( $raw, array $options ): array {
+		if ( ! is_array( $raw ) ) {
+			return array();
+		}
+
+		$valid = array();
+
+		foreach ( $raw as $key ) {
+			$key = is_scalar( $key ) ? (string) $key : '';
+
+			if ( '' !== $key && array_key_exists( $key, $options ) && ! in_array( $key, $valid, true ) ) {
+				$valid[] = $key;
+			}
+		}
+
+		return $valid;
+	}
+
+	/** @return array<int,string> */
+	private function stored_mapping_keys( $raw ): array {
+		if ( ! is_array( $raw ) ) {
+			return array();
+		}
+
+		$keys = array();
+
+		foreach ( $raw as $key ) {
+			if ( is_scalar( $key ) && '' !== (string) $key && ! in_array( (string) $key, $keys, true ) ) {
+				$keys[] = (string) $key;
+			}
+		}
+
+		return $keys;
+	}
+
+	private function um_mapping_nonce_is_valid(): bool {
+		if ( ! isset( $_POST[ self::UM_MAPPING_NONCE_NAME ] ) || ! is_scalar( $_POST[ self::UM_MAPPING_NONCE_NAME ] ) ) {
+			return false;
+		}
+
+		$nonce = sanitize_text_field( wp_unslash( (string) $_POST[ self::UM_MAPPING_NONCE_NAME ] ) );
+
+		return false !== wp_verify_nonce( $nonce, self::UM_MAPPING_NONCE_ACTION );
+	}
+
+	/** @return array{availability:string,reason:string,personas:array,member_roles:array,approved_statuses:array} */
+	private function unavailable_mapping( string $reason ): array {
+		return array(
+			'availability'      => 'unavailable',
+			'reason'            => $reason,
+			'personas'          => array(),
+			'member_roles'      => array(),
+			'approved_statuses' => array(),
+		);
+	}
+
+	/**
+	 * A missing or stale UM mapping keeps both enhanced layouts on their native/observe
+	 * path even if an older stored public_layout value passed the compatibility gate.
+	 */
+	private function enforce_um_mapping( string $mode ): string {
+		if ( self::LAYOUT_MODE_PUBLIC_LAYOUT !== $mode ) {
+			return $mode;
+		}
+
+		return 'available' === $this->get_um_member_mapping()['availability']
+			? $mode
+			: self::LAYOUT_MODE_OBSERVE;
 	}
 
 	/**
@@ -491,6 +848,27 @@ final class Settings {
 	 */
 	private function sanitize_library_template_id( $value ): int {
 		return $this->valid_template_id_or_null( absint( $value ) ) ?? 0;
+	}
+
+	/**
+	 * Sanitizes the per-member-type public-profile Elementor template IDs (OD-06 /
+	 * card C7). Admin-gated by sanitize() itself; every value is absint'd and must be a
+	 * currently valid, published Elementor library template, otherwise it stores 0 —
+	 * which makes that member type read the legacy single template ID instead. No
+	 * template or file is ever created, edited, or written by this save path.
+	 *
+	 * @param mixed $raw Raw submitted per-persona map.
+	 * @return array<string,int>
+	 */
+	private function sanitize_persona_template_ids( $raw ): array {
+		$submitted = is_array( $raw ) ? $raw : array();
+		$clean     = array();
+
+		foreach ( array_keys( $this->persona_labels() ) as $persona ) {
+			$clean[ $persona ] = $this->valid_template_id_or_null( absint( $submitted[ $persona ] ?? 0 ) ) ?? 0;
+		}
+
+		return $clean;
 	}
 
 	/**

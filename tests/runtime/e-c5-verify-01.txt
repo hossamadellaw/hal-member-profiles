@@ -1,0 +1,91 @@
+PHPUnit 9.6.36 by Sebastian Bergmann and contributors.
+
+FFFFF.FFF                                                           9 / 9 (100%)
+
+Time: 00:00.410, Memory: 6.00 MB
+
+There were 8 failures:
+
+1) HAL\MemberProfiles\Tests\Unit\AmeliaCatalogStateTest::test_valid_current_serves_catalog
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'valid_current'
++'not_configured'
+
+D:\حسام عادل المحامي Hossam Adel Lawyer\website\plugins\hal-member-profiles\tests\Unit\AmeliaCatalogStateTest.php:68
+
+2) HAL\MemberProfiles\Tests\Unit\AmeliaCatalogStateTest::test_valid_empty_is_not_a_failure
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'valid_empty'
++'not_configured'
+
+D:\حسام عادل المحامي Hossam Adel Lawyer\website\plugins\hal-member-profiles\tests\Unit\AmeliaCatalogStateTest.php:83
+
+3) HAL\MemberProfiles\Tests\Unit\AmeliaCatalogStateTest::test_stale_previous_valid_keeps_last_valid_services
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'stale_previous_valid'
++'not_configured'
+
+D:\حسام عادل المحامي Hossam Adel Lawyer\website\plugins\hal-member-profiles\tests\Unit\AmeliaCatalogStateTest.php:93
+
+4) HAL\MemberProfiles\Tests\Unit\AmeliaCatalogStateTest::test_unavailable_is_not_a_valid_empty_list
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'unavailable'
++'not_configured'
+
+D:\حسام عادل المحامي Hossam Adel Lawyer\website\plugins\hal-member-profiles\tests\Unit\AmeliaCatalogStateTest.php:105
+
+5) HAL\MemberProfiles\Tests\Unit\AmeliaCatalogStateTest::test_snapshot_without_services_section_is_unavailable
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'unavailable'
++'not_configured'
+
+D:\حسام عادل المحامي Hossam Adel Lawyer\website\plugins\hal-member-profiles\tests\Unit\AmeliaCatalogStateTest.php:122
+
+6) HAL\MemberProfiles\Tests\Unit\AmeliaCatalogStateTest::test_failed_refresh_keeps_previous_valid_snapshot_current
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'valid_current'
++'not_configured'
+
+D:\حسام عادل المحامي Hossam Adel Lawyer\website\plugins\hal-member-profiles\tests\Unit\AmeliaCatalogStateTest.php:155
+
+7) HAL\MemberProfiles\Tests\Unit\AmeliaCatalogStateTest::test_malformed_service_rows_drop_out_individually
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'valid_current'
++'not_configured'
+
+D:\حسام عادل المحامي Hossam Adel Lawyer\website\plugins\hal-member-profiles\tests\Unit\AmeliaCatalogStateTest.php:171
+
+8) HAL\MemberProfiles\Tests\Unit\AmeliaCatalogStateTest::test_state_and_catalog_never_expose_pii
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'valid_current'
++'not_configured'
+
+D:\حسام عادل المحامي Hossam Adel Lawyer\website\plugins\hal-member-profiles\tests\Unit\AmeliaCatalogStateTest.php:190
+
+FAILURES!
+Tests: 9, Assertions: 11, Failures: 8.
+EXIT=1

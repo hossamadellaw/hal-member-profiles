@@ -86,9 +86,16 @@ final class ProfileField extends Widget_Base {
 			return $options;
 		}
 
-		$form_id = $field_schema->default_profile_form_id();
+		$context = null !== $bootstrap->get_profile_context() ? $bootstrap->get_profile_context()->resolve() : null;
+		$form_id = null !== $context && ! empty( $context->form_id )
+			? (int) $context->form_id
+			: $field_schema->default_profile_form_id();
+		$scope   = array(
+			'context' => 'profile',
+			'persona' => null !== $context ? (string) ( $context->persona ?? '' ) : '',
+		);
 
-		foreach ( $field_schema->get_profile_selectors( $form_id ) as $selector ) {
+		foreach ( $field_schema->get_profile_selectors( $form_id, $scope ) as $selector ) {
 			$options[ $selector['metakey'] ] = $selector['label'];
 		}
 
@@ -135,13 +142,13 @@ final class ProfileField extends Widget_Base {
 		// id reaches Policy as-is and fails closed — never another Form's fields.
 		$form_id = (int) $context->form_id;
 
-		$result = $policy->can_view_field( (int) $context->target_user->ID, (int) $context->visitor_id, $form_id, $metakey );
+		$result = $policy->can_view_field( (int) $context->target_user->ID, (int) $context->visitor_id, $form_id, $metakey, (string) $context->persona );
 
 		if ( null === $result ) {
 			return;
 		}
 
-		$label = $this->field_label( $field_schema, $form_id, $metakey );
+		$label = $this->field_label( $field_schema, $form_id, $metakey, (string) $context->persona );
 
 		// Policy already returned typed, escaped-ready values; format() below applies the
 		// final semantic markup and escaping per type.
@@ -157,8 +164,8 @@ final class ProfileField extends Widget_Base {
 	 * @param string      $metakey      Field meta key.
 	 * @return string
 	 */
-	private function field_label( FieldSchema $field_schema, int $form_id, string $metakey ): string {
-		foreach ( $field_schema->get_profile_selectors( $form_id ) as $selector ) {
+	private function field_label( FieldSchema $field_schema, int $form_id, string $metakey, string $persona ): string {
+		foreach ( $field_schema->get_profile_selectors( $form_id, array( 'context' => 'profile', 'persona' => $persona ) ) as $selector ) {
 			if ( $selector['metakey'] === $metakey ) {
 				return $selector['label'];
 			}

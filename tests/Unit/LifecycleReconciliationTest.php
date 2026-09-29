@@ -1,8 +1,9 @@
 <?php
 /**
- * Unit tests for Lifecycle reconciliation semantics (cards D-05/D-17): activation and
- * theme-switch markers, drift-triggered single-write migration (idempotent upgrade),
- * failure containment that keeps the pending marker, and the manual Repair command.
+ * Unit tests for Lifecycle reconciliation semantics (cards D-05/D-17 / v1.2.0 C7):
+ * activation and theme-switch markers, consent-aware reconciliation that stays FAIL-CLOSED
+ * under the v1.2.0 write closure (zero Child Theme writes, named reason, pending marker
+ * kept for diagnosability), failure containment, and the manual Repair command.
  *
  * Runs against the REAL bundled manifest/resources with a synthetic child-theme target
  * directory, through the contract filesystem stub — no repository files are modified.
@@ -102,60 +103,70 @@ final class LifecycleReconciliationTest extends TestCase {
 		$this->assertSame( 'theme_switched', $raw['reason'] );
 	}
 
-	public function test_drift_triggers_single_write_migration_then_idles(): void {
-		Lifecycle::maybe_reconcile(); // fresh env -> drift -> provision both assets
+	/**
+	 * v1.2.0 (card C7): reconciliation is consent-aware but the write path is closed —
+	 * drift still schedules reconciliation, provisioning fails closed with the named
+	 * reason, the pending marker stays for diagnosability, and no Child Theme file is
+	 * ever written (idempotent across repeated ticks).
+	 */
+	public function test_drift_reconciliation_stays_fail_closed_without_child_theme_writes(): void {
+		Lifecycle::maybe_reconcile(); // fresh env -> drift -> but v1.2.0 disapproves writes
 
-		$this->assertSame( 'idle', $this->stored_status()['status'] );
+		$status = $this->stored_status();
 
-		foreach (
-			array(
-				'profile-hal-member-profiles.php',
-				'account.php',
-			) as $asset
-		) {
-			$this->assertFileExists( $this->theme . '/ultimate-member/templates/' . $asset );
-		}
+		$this->assertSame( 'pending', $status['status'] );
+		$this->assertStringContainsString( 'writes_disabled_v1_2', (string) $status['reason'] );
+		$this->assertFileDoesNotExist( $this->theme . '/ultimate-member/templates/profile-hal-member-profiles.php' );
+		$this->assertFileDoesNotExist( $this->theme . '/ultimate-member/templates/account.php' );
 
-		clearstatcache();
-
-		$mtimes = array(
-			filemtime( $this->theme . '/ultimate-member/templates/profile-hal-member-profiles.php' ),
-			filemtime( $this->theme . '/ultimate-member/templates/account.php' ),
-		);
-
-		// Second admin tick: no drift, no pending -> nothing rewritten (idempotent).
+		// Second admin tick: still fail-closed, still zero writes.
 		Lifecycle::maybe_reconcile();
 
-		clearstatcache();
+		$this->assertSame( 'pending', $this->stored_status()['status'] );
+		$this->assertFileDoesNotExist( $this->theme . '/ultimate-member/templates/profile-hal-member-profiles.php' );
+	}
 
-		$this->assertSame(
-			$mtimes,
-			array(
-				filemtime( $this->theme . '/ultimate-member/templates/profile-hal-member-profiles.php' ),
-				filemtime( $this->theme . '/ultimate-member/templates/account.php' ),
+	public function test_retired_account_ledger_row_is_retained_without_reconciliation(): void {
+		// v1.2.0 (card C7): the historical ledger is seeded directly — the writer can no
+		// longer be run to produce it, and no retired row is ever deleted or rewritten.
+		$state = array(
+			'theme'  => 'child-lc',
+			'assets' => array(
+				'resources/ultimate-member/account.php' => array(
+					'asset_version'     => 1,
+					'source_hash'       => str_repeat( 'a', 64 ),
+					'last_managed_hash' => str_repeat( 'a', 64 ),
+					'status'            => ManagedTemplates::STATUS_CURRENT,
+				),
 			),
-			'migration must be a single write per asset'
 		);
-		$this->assertSame( 'idle', $this->stored_status()['status'] );
+		update_option( ManagedTemplates::STATE_OPTION, $state );
+
+		Lifecycle::maybe_reconcile();
+
+		$this->assertSame( $state, get_option( ManagedTemplates::STATE_OPTION ), 'the historical ledger row must be retained untouched' );
+		$this->assertFileDoesNotExist( $this->theme . '/ultimate-member/templates/account.php' );
+		$this->assertStringContainsString( 'writes_disabled_v1_2', (string) $this->stored_status()['reason'] );
 	}
 
 	public function test_provisioning_failure_keeps_pending_with_named_reason(): void {
-		hal_wp_stub_extra_set( 'fs_available', false ); // credentials-less environment
-
+		// v1.2.0 (card C7): the write closure fires before any filesystem work, so the
+		// containment path records the named closure reason and keeps the pending marker.
 		Lifecycle::maybe_reconcile();
 
 		$status = $this->stored_status();
 
 		$this->assertSame( 'pending', $status['status'] );
-		$this->assertStringContainsString( 'needs_credentials', (string) $status['reason'] );
+		$this->assertStringContainsString( 'writes_disabled_v1_2', (string) $status['reason'] );
 		$this->assertFileDoesNotExist( $this->theme . '/ultimate-member/templates/account.php' );
 	}
 
-	public function test_manual_repair_forces_reconciliation(): void {
+	public function test_manual_repair_reports_writes_disabled_fail_closed(): void {
 		$res = Lifecycle::repair(); // programmatic path; nonce null by design here
 
-		$this->assertTrue( $res['ok'] );
-		$this->assertSame( 'repaired', $res['reason'] );
-		$this->assertSame( 'idle', $this->stored_status()['status'] );
+		$this->assertFalse( $res['ok'] );
+		$this->assertSame( 'writes_disabled_v1_2', $res['reason'] );
+		$this->assertSame( 'pending', $this->stored_status()['status'] );
+		$this->assertFileDoesNotExist( $this->theme . '/ultimate-member/templates/account.php' );
 	}
 }

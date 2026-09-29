@@ -25,6 +25,20 @@ final class SchemaRegistryTest extends TestCase {
 			),
 		);
 		$GLOBALS['wp_stubs']['post_meta'] = array();
+		add_filter(
+			'um_get_form_fields',
+			static function ( $fields, $form_id ) {
+				unset( $fields );
+				return get_post_meta( (int) $form_id, '_um_custom_fields', true );
+			},
+			99,
+			2
+		);
+	}
+
+	protected function tearDown(): void {
+		remove_all_filters( 'um_get_form_fields' );
+		remove_all_filters( 'um_account_page_default_tabs_hook' );
 	}
 
 	public function test_sync_off_refuses_discovery_before_any_http_call(): void {
@@ -116,8 +130,8 @@ final class SchemaRegistryTest extends TestCase {
 	public function test_account_side_reports_absence_without_inventing_selectors(): void {
 		$res = $this->registry()->um_account_schema();
 
-		$this->assertTrue( $res['ok'] );
-		$this->assertSame( 'no_verified_account_source', $res['reason'] );
+		$this->assertFalse( $res['ok'] );
+		$this->assertSame( 'account_tabs_unavailable', $res['reason'] );
 		$this->assertSame( array(), $res['items'] );
 	}
 
@@ -190,5 +204,47 @@ final class SchemaRegistryTest extends TestCase {
 		$after = md5( (string) json_encode( $GLOBALS['__opts'] ?? array() ) . (string) json_encode( $GLOBALS['wp_stubs']['options'] ) );
 
 		$this->assertSame( $before, $after, 'failed sync must leave the previous snapshot byte-intact' );
+	}
+
+	/**
+	 * Card C6a / F-07: the owner-approved mode table, applied EXCLUSIVELY to HAL-owned
+	 * Amelia field definitions. Each mode is asserted across every gate — the two new
+	 * semantically distinct pair members (create/update) plus the legacy read/write
+	 * views — so `managed_additions` can never silently gain `managed_sync` powers.
+	 */
+	public function test_c6a_mode_table_gates_field_definition_operations(): void {
+		$table = array(
+			'off'               => array( 'read' => false, 'diff' => false, 'create' => false, 'update' => false ),
+			'discover_only'     => array( 'read' => true, 'diff' => true, 'create' => false, 'update' => false ),
+			'managed_additions' => array( 'read' => true, 'diff' => true, 'create' => true, 'update' => false ),
+			'managed_sync'      => array( 'read' => true, 'diff' => true, 'create' => true, 'update' => true ),
+		);
+
+		foreach ( $table as $mode => $expected ) {
+			$GLOBALS['wp_stubs']['options'][ \HAL\MemberProfiles\Settings::OPTION_KEY ]['amelia_sync_mode'] = $mode;
+
+			$this->assertSame( $expected['read'], SchemaRegistry::mode_allows_read(), "read gate for {$mode}" );
+			$this->assertSame( $expected['create'], SchemaRegistry::mode_allows_create(), "create gate for {$mode}" );
+			$this->assertSame( $expected['update'], SchemaRegistry::mode_allows_update(), "update gate for {$mode}" );
+
+			// The legacy "any write" view follows create (both managed modes) and never
+			// widens beyond it; discovery-only modes stay read-only through every gate.
+			$this->assertSame( $expected['create'], SchemaRegistry::mode_allows_write(), "legacy any-write gate for {$mode}" );
+			$this->assertSame( $expected['diff'], SchemaRegistry::mode_allows_read(), "diff availability rides the read gate for {$mode}" );
+		}
+	}
+
+	/**
+	 * Card C6a: an UNRECOGNIZED mode value fail-closes every gate — it must never
+	 * fall through into any capability, including the legacy any-write view.
+	 */
+	public function test_c6a_unknown_mode_fails_closed_on_every_gate(): void {
+		$GLOBALS['wp_stubs']['options'][ \HAL\MemberProfiles\Settings::OPTION_KEY ]['amelia_sync_mode'] = 'managed_everything';
+
+		$this->assertSame( 'off', SchemaRegistry::current_sync_mode(), 'unknown mode normalizes to off' );
+		$this->assertFalse( SchemaRegistry::mode_allows_read() );
+		$this->assertFalse( SchemaRegistry::mode_allows_create() );
+		$this->assertFalse( SchemaRegistry::mode_allows_update() );
+		$this->assertFalse( SchemaRegistry::mode_allows_write() );
 	}
 }

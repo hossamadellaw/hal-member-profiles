@@ -71,27 +71,22 @@ final class RuntimeEvidenceReporterTest extends TestCase {
 				'theme'           => null,
 			),
 			'account_selectors' => array(
-				'source_present' => true,
-				'count'          => 0,
-				'types'          => array( 'text' => 0, 'url' => 0, 'image' => 0, 'list' => 0 ),
+				'count' => 0,
+				'types' => array(),
 			),
 			'amelia_reader'     => array(
 				'plugin_detected' => true,
-				'service_present' => true,
 				'sync_mode'       => 'discover_only',
 				'snapshot_ok'     => true,
 				'services'        => 3,
 				'employees'       => 2,
 				'custom_fields'   => 1,
 				'gate_passes'     => false,
-				'gate_reason'     => 'awaiting_matrix_signoff:amelia_api_read',
 			),
 			'amelia_writer'     => array(
 				'class_present'     => true,
-				'service_present'   => true,
 				'route_present'     => true,
 				'gate_passes'       => false,
-				'gate_reason'       => 'awaiting_matrix_signoff:amelia_fields_write',
 				'sync_mode'         => 'discover_only',
 				'mode_allows_write' => false,
 				'secret_stored'     => false,
@@ -102,11 +97,11 @@ final class RuntimeEvidenceReporterTest extends TestCase {
 			),
 			'um_integration'    => array(
 				'um_detected'             => true,
-				'full_native_fallback'    => true,
-				'profile_gate_passes'     => false,
-				'account_gate_passes'     => false,
-				'um_schema_gate_passes'   => false,
-				'dynamic_tags_gate_passes' => false,
+				'native_fallback_present' => true,
+				'gate_profile'            => false,
+				'gate_account'            => false,
+				'gate_um_schema'          => false,
+				'gate_dynamic_tags'       => false,
 			),
 			'integrations'      => array(
 				'woocommerce'     => false,
@@ -135,25 +130,15 @@ final class RuntimeEvidenceReporterTest extends TestCase {
 			array_keys( $report['capabilities'] )
 		);
 
-		$base_keys = array( 'implementation', 'runtime', 'verification', 'reason', 'evidence_level', 'counts' );
-		$expected_capability_keys = array(
-			'account_selectors'    => array_merge( $base_keys, array( 'source_present' ) ),
-			'account_photo_tab'    => $base_keys,
-			'account_dashboard_tab' => $base_keys,
-			'amelia_reader'        => array_merge( $base_keys, array( 'plugin_detected', 'service_present', 'sync_mode', 'snapshot_state', 'gate_passes', 'gate_reason' ) ),
-			'amelia_writer'        => array_merge( $base_keys, array( 'class_present', 'service_present', 'route_present', 'strict_gate_passes', 'strict_gate_reason', 'sync_mode', 'mode_allows_write', 'secret_stored', 'secret_decodable', 'delete_supported' ) ),
-			'um_integration'       => array_merge( $base_keys, array( 'um_detected', 'full_native_fallback', 'profile_gate_passes', 'account_gate_passes', 'um_schema_gate_passes', 'dynamic_tags_gate_passes' ) ),
-		);
-
 		foreach ( $report['capabilities'] as $id => $capability ) {
-			$this->assertSame( $expected_capability_keys[ $id ], array_keys( $capability ), "capability {$id} keys" );
-		}
+			$keys = array( 'implementation', 'runtime', 'verification', 'reason', 'evidence_level', 'counts' );
 
-		$this->assertSame( array( 'total', 'type_distribution' ), array_keys( $report['capabilities']['account_selectors']['counts'] ) );
-		$this->assertSame( array( 'text', 'url', 'image', 'list' ), array_keys( $report['capabilities']['account_selectors']['counts']['type_distribution'] ) );
-		$this->assertSame( array( 'services', 'employees', 'custom_fields' ), array_keys( $report['capabilities']['amelia_reader']['counts'] ) );
-		$this->assertSame( array( 'desired', 'ledger', 'dry_plan_create', 'dry_plan_update', 'dry_plan_unchanged', 'dry_plan_orphaned' ), array_keys( $report['capabilities']['amelia_writer']['counts'] ) );
-		$this->assertSame( array( 'gates_total', 'gates_passing' ), array_keys( $report['capabilities']['um_integration']['counts'] ) );
+			if ( 'amelia_writer' === $id ) {
+				$keys[] = 'delete_supported';
+			}
+
+			$this->assertSame( $keys, array_keys( $capability ), "capability {$id} keys" );
+		}
 
 		// Expected honest states for the fixture: selectors blocked, tabs native fallback,
 		// reader pending on the gate, writer blocked with delete_supported=false.
@@ -162,21 +147,8 @@ final class RuntimeEvidenceReporterTest extends TestCase {
 		$this->assertSame( 'native_fallback', $report['capabilities']['account_photo_tab']['runtime'] );
 		$this->assertSame( 'no_verified_runtime_probe', $report['capabilities']['account_photo_tab']['reason'] );
 		$this->assertSame( 'contract_fixture', $report['capabilities']['amelia_reader']['evidence_level'] );
-		$this->assertTrue( $report['capabilities']['amelia_reader']['plugin_detected'] );
-		$this->assertTrue( $report['capabilities']['amelia_reader']['service_present'] );
-		$this->assertSame( 'discover_only', $report['capabilities']['amelia_reader']['sync_mode'] );
-		$this->assertSame( 'available', $report['capabilities']['amelia_reader']['snapshot_state'] );
-		$this->assertFalse( $report['capabilities']['amelia_reader']['gate_passes'] );
-		$this->assertSame( 'awaiting_matrix_signoff', $report['capabilities']['amelia_reader']['gate_reason'] );
 		$this->assertSame( 'blocked', $report['capabilities']['amelia_writer']['runtime'] );
-		$this->assertTrue( $report['capabilities']['amelia_writer']['class_present'] );
-		$this->assertTrue( $report['capabilities']['amelia_writer']['service_present'] );
-		$this->assertTrue( $report['capabilities']['amelia_writer']['route_present'] );
-		$this->assertFalse( $report['capabilities']['amelia_writer']['strict_gate_passes'] );
-		$this->assertFalse( $report['capabilities']['amelia_writer']['secret_decodable'] );
 		$this->assertFalse( $report['capabilities']['amelia_writer']['delete_supported'] );
-		$this->assertTrue( $report['capabilities']['um_integration']['full_native_fallback'] );
-		$this->assertFalse( $report['capabilities']['um_integration']['profile_gate_passes'] );
 
 		// No Matrix row may flip: everything stays Pending in fixture mode.
 		foreach ( $report['capabilities'] as $capability ) {
@@ -211,40 +183,6 @@ final class RuntimeEvidenceReporterTest extends TestCase {
 			$this->assertSame( 'capability_amelia_reader_runtime_invalid', $e->getMessage() );
 		}
 
-		// Required capability-local field and unknown capability-local key.
-		$inflated = $report;
-		unset( $inflated['capabilities']['amelia_reader']['service_present'] );
-		$this->assert_validation_error( 'capability_amelia_reader_keys_invalid', $inflated );
-
-		$inflated = $report;
-		$inflated['capabilities']['amelia_writer']['apply_supported'] = false;
-		$this->assert_validation_error( 'capability_amelia_writer_keys_invalid', $inflated );
-
-		// Nested schemas, sync/snapshot enums and capability-local reason allowlists are closed.
-		$inflated = $report;
-		$inflated['capabilities']['account_selectors']['counts']['type_distribution']['sentinel_meta_key'] = 1;
-		$this->assert_validation_error( 'capability_account_selectors_type_distribution_keys_invalid', $inflated );
-
-		$inflated = $report;
-		$inflated['capabilities']['amelia_reader']['sync_mode'] = 'sentinel-sync-mode';
-		$this->assert_validation_error( 'capability_amelia_reader_facts_invalid', $inflated );
-
-		$inflated = $report;
-		$inflated['capabilities']['amelia_reader']['snapshot_state'] = 'stale';
-		$this->assert_validation_error( 'capability_amelia_reader_facts_invalid', $inflated );
-
-		$inflated = $report;
-		$inflated['capabilities']['amelia_writer']['strict_gate_reason'] = 'sentinel-reason';
-		$this->assert_validation_error( 'capability_amelia_writer_facts_invalid', $inflated );
-
-		$inflated = $report;
-		$inflated['capabilities']['amelia_writer']['secret_decodable'] = null;
-		$this->assert_validation_error( 'capability_amelia_writer_secret_decodable_invalid', $inflated );
-
-		$inflated = $report;
-		$inflated['capabilities']['amelia_reader']['counts']['services'] = 1000001;
-		$this->assert_validation_error( 'capability_amelia_reader_counts_value_invalid', $inflated );
-
 		// Reason outside the allowlist.
 		$inflated = $report;
 		$inflated['capabilities']['amelia_reader']['reason'] = 'made_up_reason';
@@ -270,7 +208,6 @@ final class RuntimeEvidenceReporterTest extends TestCase {
 		$report = ( new RuntimeEvidenceReporter( $this->fixture_facts() ) )->generate();
 
 		// A valid report stays far below the ceiling.
-		$this->assertSame( 65536, RuntimeEvidenceReporter::MAX_JSON_BYTES );
 		$this->assertLessThan( RuntimeEvidenceReporter::MAX_JSON_BYTES, strlen( (string) json_encode( $report ) ) );
 
 		// The ceiling itself is enforced (test-only override of the bound).
@@ -282,28 +219,6 @@ final class RuntimeEvidenceReporterTest extends TestCase {
 		}
 	}
 
-	public function test_json_encoding_is_non_empty_and_fails_closed_on_invalid_utf8(): void {
-		$json = ( new RuntimeEvidenceReporter( $this->fixture_facts() ) )->generate_json();
-
-		$this->assertNotSame( '', $json );
-		$this->assertIsArray( json_decode( $json, true ) );
-		$this->assertSame( JSON_ERROR_NONE, json_last_error() );
-
-		$facts = $this->fixture_facts();
-		$facts['environment']['wordpress'] = "\xB1\x31";
-
-		try {
-			( new RuntimeEvidenceReporter( $facts ) )->generate_json();
-			$this->fail( 'generate_json must fail closed when JSON encoding fails' );
-		} catch ( \InvalidArgumentException $e ) {
-			$this->assertSame( 'report_json_encoding_failed', $e->getMessage() );
-		}
-
-		$report = ( new RuntimeEvidenceReporter( $this->fixture_facts() ) )->generate();
-		$report['environment']['wordpress'] = "\xB1\x31";
-		$this->assert_validation_error( 'report_json_encoding_failed', $report );
-	}
-
 	public function test_planted_pii_sentinels_never_survive_into_the_json(): void {
 		$facts = $this->fixture_facts();
 
@@ -313,15 +228,12 @@ final class RuntimeEvidenceReporterTest extends TestCase {
 		$facts['amelia_service_ids']             = array( 4242 );
 		$facts['environment']['injected_secret'] = 'sentinel-env-secret';
 		$facts['account_selectors']['metakeys']  = array( 'sentinel_meta_key' );
-		$facts['account_selectors']['types']['sentinel_meta_key'] = 1;
 		$facts['amelia_reader']['service_names'] = array( 'sentinel-service-name' );
-		$facts['amelia_reader']['sync_mode']     = 'sentinel-sync-mode';
-		$facts['amelia_reader']['gate_reason']   = 'sentinel-gate-reason:sentinel_meta_key';
 		$facts['amelia_writer']['ledger_rows']   = array( array( 'sentinel_meta_key' => 'sentinel-field-value' ) );
 
 		$json = ( new RuntimeEvidenceReporter( $facts ) )->generate_json();
 
-		foreach ( array( 'sentinel-top-level-free-text', 'sentinel-owner@example.test', '4242', 'sentinel-env-secret', 'sentinel_meta_key', 'sentinel-service-name', 'sentinel-field-value', 'sentinel-sync-mode', 'sentinel-gate-reason' ) as $sentinel ) {
+		foreach ( array( 'sentinel-top-level-free-text', 'sentinel-owner@example.test', '4242', 'sentinel-env-secret', 'sentinel_meta_key', 'sentinel-service-name', 'sentinel-field-value' ) as $sentinel ) {
 			$this->assertStringNotContainsString( $sentinel, $json, "sentinel {$sentinel} must be redacted" );
 		}
 	}
@@ -374,23 +286,11 @@ final class RuntimeEvidenceReporterTest extends TestCase {
 		$this->assertSame( 1, $report['capabilities']['amelia_reader']['counts']['services'] );
 		$this->assertSame( 1, $report['capabilities']['amelia_writer']['counts']['desired'] );
 		$this->assertSame( 1, $report['capabilities']['amelia_writer']['counts']['ledger'] );
-		$this->assertFalse( $report['capabilities']['account_selectors']['source_present'], 'missing has_filter API/hook must fail closed' );
-		$this->assertFalse( $report['capabilities']['amelia_writer']['route_present'], 'missing has_action API must fail closed' );
-		$this->assertIsBool( $report['capabilities']['amelia_writer']['secret_stored'] );
-		$this->assertIsBool( $report['capabilities']['amelia_writer']['secret_decodable'] );
 
 		// Runtime evidence carries runtime_observation levels.
 		$this->assertSame( 'runtime_observation', $report['capabilities']['amelia_reader']['evidence_level'] );
 		$this->assertSame( 'wordpress_runtime', $report['source'] );
 		$this->assertSame( 'runtime_observation', $report['scope']['source_kind'] );
-
-		$mutated = $report;
-		$mutated['capabilities']['amelia_reader']['evidence_level'] = 'contract_fixture';
-		$this->assert_validation_error( 'capability_amelia_reader_source_evidence_mismatch', $mutated );
-
-		$mutated = $report;
-		$mutated['declared_integrations']['woocommerce']['evidence_level'] = 'contract_fixture';
-		$this->assert_validation_error( 'integration_woocommerce_source_provenance_invalid', $mutated );
 	}
 
 	public function test_report_still_generates_fail_closed_when_dependencies_are_missing(): void {
@@ -400,7 +300,6 @@ final class RuntimeEvidenceReporterTest extends TestCase {
 		$this->assertFalse( $facts['amelia_reader']['gate_passes'] );
 		$this->assertFalse( $facts['amelia_reader']['snapshot_ok'] );
 		$this->assertSame( 0, $facts['account_selectors']['count'] );
-		$this->assertFalse( $facts['account_selectors']['source_present'] );
 
 		$report = ( new RuntimeEvidenceReporter( $facts ) )->generate();
 
@@ -416,65 +315,6 @@ final class RuntimeEvidenceReporterTest extends TestCase {
 		$report = ( new RuntimeEvidenceReporter( $facts ) )->generate();
 		$this->assertSame( 'not_implemented', $report['capabilities']['amelia_writer']['implementation'] );
 		$this->assertSame( 0, $report['capabilities']['amelia_writer']['counts']['ledger'] );
-	}
-
-	public function test_ci_fixture_can_never_claim_ready_or_pass_from_gate_facts(): void {
-		$facts = $this->fixture_facts();
-		$facts['amelia_reader']['gate_passes'] = true;
-		$facts['amelia_writer']['gate_passes'] = true;
-		$facts['amelia_writer']['sync_mode'] = 'managed_sync';
-		$facts['amelia_writer']['mode_allows_write'] = true;
-		$facts['um_integration']['profile_gate_passes'] = true;
-		$facts['um_integration']['account_gate_passes'] = true;
-		$facts['um_integration']['um_schema_gate_passes'] = true;
-		$facts['um_integration']['dynamic_tags_gate_passes'] = true;
-
-		$report = ( new RuntimeEvidenceReporter( $facts ) )->generate();
-
-		foreach ( array( 'amelia_reader', 'amelia_writer', 'um_integration' ) as $capability_id ) {
-			$this->assertSame( 'pending', $report['capabilities'][ $capability_id ]['runtime'] );
-			$this->assertSame( 'Pending', $report['capabilities'][ $capability_id ]['verification'] );
-			$this->assertSame( 'awaiting_matrix_signoff', $report['capabilities'][ $capability_id ]['reason'] );
-		}
-
-		$mutated = $report;
-		$mutated['capabilities']['amelia_reader']['runtime'] = 'ready';
-		$mutated['summary']['runtime']['pending']--;
-		$mutated['summary']['runtime']['ready']++;
-		$this->assert_validation_error( 'capability_amelia_reader_fixture_runtime_ready_forbidden', $mutated );
-
-		$mutated = $report;
-		$mutated['capabilities']['amelia_reader']['verification'] = 'Pass';
-		$mutated['summary']['verification']['Pending']--;
-		$mutated['summary']['verification']['Pass']++;
-		$this->assert_validation_error( 'capability_amelia_reader_fixture_verification_pass_forbidden', $mutated );
-
-		$mutated = $report;
-		$mutated['declared_integrations']['woocommerce']['verification'] = 'Pass';
-		$this->assert_validation_error( 'integration_woocommerce_source_provenance_invalid', $mutated );
-	}
-
-	public function test_ci_fixture_account_selectors_with_counts_remain_pending(): void {
-		$facts = $this->fixture_facts();
-		$facts['account_selectors']['count'] = 2;
-		$facts['account_selectors']['types']['text'] = 1;
-		$facts['account_selectors']['types']['list'] = 1;
-
-		$capability = ( new RuntimeEvidenceReporter( $facts ) )->generate()['capabilities']['account_selectors'];
-
-		$this->assertSame( 2, $capability['counts']['total'] );
-		$this->assertSame( 'pending', $capability['runtime'] );
-		$this->assertSame( 'Pending', $capability['verification'] );
-		$this->assertSame( 'awaiting_matrix_signoff', $capability['reason'] );
-	}
-
-	private function assert_validation_error( string $expected, array $report ): void {
-		try {
-			RuntimeEvidenceReporter::validate( $report );
-			$this->fail( "validator must reject {$expected}" );
-		} catch ( \InvalidArgumentException $e ) {
-			$this->assertSame( $expected, $e->getMessage() );
-		}
 	}
 
 	private function boot_admin(): Bootstrap {

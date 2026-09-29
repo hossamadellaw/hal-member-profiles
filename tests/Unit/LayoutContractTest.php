@@ -89,12 +89,12 @@ final class LayoutContractTest extends TestCase {
 		$this->assertFalse( $contract->is_account_contract_valid() );
 	}
 
-	public function test_account_contract_valid_with_navigation_and_body(): void {
+	public function test_legacy_split_markers_never_satisfy_atomic_account_contract(): void {
 		$contract = new LayoutContract();
 		$contract->register( LayoutContract::MARKER_ACCOUNT_NAVIGATION );
 		$contract->register( LayoutContract::MARKER_ACCOUNT_BODY );
 
-		$this->assertTrue( $contract->is_account_contract_valid() );
+		$this->assertFalse( $contract->is_account_contract_valid() );
 	}
 
 	public function test_account_contract_invalid_when_body_duplicated(): void {

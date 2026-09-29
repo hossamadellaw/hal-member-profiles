@@ -1,0 +1,8 @@
+No syntax errors detected in includes/ManagedTemplates.php
+No syntax errors detected in includes/Settings.php
+No syntax errors detected in includes/Integrations/ProfileLayoutAdapter.php
+No syntax errors detected in tests/Fixtures/wp-stubs.php
+No syntax errors detected in tests/Unit/ManagedTemplatesTest.php
+No syntax errors detected in tests/Unit/LifecycleReconciliationTest.php
+No syntax errors detected in tests/Unit/WiringTest.php
+LINT-EXIT=0

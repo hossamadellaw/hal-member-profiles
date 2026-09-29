@@ -1,0 +1,5 @@
+No syntax errors detected in includes/Integrations/OptionalIntegrations.php
+No syntax errors detected in includes/Bootstrap.php
+No syntax errors detected in tests/Unit/DashboardLinkContractTest.php
+No syntax errors detected in tests/Unit/DashboardLinkConsumerTest.php
+LINT-EXIT=0

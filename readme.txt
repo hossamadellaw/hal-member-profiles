@@ -4,7 +4,7 @@ Tags: ultimate-member, elementor, membership, profile
 Requires at least: 6.5
 Requires PHP: 8.0
 Requires Plugins: ultimate-member, elementor
-Stable tag: 1.1.5
+Stable tag: 1.2.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -179,6 +179,27 @@ closed and must simply be re-entered.
   compatibility sign-off.
 
 == Changelog ==
+
+= 1.2.0 =
+* UM-native atomic Account ownership: the member Account layout renders through
+  Ultimate Member's own Account logic — no duplicate forms, navigation, hooks, or
+  nonces, and no raw-template/shortcode re-entry.
+* Logged-in Profile Overview surface, and UM-native photo delegation: the profile
+  photo keeps rendering through Ultimate Member's own privacy-gated pipeline;
+  guests never receive private fields or owner controls.
+* Amelia integration behind fail-closed gates: a public service catalog reader, a
+  professional service-selection save contract, explicit mode contracts
+  (off/discover-only/write), and a HAL-owned Amelia field-definition writer that
+  stays closed unless every gate passes. No booking management inside Member
+  Profiles; no writes in off/discover-only modes.
+* Existing Elementor public-profile template selection: the already-selected
+  Ultimate Member profile template is used directly, with zero writes to the
+  Child Theme or to Elementor templates.
+* HAL Frontend Dashboard link contract with a fail-closed consumer: the Dashboard
+  link renders only inside the documented contract context — never for visitors
+  or unauthorized users, and never duplicated.
+* Compatibility evidence register: per-capability gates and every gate that
+  remains deliberately closed are documented and reported, never silently opened.
 
 = 1.1.5 =
 * Security separation: the Amelia `selected_services` save filter is no longer

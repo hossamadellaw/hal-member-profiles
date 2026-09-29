@@ -1,0 +1,156 @@
+CMD: pwd -W
+D:/حسام عادل المحامي Hossam Adel Lawyer/website/plugins/hal-member-profiles
+CMD: git diff --check  (whitespace/conflict markers over the whole working tree)
+warning: in the working copy of '.github/workflows/release-verification.yml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.github/workflows/release.yml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'hal-member-profiles.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/AccountContext.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Elementor/DynamicTags.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Elementor/Register.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Elementor/Widgets/AccountBody.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Elementor/Widgets/AccountField.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Elementor/Widgets/AccountNavigation.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Elementor/Widgets/ProfileField.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/FieldSchema.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Integrations/AccountLayoutAdapter.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Integrations/AmeliaApiClient.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Integrations/AmeliaFieldsWriter.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Integrations/OptionalIntegrations.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Integrations/ProfileLayoutAdapter.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/LayoutContract.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Lifecycle.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/ManagedTemplates.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Policy.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/ProfileContext.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'readme.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'resources/ultimate-member/manifest.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'resources/ultimate-member/profile-hal-member-profiles.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Fixtures/wp-stubs-extra.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Integration/UltimateMemberIntegrationTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/AccountContextTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/AdminDashboardPermissionsTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/AmeliaFieldsWriterTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/FieldSchemaTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/LayoutContractTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/LifecycleReconciliationTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/ManagedTemplatesTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/PolicyTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/ProfileContextTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/WiringTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/external/verification-config.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/external/verify.test.mjs', LF will be replaced by CRLF the next time Git touches it
+diff-check-exit=0 (0 = clean; no output = no whitespace errors or conflict markers)
+CMD: git diff --check --cached  (staged area — expected empty: nothing staged)
+staged-diff-check-exit=0
+CMD: git diff --stat | tail -5  (modified delta vs HEAD 9cc2b2cc)
+warning: in the working copy of '.github/workflows/release-verification.yml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.github/workflows/release.yml', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'hal-member-profiles.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/AccountContext.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Elementor/DynamicTags.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Elementor/Register.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Elementor/Widgets/AccountBody.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Elementor/Widgets/AccountField.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Elementor/Widgets/AccountNavigation.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Elementor/Widgets/ProfileField.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/FieldSchema.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Integrations/AccountLayoutAdapter.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Integrations/AmeliaApiClient.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Integrations/AmeliaFieldsWriter.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Integrations/OptionalIntegrations.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Integrations/ProfileLayoutAdapter.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/LayoutContract.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Lifecycle.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/ManagedTemplates.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/Policy.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'includes/ProfileContext.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'readme.txt', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'resources/ultimate-member/manifest.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'resources/ultimate-member/profile-hal-member-profiles.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Fixtures/wp-stubs-extra.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Integration/UltimateMemberIntegrationTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/AccountContextTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/AdminDashboardPermissionsTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/AmeliaFieldsWriterTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/FieldSchemaTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/LayoutContractTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/LifecycleReconciliationTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/ManagedTemplatesTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/PolicyTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/ProfileContextTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/Unit/WiringTest.php', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/external/verification-config.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tests/external/verify.test.mjs', LF will be replaced by CRLF the next time Git touches it
+ tests/Unit/SchemaRegistryTest.php                  |  60 +-
+ tests/Unit/WiringTest.php                          | 424 ++++++++++-
+ tests/external/verification-config.json            |   8 +-
+ tests/external/verify.test.mjs                     |  39 +-
+ 48 files changed, 4803 insertions(+), 1042 deletions(-)
+CMD: git status --porcelain (full tree state)
+ M .github/workflows/release-verification.yml
+ M .github/workflows/release.yml
+ M "Child Theme/ultimate-member/templates/profile-hal-member-profiles.php"
+ M hal-member-profiles.php
+ M includes/AccountContext.php
+ M includes/AdminDashboard.php
+ M includes/Bootstrap.php
+ M includes/Elementor/DynamicTags.php
+ M includes/Elementor/Register.php
+ M includes/Elementor/Widgets/AccountBody.php
+ M includes/Elementor/Widgets/AccountField.php
+ M includes/Elementor/Widgets/AccountNavigation.php
+ M includes/Elementor/Widgets/ProfileActions.php
+ M includes/Elementor/Widgets/ProfileField.php
+ M includes/FieldSchema.php
+ M includes/Integrations/AccountLayoutAdapter.php
+ M includes/Integrations/Amelia.php
+ M includes/Integrations/AmeliaApiClient.php
+ M includes/Integrations/AmeliaFieldsWriter.php
+ M includes/Integrations/OptionalIntegrations.php
+ M includes/Integrations/ProfileLayoutAdapter.php
+ M includes/Integrations/UltimateMember.php
+ M includes/LayoutContract.php
+ M includes/Lifecycle.php
+ M includes/ManagedTemplates.php
+ M includes/Policy.php
+ M includes/ProfileContext.php
+ M includes/SchemaRegistry.php
+ M includes/Settings.php
+ M readme.txt
+ M resources/ultimate-member/manifest.json
+ M resources/ultimate-member/profile-hal-member-profiles.php
+ M tests/Fixtures/wp-stubs-extra.php
+ M tests/Fixtures/wp-stubs.php
+ M tests/Integration/UltimateMemberIntegrationTest.php
+ M tests/Unit/AccountContextTest.php
+ M tests/Unit/AdminDashboardPermissionsTest.php
+ M tests/Unit/AmeliaFieldsWriterTest.php
+ M tests/Unit/FieldSchemaTest.php
+ M tests/Unit/LayoutContractTest.php
+ M tests/Unit/LifecycleReconciliationTest.php
+ M tests/Unit/ManagedTemplatesTest.php
+ M tests/Unit/PolicyTest.php
+ M tests/Unit/ProfileContextTest.php
+ M tests/Unit/SchemaRegistryTest.php
+ M tests/Unit/WiringTest.php
+ M tests/external/verification-config.json
+ M tests/external/verify.test.mjs
+?? SESSION-CHANNEL-HAL-MP-v1.2.0.md
+?? hal-member-profiles-remediation-development-plan.md
+?? includes/ProfileOverview.php
+?? includes/RuntimeEvidenceReporter.php
+?? tests/Unit/AmeliaCatalogStateTest.php
+?? tests/Unit/DashboardLinkConsumerTest.php
+?? tests/Unit/DashboardLinkContractTest.php
+?? tests/Unit/ProfileOverviewTest.php
+?? tests/Unit/ProfilePhotoDelegationTest.php
+?? tests/Unit/RuntimeEvidenceReporterTest.php
+?? tests/Unit/SelectedServicesSaveContractTest.php
+?? tests/Unit/SettingsTest.php
+?? tests/runtime/
+DELTA ATTRIBUTION (v1.2.0 release delta vs wider tree state):
+- The working tree carries the WHOLE mission delta vs HEAD 9cc2b2cc: 48 modified + 13 untracked paths (0 staged). This includes prior standing changes that pre-date or sit outside the v1.2.0 card set (e.g. .github/workflows/*, Child Theme template, tests fixtures) and user/pre-existing changes. These are NOT attributed to the v1.2.0 release delta by this gate.
+- The v1.2.0 RELEASE-RELEVANT delta is the card set C1-C9 (production code includes/*, resources/ultimate-member/*, readme.txt documentation, matching tests) PLUS the C10 version bump in hal-member-profiles.php + readme.txt (4 identity places).
+- C10 own delta in this gate: exactly 2 files / 4 identity places (hal-member-profiles.php lines 5+25; readme.txt lines 7+183) — proven in e-c10-verify-01.
+- Child Theme/ultimate-member/templates/profile-hal-member-profiles.php: SITE-side file (outside any plugin package; never shipped). Its modified state belongs to the site-owner tree, not to the release delta.
+EXIT=0

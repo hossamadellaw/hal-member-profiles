@@ -1,0 +1,26 @@
+CMD: pwd -W
+D:/حسام عادل المحامي Hossam Adel Lawyer/website/plugins/hal-member-profiles
+CMD: python - <<PY (exclusion proof: forbidden development/report/governance paths scanned against the 1.2.0 ZIP namelist)
+tests/ directory                       PASS excluded []
+docs/ directory                        PASS excluded []
+build/ internals/reports               PASS excluded []
+SESSION-CHANNEL file                   PASS excluded []
+governing v1.2.0 checklist             PASS excluded []
+v1.1.5 checklist document              PASS excluded []
+any versions-updates checklist         PASS excluded []
+phpunit config                         PASS excluded []
+phpunit result cache                   PASS excluded []
+composer.json (root of package)        PASS excluded []
+composer.lock                          PASS excluded []
+.git internals                         PASS excluded []
+.github/ workflows                     PASS excluded []
+Child Theme files                      PASS excluded []
+node_modules                           PASS excluded []
+remediation/plan dev md files          PASS excluded []
+any markdown outside vendor            PASS excluded []
+evidence txt files                     PASS excluded []
+.gitignore/.gitattributes              PASS excluded []
+POSITIVE-CONTROL entry_count=201 sample=hal-member-profiles/hal-member-profiles.php
+markdown_entries_all_vendor=True count=1
+RESULT=ALL_EXCLUDED
+EXIT=0

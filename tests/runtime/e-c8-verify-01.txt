@@ -1,0 +1,3 @@
+No syntax errors detected in includes/Integrations/OptionalIntegrations.php
+No syntax errors detected in tests/Unit/DashboardLinkContractTest.php
+EXIT=0

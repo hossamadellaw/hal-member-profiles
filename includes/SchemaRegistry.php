@@ -5,8 +5,7 @@
  *
  * Sole responsibility: shape conversion + classification + fixed mapping metadata.
  * Source data stays where it belongs: UM fields come from the ACTUAL Form ID through
- * {@see FieldSchema} (the Phase-1 single reader of `_um_custom_fields`, remediation card
- * F-09), Amelia entities come exclusively from the administrative REST snapshot taken
+ * {@see FieldSchema}'s public runtime hooks, Amelia entities come exclusively from the administrative REST snapshot taken
  * through {@see \HAL\MemberProfiles\Integrations\AmeliaApiClient} (card D-08), and the
  * member↔employee linkage stays governed by the existing matrix-controlled meta keys
  * consumed by `includes/Integrations/Amelia.php` (compatibility-matrix §4.0).
@@ -124,6 +123,39 @@ final class SchemaRegistry {
 	}
 
 	/**
+	 * Card C6a / F-07: whether the current mode permits CREATING HAL-owned field
+	 * definitions that are missing. Both managed modes allow creation; `off` and
+	 * `discover_only` never do. This gate and mode_allows_update() are the semantically
+	 * distinct pair the mode table mandates — mode_allows_write() above stays as the
+	 * "any write" compatibility view (RuntimeEvidence/consumers) and is NOT a create
+	 * or update verdict on its own.
+	 *
+	 * @return bool
+	 */
+	public static function mode_allows_create(): bool {
+		return in_array(
+			self::current_sync_mode(),
+			array(
+				\HAL\MemberProfiles\Settings::SYNC_MODE_MANAGED_ADDITIONS,
+				\HAL\MemberProfiles\Settings::SYNC_MODE_MANAGED_SYNC,
+			),
+			true
+		);
+	}
+
+	/**
+	 * Card C6a / F-07: whether the current mode permits UPDATING existing HAL-owned
+	 * field definitions. Only `managed_sync` does — `managed_additions` is
+	 * create-missing-only by the owner-approved mode table; `off` and `discover_only`
+	 * never do. Fail-closed like every sibling gate.
+	 *
+	 * @return bool
+	 */
+	public static function mode_allows_update(): bool {
+		return \HAL\MemberProfiles\Settings::SYNC_MODE_MANAGED_SYNC === self::current_sync_mode();
+	}
+
+	/**
 	 * @return string The literal Off mode slug without requiring a Settings instance.
 	 */
 	private static function SYNC_MODE_OFF_CONST(): string {
@@ -166,42 +198,26 @@ final class SchemaRegistry {
 	}
 
 	/**
-	 * Normalizes ONE Profile Form's fields, identified by the ACTUAL Form ID. Per-request
-	 * cached; identical inputs return identical output without touching post meta again.
+	 * Normalizes ONE Profile Form's fields, identified by the ACTUAL Form ID, through
+	 * FieldSchema's runtime UM provider. No direct storage key is read here.
 	 *
 	 * @param int $form_id UM Form ID resolved upstream (0 yields an empty public set).
 	 * @return array{ok:bool, reason:string, items:array<int,array<string,string>>}
 	 */
-	public function um_profile_schema( int $form_id ): array {
-		static $cache = array();
+	public function um_profile_schema( int $form_id, array $scope = array() ): array {
+		$state = $this->field_schema->profile_field_state( $form_id, $scope );
 
-		$cache_key = (string) $form_id;
-
-		if ( isset( $cache[ $cache_key ] ) ) {
-			return $cache[ $cache_key ];
-		}
-
-		if ( $form_id <= 0 ) {
-			return $cache[ $cache_key ] = array(
-				'ok'     => true,
-				'reason' => 'no_form_context',
-				'items'  => array(),
-			);
-		}
-
-		$raw = get_post_meta( $form_id, '_um_custom_fields', true );
-
-		if ( ! is_array( $raw ) ) {
-			return $cache[ $cache_key ] = array(
+		if ( FieldSchema::SOURCE_AVAILABLE !== $state['availability'] ) {
+			return array(
 				'ok'     => false,
-				'reason' => 'um_form_unreadable',
+				'reason' => $state['reason'],
 				'items'  => array(),
 			);
 		}
 
 		$items = array();
 
-		foreach ( $raw as $metakey => $field ) {
+		foreach ( $state['items'] as $metakey => $field ) {
 			if ( ! is_array( $field ) ) {
 				continue;
 			}
@@ -217,9 +233,9 @@ final class SchemaRegistry {
 			);
 		}
 
-		return $cache[ $cache_key ] = array(
+		return array(
 			'ok'     => true,
-			'reason' => 'normalized',
+			'reason' => empty( $items ) ? 'valid_empty' : 'normalized',
 			'items'  => $items,
 		);
 	}
@@ -230,8 +246,18 @@ final class SchemaRegistry {
 	 *
 	 * @return array{ok:bool, reason:string, items:array<int,array<string,string>>}
 	 */
-	public function um_account_schema(): array {
-		$selectors = $this->field_schema->get_account_selectors();
+	public function um_account_schema( array $scope = array() ): array {
+		$state = $this->field_schema->account_field_state( $scope );
+
+		if ( FieldSchema::SOURCE_AVAILABLE !== $state['availability'] ) {
+			return array(
+				'ok'     => false,
+				'reason' => $state['reason'],
+				'items'  => array(),
+			);
+		}
+
+		$selectors = $this->field_schema->get_account_selectors( 0, $scope );
 
 		$items = array();
 
@@ -246,7 +272,7 @@ final class SchemaRegistry {
 
 		return array(
 			'ok'     => true,
-			'reason' => empty( $items ) ? 'no_verified_account_source' : 'normalized',
+			'reason' => empty( $items ) ? 'valid_empty' : 'normalized',
 			'items'  => $items,
 		);
 	}
@@ -326,6 +352,84 @@ final class SchemaRegistry {
 		}
 
 		return array( 'ok' => true, 'reason' => 'available', 'snapshot' => $stored );
+	}
+
+	/**
+	 * Card C5 / F-06: the five-state taxonomy for the public Amelia service catalog,
+	 * decided ONLY from locally verifiable facts (stored snapshot, sync mode, key
+	 * presence) — never from response bodies or live traffic:
+	 *
+	 *   valid_current        — a stored snapshot matches the current schema version.
+	 *   valid_empty          — same, but it contains zero services (NOT a failure).
+	 *   stale_previous_valid — no version-matching snapshot, but an older-shaped one
+	 *                           survives; consumers may keep serving it (invariant: a
+	 *                           failure never erases the last valid snapshot).
+	 *   unavailable          — no snapshot at all: reads fail closed, never as an
+	 *                           empty valid list.
+	 *   not_configured       — sync mode `off` or no Amelia API key: the catalog feature
+	 *                           is intentionally disabled (safe absence, by owner choice).
+	 *
+	 * Read-only: this method writes nothing and refreshes nothing.
+	 *
+	 * @return array{state:string, reason:string, services:array<int,array<string,mixed>>}
+	 */
+	public function amelia_catalog_state(): array {
+		if ( ! self::mode_allows_read() ) {
+			return array( 'state' => 'not_configured', 'reason' => 'sync_off', 'services' => array() );
+		}
+
+		if ( ! self::has_amelia_key() ) {
+			return array( 'state' => 'not_configured', 'reason' => 'no_key', 'services' => array() );
+		}
+
+		$stored = get_option( self::SNAPSHOT_OPTION, null );
+
+		if ( ! is_array( $stored ) || empty( $stored ) ) {
+			return array( 'state' => 'unavailable', 'reason' => 'no_snapshot', 'services' => array() );
+		}
+
+		$services = is_array( $stored['services'] ?? null ) ? $stored['services'] : null;
+
+		if ( self::SNAPSHOT_VERSION !== ( $stored['version'] ?? null ) ) {
+			// Older-shape snapshot survives a schema bump: still the last valid data,
+			// explicitly stale rather than discarded or silently served as current.
+			if ( null !== $services ) {
+				return array( 'state' => 'stale_previous_valid', 'reason' => 'snapshot_version_mismatch', 'services' => $services );
+			}
+
+			return array( 'state' => 'unavailable', 'reason' => 'snapshot_version_mismatch', 'services' => array() );
+		}
+
+		if ( null === $services ) {
+			return array( 'state' => 'unavailable', 'reason' => 'snapshot_services_missing', 'services' => array() );
+		}
+
+		return array(
+			'state'    => array() === $services ? 'valid_empty' : 'valid_current',
+			'reason'   => array() === $services ? 'valid_empty' : 'valid_current',
+			'services' => $services,
+		);
+	}
+
+	/**
+	 * Card C5: whether an Amelia API key is configured for this site. Presence only,
+	 * through SecretStore's own resolution (constant override or decrypted storage) —
+	 * never the value itself, and never a re-implementation of the slot logic.
+	 *
+	 * @return bool
+	 */
+	private static function has_amelia_key(): bool {
+		if ( ! class_exists( \HAL\MemberProfiles\SecretStore::class ) && defined( 'HAL_MEMBER_PROFILES_DIR' ) ) {
+			require_once HAL_MEMBER_PROFILES_DIR . 'includes/SecretStore.php';
+		}
+
+		if ( ! class_exists( \HAL\MemberProfiles\SecretStore::class ) ) {
+			return false;
+		}
+
+		$key = \HAL\MemberProfiles\SecretStore::get_amelia_api_key();
+
+		return is_string( $key ) && '' !== $key;
 	}
 
 	/**

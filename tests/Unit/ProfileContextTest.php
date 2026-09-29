@@ -29,13 +29,26 @@ final class ProfileContextTest extends TestCase {
 		unset( $GLOBALS['wp_stubs']['is_page'] );
 		unset( $GLOBALS['wp_stubs']['profile_id'] );
 		unset( $GLOBALS['wp_stubs']['options'] );
+		unset( $GLOBALS['wp_stubs']['um_roles'] );
+		unset( $GLOBALS['wp_stubs']['um_statuses'] );
+		unset( $GLOBALS['wp_stubs']['um_status_by_user'] );
 	}
 
 	private function seed_live_profile( bool $private = false ): void {
 		$GLOBALS['wp_stubs']['is_page']      = array( 'user' => true );
 		$GLOBALS['wp_stubs']['profile_id']   = 5;
-		$GLOBALS['wp_stubs']['users']        = array( 5 => array( 'roles' => array(), 'display_name' => 'Owner' ) );
+		$GLOBALS['wp_stubs']['users']        = array( 5 => array( 'roles' => array( 'role_lawyer' ), 'display_name' => 'Owner' ) );
 		$GLOBALS['wp_stubs']['private_map']  = array( 5 => $private );
+		$GLOBALS['wp_stubs']['um_roles']     = array( 'role_lawyer' => 'R1', 'role_consultant' => 'R2', 'role_member' => 'R3' );
+		$GLOBALS['wp_stubs']['um_statuses']  = array( 'approved' => 'Approved' );
+		$GLOBALS['wp_stubs']['um_status_by_user'] = array( 5 => 'approved' );
+		$GLOBALS['wp_stubs']['options'][ Settings::OPTION_KEY ] = array(
+			'um_persona_mapping' => array(
+				Settings::PERSONA_LAWYER          => array( 'role' => 'role_lawyer', 'status' => 'approved' ),
+				Settings::PERSONA_CONSULTANT      => array( 'role' => 'role_consultant', 'status' => 'approved' ),
+				Settings::PERSONA_ORDINARY_MEMBER => array( 'role' => 'role_member', 'status' => 'approved' ),
+			),
+		);
 	}
 
 	/** Card 7.5: guest on a public member's profile resolves that member, not himself. */
@@ -46,6 +59,7 @@ final class ProfileContextTest extends TestCase {
 
 		$this->assertNotNull( $ctx );
 		$this->assertSame( 5, (int) $ctx->target_user->ID );
+		$this->assertSame( Settings::PERSONA_LAWYER, $ctx->persona );
 		$this->assertSame( 0, (int) $ctx->visitor_id );
 		$this->assertFalse( $ctx->is_owner );
 	}
@@ -108,6 +122,7 @@ final class ProfileContextTest extends TestCase {
 
 	/** F-08: editor fixture requires manage_options; unset fixture never defaults to manager. */
 	public function test_editor_fixture_requires_manage_options_and_real_fixture(): void {
+		$this->seed_live_profile( false );
 		\Elementor\Plugin::$instance           = new \Elementor\Plugin();
 		\Elementor\Plugin::$instance->editor   = new class { public function is_edit_mode() { return true; } };
 		\Elementor\Plugin::$instance->preview  = new class { public function is_preview_mode() { return false; } };
@@ -120,15 +135,33 @@ final class ProfileContextTest extends TestCase {
 		$this->assertNull( $this->context->resolve( array(), 77, '' ) );
 
 		// Admin + configured fixture user: fixture context with the configured ID.
-		$GLOBALS['wp_stubs']['users'][42]    = array( 'roles' => array(), 'display_name' => 'Fixture' );
-		$GLOBALS['wp_stubs']['options']      = array(
-			Settings::OPTION_KEY => array( 'profile_fixture_user_id' => 42 ),
-		);
+		$GLOBALS['wp_stubs']['users'][42] = array( 'roles' => array( 'role_consultant' ), 'display_name' => 'Fixture' );
+		$GLOBALS['wp_stubs']['um_status_by_user'][42] = 'approved';
+		$GLOBALS['wp_stubs']['options'][ Settings::OPTION_KEY ]['profile_fixture_user_id'] = 42;
 
 		$ctx = $this->context->resolve( array(), 77, '' );
 		$this->assertNotNull( $ctx );
 		$this->assertSame( 42, (int) $ctx->target_user->ID );
+		$this->assertSame( Settings::PERSONA_CONSULTANT, $ctx->persona );
 
 		\Elementor\Plugin::$instance = null;
+	}
+
+	public function test_single_owner_classifies_all_three_personas_and_rejects_conflicts(): void {
+		$this->seed_live_profile( false );
+
+		$cases = array(
+			Settings::PERSONA_LAWYER          => 'role_lawyer',
+			Settings::PERSONA_CONSULTANT      => 'role_consultant',
+			Settings::PERSONA_ORDINARY_MEMBER => 'role_member',
+		);
+
+		foreach ( $cases as $persona => $role ) {
+			$GLOBALS['wp_stubs']['users'][5]['roles'] = array( $role );
+			$this->assertSame( $persona, $this->context->resolve()->persona );
+		}
+
+		$GLOBALS['wp_stubs']['users'][5]['roles'] = array( 'role_lawyer', 'role_consultant' );
+		$this->assertNull( $this->context->resolve() );
 	}
 }

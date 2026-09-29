@@ -70,6 +70,63 @@ final class UltimateMember {
 	}
 
 	/**
+	 * Card C4 / F-03: the UM-native profile photo, delegated. UM owns read/write/permission
+	 * for the photo itself; HAL only renders. The privacy verdict and the avatar URL come
+	 * exclusively from Policy's verified avatar pipeline (C1) — a private photo or an
+	 * unresolvable context returns '' (safe absence), never a guessed fallback image, and
+	 * never a bypass of UM's decision. No HAL write hook or parallel store exists here.
+	 *
+	 * @param int    $target_user_id Profile owner whose photo is being viewed.
+	 * @param int    $viewer_id      Current viewer (0 = guest).
+	 * @param int    $form_id        UM form ID the profile template received.
+	 * @param string $persona        Resolved HAL persona.
+	 * @return string Escaped <img> markup, or '' when not permitted/unavailable.
+	 */
+	public function render_profile_photo( int $target_user_id, int $viewer_id, int $form_id, string $persona = '' ): string {
+		if ( $target_user_id <= 0 || $form_id <= 0 ) {
+			return '';
+		}
+
+		$bootstrap = \HAL\MemberProfiles\Bootstrap::instance();
+		$policy    = null !== $bootstrap ? $bootstrap->get_policy() : null;
+
+		if ( null === $policy ) {
+			return '';
+		}
+
+		$result = $policy->can_view_header_element( $target_user_id, $viewer_id, 'avatar', $form_id, $persona );
+
+		if ( null === $result || \HAL\MemberProfiles\FieldSchema::TYPE_IMAGE !== $result['type'] || '' === (string) $result['value'] ) {
+			return '';
+		}
+
+		return sprintf(
+			'<img class="hal-member-profiles-photo" src="%s" alt="%s" />',
+			esc_url( (string) $result['value'], array( 'http', 'https' ) ),
+			esc_attr( __( 'Profile photo', 'hal-member-profiles' ) )
+		);
+	}
+
+	/**
+	 * Card C4 / F-03: the photo edit action, owned by UM. Renders only for the profile
+	 * OWNER: the edit control itself is UM's own um_pre_header_editprofile output (the
+	 * same hook ProfileActions captures), so the permission decision and the markup stay
+	 * UM's. Visitors, other users, and unauthenticated requests get '' — and with UM
+	 * absent the captured hook simply produces nothing (safe absence, no HAL substitute).
+	 *
+	 * @param array  $args UM profile template $args, passed through unchanged.
+	 * @param bool   $is_owner Whether the current viewer is the resolved profile owner.
+	 * @return string UM's own captured edit control for the owner, '' otherwise.
+	 */
+	public function render_profile_photo_edit_action( array $args = array(), bool $is_owner = false ): string {
+		if ( ! $is_owner ) {
+			return '';
+		}
+
+		return $this->capture( 'um_pre_header_editprofile', $args );
+	}
+
+	/**
 	 * @param array $args UM profile template $args, passed through unchanged.
 	 * @return string
 	 */
@@ -159,13 +216,9 @@ final class UltimateMember {
 	}
 
 	/**
-	 * F-12 (fail-closed): Ultimate Member exposes NO official public API that renders the
-	 * Account tab navigation alone — the side-navigation markup lives inside UM's own
-	 * account.php template, not in any documented method. Per remediation card F-12, when
-	 * no official API exists for segmenting tabs/body, this bridge must NOT guess or
-	 * re-implement UM's internal HTML; the FULL native Account rendering is used instead
-	 * (render_account_native_full()), and this legacy entry point therefore always yields
-	 * an empty string so its caller falls back to that full pipeline.
+	 * Legacy split renderer retained for backward compatibility. C2 assigns the complete
+	 * Account surface to Ultimate Member's original public entry point, so HAL never
+	 * renders a navigation segment.
 	 *
 	 * Kept only for backward compatibility with existing callers.
 	 *
@@ -176,95 +229,41 @@ final class UltimateMember {
 	}
 
 	/**
-	 * The complete native Account rendering through one of UM's own OFFICIAL channels,
-	 * tried in order and failing closed to an empty string when none is verifiable:
+	 * Legacy full renderer retained as an inert compatibility method. Calling UM's raw
+	 * template loader or Account shortcode from inside an override/Widget can re-enter the
+	 * same override and duplicate forms, hooks, IDs, and nonces. The original UM entry point
+	 * is now the only renderer.
 	 *
-	 * 1. um_get_template( 'account.php' )  — UM's official template loader, which renders
-	 *    the full account output (side navigation, active tab body/Form, nonces,
-	 *    conditional logic, mobile wrappers) exactly as UM's own page does;
-	 * 2. the registered [ultimatemember_account] shortcode — UM's own documented
-	 *    front-end entry point for the same complete output;
-	 * 3. nothing — callers must then let UM's own template chain handle the page natively
-	 *    (e.g. by not overriding it at all), never by re-implementing its HTML here.
-	 *
-	 * No "exact UM" claim is made beyond what these official channels themselves produce;
-	 * live DOM/behavior parity is confirmed during compatibility-matrix QA on staging.
-	 *
-	 * @param array $args Original template args, forwarded to the official channel when it
-	 *                    accepts them (the shortcode/template read UM state directly).
+	 * @param array $args Legacy arguments retained for signature compatibility; unused.
 	 * @return string
 	 */
 	public function render_account_native_full( array $args = array() ): string {
-		unset( $args ); // Official channels render from UM's own resolved state.
-
-		if ( function_exists( 'um_get_template' ) ) {
-			ob_start();
-
-			try {
-				um_get_template( 'account.php' );
-			} catch ( \Throwable $e ) {
-				ob_end_clean();
-				return '';
-			}
-
-			$output = (string) ob_get_clean();
-
-			if ( '' !== trim( $output ) ) {
-				return $output;
-			}
-		}
-
-		if ( function_exists( 'shortcode_exists' ) && shortcode_exists( 'ultimatemember_account' ) && function_exists( 'do_shortcode' ) ) {
-			return (string) do_shortcode( '[ultimatemember_account]' );
-		}
-
+		unset( $args );
 		return '';
 	}
 
 	/**
-	 * The active Account tab's body/Form — validation, nonces, and conditional logic exactly
-	 * as UM renders them, never rebuilt — via UM's own UM()->account()->render_account_tab()
-	 * method, confirmed directly from UM's current account.php template. This method, not a
-	 * hook, is how UM itself renders each tab's content.
-	 *
-	 * F-12: the ORIGINAL template args are forwarded to UM's own renderer unchanged (the
-	 * previous implementation fabricated an empty array(), severing hook contexts).
+	 * Legacy split body renderer retained as an inert compatibility method. A body without
+	 * UM's navigation and enclosing form is not a valid Account surface.
 	 *
 	 * @param array $args Original template args, passed through unchanged.
 	 * @return string
 	 */
 	public function render_account_body( array $args = array() ): string {
-		if ( ! function_exists( 'UM' ) || ! method_exists( UM()->account(), 'render_account_tab' ) ) {
-			return '';
-		}
-
-		$account = UM()->account();
-		$id      = isset( $account->current_tab ) ? (string) $account->current_tab : '';
-
-		if ( '' === $id || empty( $account->tabs[ $id ] ) || ! is_array( $account->tabs[ $id ] ) ) {
-			return '';
-		}
-
-		$info                = $account->tabs[ $id ];
-		$info['with_header'] = true;
-
-		ob_start();
-		$account->render_account_tab( $id, $info, $args );
-
-		return (string) ob_get_clean();
+		unset( $args );
+		return '';
 	}
 
 	/**
-	 * The complete native Account pipeline. F-12: delegation goes exclusively through
-	 * render_account_native_full() — UM's own official full-account channel — because no
-	 * official API exists for rendering the tabs segment alone; composing it here from
-	 * re-implemented HTML is exactly what this card removes.
+	 * Legacy pipeline retained as an inert compatibility method. Native Account rendering
+	 * happens only through UM's original public page/shortcode lifecycle, outside HAL.
 	 *
 	 * @param array $args Original template args, forwarded unchanged.
 	 * @return string
 	 */
 	public function render_account_native_pipeline( array $args = array() ): string {
-		return $this->render_account_native_full( $args );
+		unset( $args );
+		return '';
 	}
 
 	/**

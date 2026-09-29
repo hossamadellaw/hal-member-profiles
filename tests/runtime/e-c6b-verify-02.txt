@@ -1,0 +1,2 @@
+No syntax errors detected in includes/AdminDashboard.php
+EXIT=0

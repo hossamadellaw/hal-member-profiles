@@ -1,0 +1,29 @@
+CMD: pwd -W
+D:/حسام عادل المحامي Hossam Adel Lawyer/website/plugins/hal-member-profiles
+CMD: python - <<PY (independent package verification: manifest, SHA, LF contract, allowlist item-by-item, bumped files inside ZIP)
+PASS zip_crc_integrity (testzip) — None
+PASS manifest.plugin_slug
+PASS manifest.manifest_version==1
+PASS manifest.asset_version==2 — asset_version=2
+PASS manifest.sha256_pin
+PASS template_sha256_inside_zip==pin — 4505034e70093d3d8922e7ddb7f846ead6645ad54cfe863a1aeb687dce5633d0
+PASS template_no_CR_bytes_in_zip (LF contract) — CR count=0
+PASS template_sha256_on_disk==pin
+PASS template_no_CR_bytes_on_disk
+PASS zip_header_Version==1.2.0
+PASS zip_constant==1.2.0
+PASS zip_readme_Stable_tag==1.2.0
+PASS zip_readme_changelog_has_= 1.2.0 =
+PASS zip_no_1.1.5_stable_tag
+PASS zip_uninstall_present_readable
+PASS zip_vendor_dev==false
+PASS zip_vendor_single_package==yahnis-elsts — ['yahnis-elsts/plugin-update-checker']
+PASS allowlist_added==[ProfileOverview.php] — ['hal-member-profiles/includes/ProfileOverview.php']
+PASS allowlist_removed==[] — []
+PASS entry_count==201 — 201
+RESULT=ALL_PASS
+CMD: unzip -l build/hal-member-profiles-1.2.0.zip | tail -3
+    12406  2026-09-29 12:00   hal-member-profiles/vendor/yahnis-elsts/plugin-update-checker/vendor/PucReadmeParser.php
+---------                     -------
+   910387                     201 files
+EXIT=0

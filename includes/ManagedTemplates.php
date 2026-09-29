@@ -3,7 +3,7 @@
  * Inspects, provisions, and syncs the managed Ultimate Member template assets into the
  * active Child Theme through the official WP_Filesystem API — development card D-04.
  *
- * Sole responsibility: filesystem custody of the two canonical assets declared in
+ * Sole responsibility: filesystem custody of the canonical assets declared in
  * resources/ultimate-member/manifest.json (card D-03). Everything else — when
  * reconciliation runs (card D-05), who drives it from the UI (card D-06), and how this
  * module is wired into bootstrapping (card D-14) — belongs to later cards; this class
@@ -30,6 +30,12 @@
  * - Multisite: options are per-site and the active theme resolves per site, so every
  *   site in a network manages its own Child Theme copy independently; switching themes
  *   re-baselines the state instead of trusting digests recorded under another theme.
+ *
+ * v1.2.0 (card C7 / F-05): provisioning into the Child Theme is DISAPPROVED entirely —
+ * provision() fails closed with the machine reason writes_disabled_v1_2 before any
+ * filesystem work, inspection stays strictly read-only, and no setting or file is ever
+ * deleted. Public-profile templating now selects EXISTING Elementor library templates
+ * (per member type) through Settings and ProfileLayoutAdapter with zero writes.
  *
  * Deployment modes:
  * - Direct: WP_Filesystem reports the 'direct' method — provisioning proceeds normally.
@@ -62,6 +68,10 @@ final class ManagedTemplates {
 	public const STATUS_WRITE_FAILED      = 'write_failed';
 	public const STATUS_IMMUTABLE         = 'immutable';
 	public const STATUS_NEEDS_CREDENTIALS = 'needs_credentials';
+	public const STATUS_WRITES_DISABLED   = 'writes_disabled_v1_2';
+	public const STATUS_LEGACY_OVERRIDE_PRESENT    = 'legacy_account_override_present';
+	public const STATUS_LEGACY_OVERRIDE_ABSENT     = 'legacy_account_override_absent';
+	public const STATUS_LEGACY_OVERRIDE_UNREADABLE = 'legacy_account_override_unreadable';
 
 	private string $manifest_path;
 
@@ -131,8 +141,44 @@ final class ManagedTemplates {
 	}
 
 	/**
+	 * Observes the active theme's legacy Account override without managing it. C2 removed
+	 * this target from the manifest, so this method never writes, hashes, repairs, deletes,
+	 * or records ownership of the file and never exposes its path or contents.
+	 *
+	 * @return array{ok:bool, status:string}
+	 */
+	public function inspect_legacy_account_override(): array {
+		if ( ! $this->may_operate() ) {
+			return array( 'ok' => false, 'status' => 'denied' );
+		}
+
+		if ( ! $this->connect_filesystem() || ! $this->fs_ready_for_reads() ) {
+			return array( 'ok' => false, 'status' => self::STATUS_NEEDS_CREDENTIALS );
+		}
+
+		$target = $this->target_absolute_path( 'ultimate-member/templates/account.php' );
+
+		if ( ! $this->fs->exists( $target ) ) {
+			return array( 'ok' => true, 'status' => self::STATUS_LEGACY_OVERRIDE_ABSENT );
+		}
+
+		return array(
+			'ok'     => true,
+			'status' => is_string( $this->fs->get_contents( $target ) )
+				? self::STATUS_LEGACY_OVERRIDE_PRESENT
+				: self::STATUS_LEGACY_OVERRIDE_UNREADABLE,
+		);
+	}
+
+	/**
 	 * Reconciles every managed asset into the active Child Theme, honoring the conflict
 	 * rules above. Idempotent: calling again on an up-to-date tree changes nothing.
+	 *
+	 * v1.2.0 (card C7 / F-05): Child Theme writes are DISAPPROVED in every mode. The
+	 * entire write path is closed fail-closed before any filesystem connection, lock, or
+	 * state work — see {@see writes_disapproved()}. The legacy writer below is retained
+	 * only as documented, unreachable rollback code for a future version that explicitly
+	 * re-approves writes; it never runs in v1.2.0 and no template or file is ever touched.
 	 *
 	 * @return array{ok:bool, reason:string, theme:string, assets:array<string, array<string, mixed>>}
 	 */
@@ -143,6 +189,13 @@ final class ManagedTemplates {
 
 		if ( null === $this->load_manifest() ) {
 			return $this->verdict( false, 'invalid_manifest' );
+		}
+
+		// v1.2.0 (card C7 / F-05): fail-closed BEFORE any filesystem, lock, or state work.
+		// The capability and manifest verdicts above stay diagnosable; everything below
+		// this line is unreachable while writes are disapproved.
+		if ( $this->writes_disapproved() ) {
+			return $this->verdict( false, self::STATUS_WRITES_DISABLED );
 		}
 
 		if ( $this->immutable_deployment() ) {
@@ -587,5 +640,20 @@ final class ManagedTemplates {
 	 */
 	private function immutable_deployment(): bool {
 		return defined( 'HAL_MEMBER_PROFILES_IMMUTABLE_DEPLOYMENT' ) && true === HAL_MEMBER_PROFILES_IMMUTABLE_DEPLOYMENT;
+	}
+
+	/**
+	 * v1.2.0 (card C7 / F-05): whether Child Theme writes are disapproved entirely.
+	 * Always true — the write path is closed fail-closed while inspect() and
+	 * inspect_legacy_account_override() stay read-only, every legacy setting is still
+	 * readable, and nothing is deleted anywhere. Public-profile templating now selects
+	 * EXISTING Elementor library templates (per member type) through Settings and the
+	 * ProfileLayoutAdapter with zero template/file writes. A future version must
+	 * explicitly revoke this disapproval before the legacy writer can ever run again.
+	 *
+	 * @return bool
+	 */
+	private function writes_disapproved(): bool {
+		return true;
 	}
 }

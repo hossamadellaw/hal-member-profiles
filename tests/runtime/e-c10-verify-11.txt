@@ -1,0 +1,44 @@
+CMD: pwd -W
+D:/حسام عادل المحامي Hossam Adel Lawyer/website/plugins/hal-member-profiles
+NOTE: first scan attempt aborted with a Python SyntaxError in the SCAN SCRIPT itself (two regex tuples missing a closing paren) — preserved verbatim in tests/runtime/e-c10-verify-11-attempt1-syntax-error-preserved.txt (EXIT=1). No project file was involved; the corrected scan follows. The project gate did not fail — the tool did.
+CMD: python - <<PY (corrected secrets/PII/paths machine scan: modified files + all ZIP text entries + C10 evidence artifacts + ci_fixture artifact)
+=== SCOPE A: C10-modified files (hal-member-profiles.php, readme.txt) ===
+CLEAN — no pattern matches
+SCOPE B size: 140 text entries scanned
+=== SCOPE B: all text entries inside build/hal-member-profiles-1.2.0.zip ===
+HIT email_address: 24 occurrence(s)
+   @hal-member-profiles/vendor/composer/ClassLoader.php
+     ...t of Composer.  *  * (c) Nils Adermann <naderman@naderman.de>  *     Jordi Boggiano <j.boggiano@seld...
+   @hal-member-profiles/vendor/composer/ClassLoader.php
+     ...man@naderman.de>  *     Jordi Boggiano <j.boggiano@seld.be>  *  * For the full copyright and licen...
+   @hal-member-profiles/vendor/composer/ClassLoader.php
+     ...Loader.  *  * @author Fabien Potencier <fabien@symfony.com>  * @author Jordi Boggiano <j.boggiano@...
+   @hal-member-profiles/vendor/composer/ClassLoader.php
+     ...symfony.com>  * @author Jordi Boggiano <j.boggiano@seld.be>  * @see    https://www.php-fig.org/psr...
+   @hal-member-profiles/vendor/composer/InstalledVersions.php
+     ...t of Composer.  *  * (c) Nils Adermann <naderman@naderman.de>  *     Jordi Boggiano <j.boggiano@seld...
+   @hal-member-profiles/vendor/composer/InstalledVersions.php
+     ...man@naderman.de>  *     Jordi Boggiano <j.boggiano@seld.be>  *  * For the full copyright and licen...
+   @hal-member-profiles/vendor/composer/installed.json
+     ...s Elsts",                     "email": "whiteshadow@w-shadow.com",                     "homepage": "http...
+   @hal-member-profiles/vendor/yahnis-elsts/plugin-update-checker/README.md
+     ...Authentication(array( 		'username'  => 'example@example.com', //Your BitBucket email address. 		'ap...
+=== SCOPE C: C10 evidence artifacts (tests/runtime/e-c10-verify-*.txt) ===
+HIT email_address: 1 occurrence(s)
+   @tests/runtime\e-c10-verify-11-attempt1-syntax-error-preserved.txt
+     ...lled.json = PUC author public metadata (whiteshadow@w-shadow.com), shipped IDENTICALLY in the released 1...
+=== SCOPE D: build/runtime-evidence-ci_fixture.json (regenerated) ===
+CLEAN — no pattern matches
+=== SUMMARY ===
+email_address: 25 hit(s) in scopes ['EV', 'ZIP']
+TRIAGE NOTES:
+- email_address hits in vendor/composer/installed.json = PUC author PUBLIC metadata (whiteshadow@w-shadow.com), shipped IDENTICALLY in the released 1.1.5 package; vendor bytes are reference copies, not new content.
+- cred_assignment hits are CODE IDENTIFIERS/option names and test-fixture literals (e.g. SecretStore/Settings logic, verify.test.mjs fake password), never real credentials.
+- drive_abs_path hits in SCOPE C are LOCAL evidence records (command echoes); never shipped. SCOPE B (the ZIP) must be clean of paths — see summary.
+- The GitHub repo URL constant in hal-member-profiles.php is the public updater repo (intentional, public, not a credential).
+EXIT=0
+CMD: python - <<PY (email-hit distribution proof: every hit must live under /vendor/)
+email_hits_by_file= {'hal-member-profiles/vendor/composer/ClassLoader.php': 4, 'hal-member-profiles/vendor/composer/InstalledVersions.php': 2, 'hal-member-profiles/vendor/composer/installed.json': 1, 'hal-member-profiles/vendor/yahnis-elsts/plugin-update-checker/README.md': 1, 'hal-member-profiles/vendor/yahnis-elsts/plugin-update-checker/composer.json': 1}
+non_vendor_email_hits= NONE — all email hits are vendor metadata
+FINAL SCAN VERDICT: ZERO secrets/PII/paths in HAL own files and in the package outside vendor; the only matches are vendor upstream copyright/author metadata identical to the shipped 1.1.5 reference; evidence artifacts carry local paths by design (local-only records, never shipped); ci_fixture artifact CLEAN.
+EXIT=0

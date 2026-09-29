@@ -42,6 +42,11 @@ final class ProfileActions extends Widget_Base {
 	 * integration, and hides itself entirely when UM has no action to offer or does not
 	 * permit one for this viewer. No LayoutContract marker — Profile Actions is not part
 	 * of the required Profile contract (header + navigation + body only).
+	 *
+	 * Card C4 / F-03 contract note: this widget and UltimateMember::render_profile_photo()
+	 * / render_profile_photo_edit_action() share the SAME delegated source (UM's
+	 * um_pre_header_editprofile and Policy's avatar verdict). UM keeps ownership of the
+	 * edit permission and markup; this path changed no behavior.
 	 */
 	protected function render(): void {
 		$bootstrap = Bootstrap::instance();

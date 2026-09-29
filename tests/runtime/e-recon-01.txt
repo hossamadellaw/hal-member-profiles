@@ -1,0 +1,16 @@
+PHPUnit 9.6.36 by Sebastian Bergmann and contributors.
+
+..F.........                                                      12 / 12 (100%)
+
+Time: 00:00.176, Memory: 6.00 MB
+
+There was 1 failure:
+
+1) HAL\MemberProfiles\Tests\Unit\WiringTest::test_lifecycle_is_wired_with_consent_aware_reconciliation
+Failed asserting that false is of type "array".
+
+D:\حسام عادل المحامي Hossam Adel Lawyer\website\plugins\hal-member-profiles\tests\Unit\WiringTest.php:136
+
+FAILURES!
+Tests: 12, Assertions: 115, Failures: 1.
+EXIT=1

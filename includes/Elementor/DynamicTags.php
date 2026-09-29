@@ -69,6 +69,8 @@ abstract class Abstract_Tag extends Tag {
 		// default, which itself returns 0 outside the manage_options editor preview —
 		// so the frontend never populates controls from a guessed Form.
 		$profile_form_id = 0;
+		$profile_persona = '';
+		$account_tab     = '';
 
 		$profile_context = $bootstrap->get_profile_context();
 
@@ -77,6 +79,7 @@ abstract class Abstract_Tag extends Tag {
 
 			if ( null !== $scoped && ! empty( $scoped->form_id ) ) {
 				$profile_form_id = (int) $scoped->form_id;
+				$profile_persona = (string) ( $scoped->persona ?? '' );
 			}
 		}
 
@@ -91,7 +94,11 @@ abstract class Abstract_Tag extends Tag {
 		$registry = new SchemaRegistry( $field_schema );
 
 		if ( $account ) {
-			foreach ( $registry->um_account_schema()['items'] as $item ) {
+			$account_context = $bootstrap->get_account_context();
+			$account_scope   = null !== $account_context ? $account_context->resolve() : null;
+			$account_tab     = null !== $account_scope ? (string) $account_scope->current_tab : '';
+
+			foreach ( $registry->um_account_schema( array( 'context' => 'account', 'tab' => $account_tab ) )['items'] as $item ) {
 				if ( SchemaRegistry::VIS_ACCOUNT_ONLY !== $item['visibility'] || $type !== $item['type'] ) {
 					continue;
 				}
@@ -102,7 +109,7 @@ abstract class Abstract_Tag extends Tag {
 			return $options;
 		}
 
-		foreach ( $registry->um_profile_schema( $profile_form_id )['items'] as $item ) {
+		foreach ( $registry->um_profile_schema( $profile_form_id, array( 'context' => 'profile', 'persona' => $profile_persona ) )['items'] as $item ) {
 			if ( SchemaRegistry::VIS_PUBLIC !== $item['visibility'] ) {
 				continue;
 			}
@@ -186,7 +193,7 @@ abstract class Abstract_Tag extends Tag {
 		// which fails closed (null => empty output) instead of another form's fields.
 		$form_id = (int) $context->form_id;
 
-		$result = $policy->can_view_field( (int) $context->target_user->ID, (int) $context->visitor_id, $form_id, $metakey );
+		$result = $policy->can_view_field( (int) $context->target_user->ID, (int) $context->visitor_id, $form_id, $metakey, (string) $context->persona );
 
 		$this->echo_typed_result( $result, $expected_type );
 	}
@@ -231,7 +238,7 @@ abstract class Abstract_Tag extends Tag {
 
 		$account_user_id = (int) $context->account_user->ID;
 
-		$result = $policy->can_view_account_field( $account_user_id, $account_user_id, $metakey );
+		$result = $policy->can_view_account_field( $account_user_id, $account_user_id, $metakey, (string) $context->current_tab );
 
 		$this->echo_typed_result( $result, $expected_type );
 	}
@@ -270,7 +277,7 @@ abstract class Abstract_Tag extends Tag {
 		// F-10: pass the scoped form id straight through; zero means Policy denies.
 		$form_id = (int) $context->form_id;
 
-		$result = $policy->can_view_header_element( (int) $context->target_user->ID, (int) $context->visitor_id, $element, $form_id );
+		$result = $policy->can_view_header_element( (int) $context->target_user->ID, (int) $context->visitor_id, $element, $form_id, (string) $context->persona );
 
 		$this->echo_typed_result( $result, $expected_type );
 	}
