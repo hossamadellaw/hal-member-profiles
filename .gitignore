@@ -1,8 +1,14 @@
-# تبعيات البناء — يبنيها خط الإصدار من composer.lock داخل الـworkflow (§3.1).
+# Build dependencies — produced by the release pipeline from composer.lock inside the workflow (§3.1).
 /vendor/
 /build/
 
-# مستندات داخلية بقرار المالك: خارج git وخارج حزمة النشر معًا (§9.2-5).
+# Internal owner-ruled documents: excluded from git AND from the release package (§9.2-5).
 /hal-um-elementor-execution-plan.md
 /docs/
 /.phpunit.result.cache
+
+# Private local artifacts — session channel, remediation plan, and runtime evidence
+# (owner-ruled local-only files; must never be pushed to the repository).
+/SESSION-CHANNEL-*.md
+/hal-member-profiles-remediation-development-plan.md
+/tests/runtime/
