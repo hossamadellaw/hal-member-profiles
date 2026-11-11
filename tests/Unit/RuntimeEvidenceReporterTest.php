@@ -40,7 +40,7 @@ final class RuntimeEvidenceReporterTest extends TestCase {
 		}
 		if ( ! defined( 'HAL_MEMBER_PROFILES_VERSION' ) ) {
 			// Production always defines this in the main plugin file before boot.
-			define( 'HAL_MEMBER_PROFILES_VERSION', '1.1.5' );
+			define( 'HAL_MEMBER_PROFILES_VERSION', '1.2.0' );
 		}
 		if ( ! function_exists( 'UM' ) ) {
 			eval( 'function UM() { return (object) array(); }' );
@@ -60,7 +60,7 @@ final class RuntimeEvidenceReporterTest extends TestCase {
 	private function fixture_facts(): array {
 		return array(
 			'source'            => RuntimeEvidenceReporter::SOURCE_FIXTURE,
-			'plugin_version'    => '1.1.5',
+			'plugin_version'    => HAL_MEMBER_PROFILES_VERSION,
 			'environment'       => array(
 				'wordpress'       => '6.5',
 				'php'             => '8.2',
