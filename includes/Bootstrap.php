@@ -227,6 +227,12 @@ final class Bootstrap {
 		require_once HAL_MEMBER_PROFILES_DIR . 'includes/LayoutContract.php';
 		require_once HAL_MEMBER_PROFILES_DIR . 'includes/ProfileOverview.php';
 
+		// Card F-11: the read-only template contract validator — a pure reader with no
+		// hooks and no side effects at load time, always loaded like LayoutContract so
+		// the F-05 readiness card (and F-10) reach it via class_exists(); nothing else
+		// is wired here.
+		require_once HAL_MEMBER_PROFILES_DIR . 'includes/TemplateContractValidator.php';
+
 		$this->profile_context = new ProfileContext( $this->settings );
 		$this->account_context = new AccountContext( $this->settings );
 		$this->field_schema    = new FieldSchema();
