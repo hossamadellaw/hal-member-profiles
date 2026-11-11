@@ -1,6 +1,0 @@
-No syntax errors detected in includes/Integrations/UltimateMember.php
-EXIT_UM=0
-No syntax errors detected in includes/Elementor/Widgets/ProfileActions.php
-EXIT_PA=0
-No syntax errors detected in tests/Unit/ProfilePhotoDelegationTest.php
-EXIT_TEST=0

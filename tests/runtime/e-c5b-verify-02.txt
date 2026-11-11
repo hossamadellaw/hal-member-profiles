@@ -1,6 +1,0 @@
-No syntax errors detected in includes/Integrations/Amelia.php
-EXIT_AM=0
-No syntax errors detected in includes/Bootstrap.php
-EXIT_BOOT=0
-No syntax errors detected in tests/Unit/SelectedServicesSaveContractTest.php
-EXIT_TEST=0

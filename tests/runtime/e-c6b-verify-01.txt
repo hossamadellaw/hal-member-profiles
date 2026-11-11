@@ -1,2 +1,0 @@
-No syntax errors detected in includes/Integrations/AmeliaFieldsWriter.php
-EXIT=0

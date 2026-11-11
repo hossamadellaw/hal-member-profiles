@@ -1,8 +1,0 @@
-No syntax errors detected in includes/SchemaRegistry.php
-EXIT_SR=0
-No syntax errors detected in includes/Settings.php
-EXIT_SET=0
-No syntax errors detected in includes/AdminDashboard.php
-EXIT_AD=0
-No syntax errors detected in tests/Unit/SchemaRegistryTest.php
-EXIT_TEST=0

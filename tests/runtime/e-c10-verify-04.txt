@@ -1,5 +1,0 @@
-CMD: pwd -W
-D:/حسام عادل المحامي Hossam Adel Lawyer/website/plugins/hal-member-profiles
-CMD: php -l hal-member-profiles.php  (C10 modified PHP files: hal-member-profiles.php ONLY — no other PHP was modified by the version bump)
-No syntax errors detected in hal-member-profiles.php
-EXIT=0

@@ -1,9 +1,0 @@
-CMD: php -l includes/CompatibilityGate.php && php -l includes/Dependencies.php && php -l includes/StagingQA.php && php -l tests/Acceptance/DeploymentMatrixTest.php  (card C9 sanity lint: NO PHP file was changed by C9 — read-only check that the frozen scope files are syntactically intact)
-No syntax errors detected in includes/CompatibilityGate.php
-lint-exit[includes/CompatibilityGate.php]=0
-No syntax errors detected in includes/Dependencies.php
-lint-exit[includes/Dependencies.php]=0
-No syntax errors detected in includes/StagingQA.php
-lint-exit[includes/StagingQA.php]=0
-No syntax errors detected in tests/Acceptance/DeploymentMatrixTest.php
-lint-exit[tests/Acceptance/DeploymentMatrixTest.php]=0
