@@ -37,6 +37,12 @@
  * deleted. Public-profile templating now selects EXISTING Elementor library templates
  * (per member type) through Settings and ProfileLayoutAdapter with zero writes.
  *
+ * v1.2.1 (card F-01): the closure becomes a release-version gate — writes stay
+ * disapproved on every 1.2.x release (including any rollback) and open automatically
+ * at 1.3.0 (WRITES_APPROVED_SINCE), with the legacy writer's hash-verified temp-write
+ * safety unchanged; provision() additionally prunes per-theme state rows whose key is
+ * absent from the current manifest (option-state cleanup only — never a file deletion).
+ *
  * Deployment modes:
  * - Direct: WP_Filesystem reports the 'direct' method — provisioning proceeds normally.
  * - Guided credentials: any other method (FTP/SSH) yields needs_credentials so the admin
@@ -72,6 +78,14 @@ final class ManagedTemplates {
 	public const STATUS_LEGACY_OVERRIDE_PRESENT    = 'legacy_account_override_present';
 	public const STATUS_LEGACY_OVERRIDE_ABSENT     = 'legacy_account_override_absent';
 	public const STATUS_LEGACY_OVERRIDE_UNREADABLE = 'legacy_account_override_unreadable';
+
+	/**
+	 * First release whose legacy Child-Theme writer is approved (card F-01, v1.2.1).
+	 * version_compare() semantics keep the gate closed on EVERY 1.2.x release — including
+	 * any rollback — and open it automatically at 1.3.0, with no manual edit and no
+	 * forgotten switch.
+	 */
+	private const WRITES_APPROVED_SINCE = '1.3.0';
 
 	private string $manifest_path;
 
@@ -174,11 +188,13 @@ final class ManagedTemplates {
 	 * Reconciles every managed asset into the active Child Theme, honoring the conflict
 	 * rules above. Idempotent: calling again on an up-to-date tree changes nothing.
 	 *
-	 * v1.2.0 (card C7 / F-05): Child Theme writes are DISAPPROVED in every mode. The
-	 * entire write path is closed fail-closed before any filesystem connection, lock, or
-	 * state work — see {@see writes_disapproved()}. The legacy writer below is retained
-	 * only as documented, unreachable rollback code for a future version that explicitly
-	 * re-approves writes; it never runs in v1.2.0 and no template or file is ever touched.
+	 * v1.2.0 (card C7 / F-05): Child Theme writes are DISAPPROVED. The entire write path
+	 * is closed fail-closed before any filesystem connection, lock, or state work — see
+	 * {@see writes_disapproved()}. v1.2.1 (card F-01): that closure is a release-version
+	 * gate (WRITES_APPROVED_SINCE) — closed on every 1.2.x, self-opening at 1.3.0 — and
+	 * per-theme state rows absent from the CURRENT manifest are pruned exactly where the
+	 * state is written (option-state cleanup only; no file is ever deleted). The legacy
+	 * writer keeps its original hash-verified temp-write safety unchanged.
 	 *
 	 * @return array{ok:bool, reason:string, theme:string, assets:array<string, array<string, mixed>>}
 	 */
@@ -233,6 +249,13 @@ final class ManagedTemplates {
 			if ( ! is_array( $state['assets'] ?? null ) ) {
 				$state['assets'] = array();
 			}
+
+			// v1.2.1 (card F-01): prune state rows whose key is absent from the CURRENT
+			// manifest exactly where the state is written (stale v1.1.5-era rows would
+			// otherwise survive forever, since the writer only touches manifest keys).
+			// Option-state cleanup ONLY — no file is ever deleted here. The trimmed map
+			// persists below through the existing state_stale() check.
+			$state = $this->prune_state_to_current_manifest( $state );
 
 			$results  = array();
 			$mutated  = false;
@@ -621,6 +644,32 @@ final class ManagedTemplates {
 	}
 
 	/**
+	 * v1.2.1 (card F-01): prunes per-theme state rows whose key is absent from the
+	 * CURRENT manifest — stale v1.1.5-era rows (e.g. the retired account.php asset) would
+	 * otherwise survive forever, because the writer only ever touches keys present in the
+	 * manifest. Option-state cleanup ONLY: no file is ever deleted, moved, or written by
+	 * this method; on-disk artifacts are reported through inspection, never removed.
+	 *
+	 * @param array<string, mixed> $state Candidate next state read from the option.
+	 * @return array<string, mixed> The state with its assets map reduced to current manifest keys.
+	 */
+	private function prune_state_to_current_manifest( array $state ): array {
+		$manifest_keys = array();
+
+		foreach ( $this->manifest['assets'] ?? array() as $asset ) {
+			$manifest_keys[ (string) $asset['source_path'] ] = true;
+		}
+
+		foreach ( array_keys( $state['assets'] ?? array() ) as $stored_key ) {
+			if ( ! isset( $manifest_keys[ (string) $stored_key ] ) ) {
+				unset( $state['assets'][ $stored_key ] );
+			}
+		}
+
+		return $state;
+	}
+
+	/**
 	 * @param bool  $ok    Overall outcome.
 	 * @param string $reason Machine-readable reason slug.
 	 * @param array<string, array<string, mixed>> $assets Per-asset results.
@@ -636,24 +685,34 @@ final class ManagedTemplates {
 	}
 
 	/**
-	 * @return bool Whether immutable/CI deployment mode is enabled.
+	 * Whether immutable/CI deployment mode is enabled.
+	 *
+	 * v1.2.x status (card F-01): this check sits AFTER the writes_disapproved() gate,
+	 * which stays closed on every 1.2.x release (WRITES_APPROVED_SINCE = '1.3.0'), so the
+	 * immutable verdict is procedurally dead (unreachable) throughout 1.2.x and becomes
+	 * reachable when the gate opens at 1.3.0. The check is deliberately kept at its
+	 * original position: relocating it above the gate would change v1.2.x verdicts —
+	 * rejected in favor of a minimal diff.
+	 *
+	 * @return bool
 	 */
 	private function immutable_deployment(): bool {
 		return defined( 'HAL_MEMBER_PROFILES_IMMUTABLE_DEPLOYMENT' ) && true === HAL_MEMBER_PROFILES_IMMUTABLE_DEPLOYMENT;
 	}
 
 	/**
-	 * v1.2.0 (card C7 / F-05): whether Child Theme writes are disapproved entirely.
-	 * Always true — the write path is closed fail-closed while inspect() and
-	 * inspect_legacy_account_override() stay read-only, every legacy setting is still
-	 * readable, and nothing is deleted anywhere. Public-profile templating now selects
-	 * EXISTING Elementor library templates (per member type) through Settings and the
-	 * ProfileLayoutAdapter with zero template/file writes. A future version must
-	 * explicitly revoke this disapproval before the legacy writer can ever run again.
+	 * v1.2.0 (card C7 / F-05): whether Child Theme writes are disapproved for the RUNNING
+	 * plugin version. v1.2.1 (card F-01): the formerly unconditional `return true` is now
+	 * a release-version gate — true on EVERY 1.2.x release (including any rollback), so
+	 * provision() fails closed with the machine reason writes_disabled_v1_2 before any
+	 * filesystem, lock, or state work, while inspect() and inspect_legacy_account_override()
+	 * stay read-only and nothing is deleted anywhere. From WRITES_APPROVED_SINCE (1.3.0)
+	 * the gate opens automatically — no manual edit, no forgotten switch — and the legacy
+	 * writer runs with its original hash-verified temp-write safety unchanged.
 	 *
 	 * @return bool
 	 */
 	private function writes_disapproved(): bool {
-		return true;
+		return version_compare( HAL_MEMBER_PROFILES_VERSION, self::WRITES_APPROVED_SINCE, '<' );
 	}
 }

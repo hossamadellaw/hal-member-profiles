@@ -18,6 +18,19 @@ use HAL\MemberProfiles\ManagedTemplates;
 use PHPUnit\Framework\TestCase;
 use HAL\MemberProfiles\Settings;
 
+// Card F-01: the write-closure gate compares the RUNNING plugin version, and this suite
+// boots without the main plugin file, so the version constant is pinned here for the
+// whole test process (file level = before ANY test method runs) — including when THIS
+// file is run standalone, where ManagedTemplatesTest.php (which pins the constant for
+// the shared full-suite process) never loads. A 1.2.x value keeps every
+// writes_disabled_v1_2 assertion in this suite meaningful against the 1.3.0 gate.
+// Production always defines this in hal-member-profiles.php before boot; the guarded
+// define is a no-op there and matches the convention in AdminDashboardPermissionsTest
+// and RuntimeEvidenceReporterTest.
+if ( ! defined( 'HAL_MEMBER_PROFILES_VERSION' ) ) {
+	define( 'HAL_MEMBER_PROFILES_VERSION', '1.2.0' );
+}
+
 final class LifecycleReconciliationTest extends TestCase {
 
 	private string $theme;

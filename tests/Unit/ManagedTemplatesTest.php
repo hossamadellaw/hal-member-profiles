@@ -1,12 +1,13 @@
 <?php
 /**
- * Unit tests for ManagedTemplates (card D-04 / D-17 / v1.2.0 C7): hash ownership,
- * conflicts, and silent-delete prevention under READ-ONLY inspection; the v1.2.0
- * fail-closed write closure (zero Child Theme writes); and the C7/OD-06 public-profile
- * template-selection contract — per-member-type selection, legacy-compat reading,
- * valid/invalid/deleted/wrong-type/unpublished/Elementor-absent rendering, owner/visitor
- * context, and private-field exclusion. Exercises the REAL classes against REAL temp
- * directories through the contract-level filesystem stub.
+ * Unit tests for ManagedTemplates (card D-04 / D-17 / v1.2.0 C7 / v1.2.1 F-01): hash
+ * ownership, conflicts, and silent-delete prevention under READ-ONLY inspection; the
+ * fail-closed write closure — a release-version gate since v1.2.1 (writes stay disabled
+ * on every 1.2.x; zero Child Theme writes); the manifest-key state prune; and the
+ * C7/OD-06 public-profile template-selection contract — per-member-type selection,
+ * legacy-compat reading, valid/invalid/deleted/wrong-type/unpublished/Elementor-absent
+ * rendering, owner/visitor context, and private-field exclusion. Exercises the REAL
+ * classes against REAL temp directories through the contract-level filesystem stub.
  *
  * @package HAL\MemberProfiles\Tests\Unit
  */
@@ -20,6 +21,18 @@ use HAL\MemberProfiles\LayoutContract;
 use HAL\MemberProfiles\ManagedTemplates;
 use HAL\MemberProfiles\Settings;
 use PHPUnit\Framework\TestCase;
+
+// Card F-01: the write-closure gate compares the RUNNING plugin version, and the unit
+// suite boots without the main plugin file, so the version constant is pinned here for
+// the whole test process (file level = before ANY test method of ANY suite file runs).
+// A 1.2.x value keeps every writes_disabled_v1_2 assertion in this suite — and in the
+// Lifecycle/Wiring suites sharing this process — meaningful against the 1.3.0 gate.
+// Production always defines this in hal-member-profiles.php before boot; the guarded
+// define is a no-op there and matches the convention in AdminDashboardPermissionsTest
+// and RuntimeEvidenceReporterTest.
+if ( ! defined( 'HAL_MEMBER_PROFILES_VERSION' ) ) {
+	define( 'HAL_MEMBER_PROFILES_VERSION', '1.2.0' );
+}
 
 final class ManagedTemplatesTest extends TestCase {
 
@@ -160,6 +173,106 @@ final class ManagedTemplatesTest extends TestCase {
 		$this->assertSame( 'writes_disabled_v1_2', $result['reason'] );
 		$this->assertFileDoesNotExist( $this->target_in( $theme ) );
 		$this->assertFalse( get_transient( ManagedTemplates::LOCK_TRANSIENT ), 'the write closure must never arm the provisioning lock' );
+	}
+
+	/**
+	 * F-01: the formerly unconditional write closure is a release-version gate
+	 * (WRITES_APPROVED_SINCE = '1.3.0'). The unit process pins a 1.2.x plugin version
+	 * (file-level define above), so the private verdict must stay closed exactly as on
+	 * production 1.2.x. The gate's opening at 1.3.0 cannot be proven in-process (the
+	 * version constant is process-wide and immutable once defined), so it is proven by a
+	 * standalone runtime proof tool executed and logged during the F-01 card session.
+	 */
+	public function test_write_gate_stays_closed_for_the_pinned_1_2_x_version(): void {
+		$this->assertTrue(
+			version_compare( HAL_MEMBER_PROFILES_VERSION, '1.3.0', '<' ),
+			'this proof is only meaningful while the process pins a pre-1.3.0 version'
+		);
+
+		$method = new \ReflectionMethod( ManagedTemplates::class, 'writes_disapproved' );
+		$method->setAccessible( true );
+
+		$this->assertTrue(
+			$method->invoke( new ManagedTemplates() ),
+			'on 1.2.x the gate stays closed (the verdict stays writes_disabled_v1_2)'
+		);
+	}
+
+	/**
+	 * F-01 step 3: per-theme state rows whose key is absent from the CURRENT manifest are
+	 * pruned on the state-writing path, so the stored option ends up holding exactly the
+	 * current manifest keys (a stale v1.1.5-era row such as the retired account.php asset
+	 * can never survive). The unit process stays on 1.2.x, where provision() fails closed
+	 * BEFORE any state work, so the prune helper itself is exercised directly; the
+	 * end-to-end persistence (first successful provision on 1.3.0) runs on production
+	 * after release. Option-state cleanup ONLY — no file is ever deleted.
+	 */
+	public function test_state_rows_absent_from_the_current_manifest_are_pruned(): void {
+		$gate = new ManagedTemplates();
+
+		$manifest = new \ReflectionProperty( ManagedTemplates::class, 'manifest' );
+		$manifest->setAccessible( true );
+		$manifest->setValue(
+			$gate,
+			array(
+				'assets' => array(
+					array( 'source_path' => 'resources/ultimate-member/profile-hal-member-profiles.php' ),
+				),
+			)
+		);
+
+		$prune = new \ReflectionMethod( ManagedTemplates::class, 'prune_state_to_current_manifest' );
+		$prune->setAccessible( true );
+
+		$surviving_row = array(
+			'asset_version'     => 1,
+			'source_hash'       => str_repeat( 'a', 64 ),
+			'last_managed_hash' => str_repeat( 'a', 64 ),
+			'status'            => ManagedTemplates::STATUS_WRITE_FAILED,
+		);
+
+		$stale_state = array(
+			'theme'  => 'astra-child',
+			'assets' => array(
+				'resources/ultimate-member/profile-hal-member-profiles.php' => $surviving_row,
+				'resources/ultimate-member/account.php'                     => array(
+					'asset_version'     => 1,
+					'last_managed_hash' => null,
+					'status'            => ManagedTemplates::STATUS_WRITE_FAILED,
+				),
+			),
+		);
+
+		$pruned = $prune->invoke( $gate, $stale_state );
+
+		$this->assertSame(
+			array( 'resources/ultimate-member/profile-hal-member-profiles.php' ),
+			array_keys( $pruned['assets'] ),
+			'after the state path only the current manifest keys remain'
+		);
+		$this->assertSame(
+			$surviving_row,
+			$pruned['assets']['resources/ultimate-member/profile-hal-member-profiles.php'],
+			'the surviving manifest-key row is retained untouched'
+		);
+		$this->assertArrayNotHasKey(
+			'resources/ultimate-member/account.php',
+			$pruned['assets'],
+			'the stale row whose key is absent from the manifest is pruned'
+		);
+
+		$exact_state = array(
+			'theme'  => 'astra-child',
+			'assets' => array(
+				'resources/ultimate-member/profile-hal-member-profiles.php' => $surviving_row,
+			),
+		);
+
+		$this->assertSame(
+			$exact_state,
+			$prune->invoke( $gate, $exact_state ),
+			'a state already exact to the manifest passes through unchanged (idempotent trim)'
+		);
 	}
 
 	/**
