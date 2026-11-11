@@ -1,2 +1,8 @@
-resources/ultimate-member/profile-hal-member-profiles.php text eol=lf
-resources/ultimate-member/account.php text eol=lf
+# Canonical bytes for every tracked text file: LF in the repository and LF on
+# checkout on every platform, so any fresh clone produces canonical bytes only.
+* text=auto eol=lf
+
+# Deterministic (non-auto) coverage for the manifest-hash-sensitive
+# resources/ultimate-member/ sources.
+resources/ultimate-member/*.php text eol=lf
+resources/ultimate-member/*.json text eol=lf
