@@ -144,12 +144,13 @@ final class WiringTest extends TestCase {
 	public function test_lifecycle_is_wired_with_consent_aware_reconciliation(): void {
 		LifecycleShim::run_tick();
 
-		// v1.2.0 (card C7): reconciliation stays consent-aware but the write path is
-		// fail-closed — no provisioning state is recorded and nothing is ever written,
-		// while Bootstrap still owns the managed-templates service.
+		// v1.2.1 (card F-06): reconciliation stays consent-aware and fail-closed — no
+		// provisioning state is recorded and nothing is ever written; the terminal
+		// writes_disabled_v1_2 closure lands on the FINAL idle status exactly once
+		// (no pending re-loop), while Bootstrap still owns the managed-templates service.
 		$status = get_option( \HAL\MemberProfiles\Lifecycle::PENDING_OPTION, array() );
 
-		$this->assertSame( 'pending', is_array( $status ) ? ( $status['status'] ?? '' ) : '' );
+		$this->assertSame( 'idle', is_array( $status ) ? ( $status['status'] ?? '' ) : '' );
 		$this->assertStringContainsString( 'writes_disabled_v1_2', (string) ( is_array( $status ) ? ( $status['reason'] ?? '' ) : '' ) );
 		$this->assertFalse( get_option( ManagedTemplates::STATE_OPTION, false ), 'fail-closed provisioning must not record template state' );
 		$this->assertNotNull( $this->boot_admin()->get_managed_templates(), 'bootstrap owns the managed-templates service' );

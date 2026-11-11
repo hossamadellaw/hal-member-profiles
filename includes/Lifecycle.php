@@ -54,6 +54,27 @@ final class Lifecycle {
 	private const STATUS_IDLE    = 'idle';
 
 	/**
+	 * Card F-06: provision failure reasons that can never succeed by retrying within the
+	 * running release — the release-version write gate (writes_disabled_v1_2, card F-01)
+	 * and the immutable/CI deployment mode (immutable). Re-looping them as `pending`
+	 * rewrote the marker on EVERY admin visit (live-proven, evidence L-03), so they close
+	 * into the final {@see STATUS_IDLE} status instead, with the machine reason and the
+	 * audit timestamps preserved.
+	 *
+	 * @var string[]
+	 */
+	private const TERMINAL_FAILURE_REASONS = array( 'writes_disabled_v1_2', 'immutable' );
+
+	/**
+	 * Card F-06: provision failure reasons that legitimately warrant a retry on a later
+	 * admin visit — credentials-dependent filesystems and the in-flight provisioning
+	 * lock. These keep the `pending` marker exactly as before this card.
+	 *
+	 * @var string[]
+	 */
+	private const RETRYABLE_FAILURE_REASONS = array( 'needs_credentials', 'busy' );
+
+	/**
 	 * Wires the runtime hooks exactly once. Called by bootstrapping (card D-14).
 	 *
 	 * @return void
@@ -197,6 +218,11 @@ final class Lifecycle {
 	 * failure — including provisioning problems — is contained here so neither admin nor
 	 * frontend pages can break because reconciliation broke.
 	 *
+	 * v1.2.1 (card F-06): provision failure reasons are classified — version-terminal
+	 * (writes_disabled_v1_2) and immutable failures close into the final idle status
+	 * exactly once, with the machine reason and the audit timestamps preserved, while
+	 * retryable reasons (needs_credentials, busy) keep the pending marker unchanged.
+	 *
 	 * @param string $from_status Status that led here (audit trail in the stored option).
 	 * @param bool   $forced      True for the manual Repair command.
 	 * @return array{ok:bool, reason:string}
@@ -223,7 +249,15 @@ final class Lifecycle {
 				? sanitize_key( $result['reason'] )
 				: 'unknown';
 
-			self::write_status( self::STATUS_PENDING, 'provision_failed_' . $reason );
+			// Card F-06: terminal reasons (writes_disabled_v1_2, immutable) close into the
+			// final idle status exactly once — never re-looped as pending on every admin
+			// visit. Retryable reasons (needs_credentials, busy) and every unclassified
+			// containment reason keep the pending marker unchanged.
+			if ( self::STATUS_IDLE === self::failure_status_for_reason( $reason ) ) {
+				self::write_final_failure_status( 'provision_failed_' . $reason );
+			} else {
+				self::write_status( self::STATUS_PENDING, 'provision_failed_' . $reason );
+			}
 
 			return array( 'ok' => false, 'reason' => $reason );
 		}
@@ -234,6 +268,68 @@ final class Lifecycle {
 		);
 
 		return array( 'ok' => true, 'reason' => $forced ? 'repaired' : 'reconciled' );
+	}
+
+	/**
+	 * Card F-06: classifies a provision failure reason into the lifecycle status it must
+	 * produce. Version-terminal (writes_disabled_v1_2) and immutable reasons can never
+	 * succeed by retrying within the running release, so they map to the final idle
+	 * status instead of re-looping as pending on every admin visit. Retryable reasons
+	 * (needs_credentials, busy) legitimately warrant pending. Every unclassified reason
+	 * (denied, invalid_manifest, no_child_theme, source_hash_mismatch, unknown, and the
+	 * exception/containment paths) keeps the pre-F-06 pending behavior — this card
+	 * classifies only the terminal and the retryable sets.
+	 *
+	 * @param string $reason Sanitized machine reason from ManagedTemplates::provision().
+	 * @return string One of the STATUS_* constants.
+	 */
+	private static function failure_status_for_reason( string $reason ): string {
+		if ( in_array( $reason, self::TERMINAL_FAILURE_REASONS, true ) ) {
+			return self::STATUS_IDLE;
+		}
+
+		if ( in_array( $reason, self::RETRYABLE_FAILURE_REASONS, true ) ) {
+			// Retryable: credentials-dependent filesystem or in-flight lock — a later
+			// admin visit legitimately retries, so the pending marker stays.
+			return self::STATUS_PENDING;
+		}
+
+		// Unclassified reasons keep the pre-F-06 pending behavior (conservative default).
+		return self::STATUS_PENDING;
+	}
+
+	/**
+	 * Card F-06: closes a terminal provision failure into the final idle status — exactly
+	 * once. The machine reason is preserved verbatim as the audit trail, the original
+	 * `since` (when the failing loop began) is preserved, and `until` records the closure
+	 * time. A marker already closed with the SAME machine reason is never rewritten, so
+	 * subsequent admin visits leave the option untouched — including drift-driven
+	 * reconcile runs (production's stale v1.1.5-era state rows keep drift true, L-04).
+	 *
+	 * @param string $reason Machine audit slug, e.g. provision_failed_writes_disabled_v1_2.
+	 * @return void
+	 */
+	private static function write_final_failure_status( string $reason ): void {
+		$stored = get_option( self::PENDING_OPTION, array() );
+
+		if (
+			is_array( $stored )
+			&& self::STATUS_IDLE === ( $stored['status'] ?? null )
+			&& ( $stored['reason'] ?? null ) === $reason
+		) {
+			return; // Already closed for this terminal reason — stability, no rewrite.
+		}
+
+		update_option(
+			self::PENDING_OPTION,
+			array(
+				'status' => self::STATUS_IDLE,
+				'reason' => sanitize_key( $reason ),
+				'since'  => is_array( $stored ) && isset( $stored['since'] ) ? (int) $stored['since'] : time(),
+				'until'  => time(),
+			),
+			false
+		);
 	}
 
 	/**
