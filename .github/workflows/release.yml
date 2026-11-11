@@ -1,13 +1,13 @@
-# خط إصدار واحد مبسط لأداة HAL Member Profiles: أدوات رسمية فقط، بدون أسرار خارجية.
-# قائمة البناء مشتقة من نقطة دخول الإضافة وتحميلاتها الشرطية، ومن الأصول المُشار إليها
-# في الكود (assets/editor.css عبر plugin_dir_url ومجلد languages).
+# Single streamlined release pipeline for the HAL Member Profiles tool: official tools only, no external secrets.
+# The build list is derived from the plugin entry point and its conditional loads, and from the assets referenced
+# in the code (assets/editor.css via plugin_dir_url, and the languages folder).
 #
-# بطاقة D-15: التسليم اليدوي عبر Child Theme/ أُلغي كليًا. الأصول القانونية للقوالب
-# المُدارة تسافر الآن داخل الحزمة تحت resources/ultimate-member/ (القالبان +
-# manifest.json الذي يثبت نسخة كل أصل وبصمة SHA-256 له). الخط يتحقق من صحة الـmanifest
-# ومطابقة البصمات قبل البناء، ويعيد التحقق منهما داخل الـZIP الناتج نفسه، ويمنع أي أثر
-# لـChild Theme (لا ازدواج قديم)، ويمنع تسلل المصادر الداخلية، ويقحم فحص أسرار على كل
-# محتويات الحزمة قبل النشر.
+# Card D-15: manual delivery through Child Theme/ is fully retired. The canonical managed-template
+# assets now travel inside the package under resources/ultimate-member/ (both templates +
+# manifest.json, which pins each asset's version and SHA-256 digest). The pipeline validates the manifest
+# and hash matching before the build, re-verifies both inside the resulting ZIP itself, and blocks any trace
+# of Child Theme (no legacy duplication), blocks internal source leakage, and injects a secret scan across every
+# packaged file before publication.
 name: Release
 
 on:
@@ -15,7 +15,7 @@ on:
     tags: [ 'v*' ]
 
 permissions:
-  contents: write   # الحد الأدنى اللازم لإنشاء الـRelease ورفع الـAsset.
+  contents: write   # The minimum required to create the Release and upload the Asset.
 
 jobs:
   build-and-release:
@@ -24,8 +24,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ─── قناة الإصدار: يمنع الوسوم ذات الصيغ غير المعتمدة من الدخول إلى أي مسار نشر ───
-      # المستقر vX.Y.Z حصرًا؛ التجريبي vX.Y.Z-rc.N حصرًا؛ أي شيء آخر يفشل البناء فورًا.
+      # ─── Release channel: tags with unsupported formats are barred from any publishing path ───
+      # Stable vX.Y.Z only; RC vX.Y.Z-rc.N only; anything else fails the build immediately.
       - name: Validate tag format and detect release channel
         run: |
           if [[ "$GITHUB_REF_NAME" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-rc\.([0-9]+)$ ]]; then
@@ -38,7 +38,7 @@ jobs:
             exit 1
           fi
 
-      # ─── بيئة PHP مطابقة لحد الإضافة الأدنى (composer platform = 8.0) ───
+      # ─── PHP environment matching the plugin's minimum floor (composer platform = 8.0) ───
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -52,16 +52,16 @@ jobs:
       - name: Validate composer files
         run: composer validate --strict
 
-      # ─── بوابات جودة إلزامية قبل البناء (بطاقة F-20): lint شامل + Unit suite ───
+      # ─── Mandatory quality gates before the build (card F-20): full lint + Unit suite ───
       - name: Lint all first-party PHP
         run: |
           find . -type d \( -path ./vendor -o -path ./.git \) -prune -o \
                  -type f -name '*.php' -print0 | xargs -0 -n1 php -l >/dev/null
           echo "lint OK"
 
-      # ─── بوابة Unit: مانعة على القناة المستقرة. على RC تُطبع إخفاقات harness المعروفة
-      # وتُسجل في اللوج ولا تسقط بناء المرشح، بينما تبقى lint وحراس الحزمة والأسرار
-      # والـmanifest/البصمات مانعة على القناتين معًا دون استثناء. ───
+      # ─── Unit gate: blocking on the stable channel. On RC, known harness failures are printed
+      # and logged without dropping the RC build, while lint, package and secret guards,
+      # and the manifest/hash checks stay blocking on both channels without exception. ───
       - name: Run unit tests (blocks stable; logs known harness failures on RC)
         run: |
           mkdir -p build
@@ -78,15 +78,15 @@ jobs:
             echo "RC channel: continuing despite logged unit failures; lint/package/secret/manifest gates remain mandatory"
           fi
 
-      # ─── بطاقة S-08: بوابة Runtime Evidence بعد Unit Gate وقبل production vendor/ZIP ───
-      # تُولّد نسخة ci_fixture من نفس المولد، وتُتحقق من عقدها المغلق وتنقيحها، ويُرفع
-      # الـartifact داخليًا فقط (خارج الـZIP والـRelease). مانعة على القناتين معًا.
+      # ─── Card S-08: Runtime Evidence gate after the Unit Gate and before production vendor/ZIP ───
+      # Generates a ci_fixture copy from the same generator, verifies and sanitizes its closed contracts, and uploads
+      # the artifact internally only (outside the ZIP and the Release). Blocking on both channels.
       - name: Runtime Evidence ci_fixture gate
         run: |
           php tests/runtime/generate-report.php
           test -f build/runtime-evidence-ci_fixture.json
-          # البنية نفسها تمنع دخوله الحزمة: الحزمة تُبنى لاحقًا من build/hal-member-profiles/
-          # فقط، وهذا الملف خارجها، وقائمة النسخ البيضاء لا تتضمن build/ أو tests/ إطلاقًا.
+          # The structure itself keeps it out of the package: the package is built later from build/hal-member-profiles/
+          # only, this file sits outside it, and the whitelist copy list never includes build/ or tests/.
           echo "runtime-evidence gate OK (artifact stays outside the package)"
 
       - name: Upload runtime evidence artifact (internal only)
@@ -98,15 +98,15 @@ jobs:
           retention-days: 7
           compression-level: 9
 
-      # ─── بناء vendor الإنتاجي نظيفًا بعد اجتياز البوابات (إزالة حزم dev) ───
+      # ─── Rebuild the production vendor cleanly after the gates pass (dev packages removed) ───
       - name: Rebuild production vendor without dev packages
         run: |
           rm -rf vendor
           composer install --no-dev --optimize-autoloader --no-interaction
 
-      # ─── التحقق من تطابق الإصدارات مع الوسم (يمنع حلقات تحديث صامتة) ───
-      # الوسوم التجريبية تتطلب تطابق الثلاثي مع النسخة الكاملة حرفيًا بما فيها لاحقة
-      # -rc.N، فيتعرّف الحزمة المثبتة نفسها كمرشح وتتفوق عليها النسخة المستقرة لاحقًا.
+      # ─── Verify version match against the tag (prevents silent update loops) ───
+      # RC tags require the triple to match the full version literally, including the
+      # -rc.N suffix, so the installed package recognizes itself as an RC and the stable release outranks it later.
       - name: Verify version match with tag
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
@@ -140,9 +140,9 @@ jobs:
             exit 1
           fi
 
-      # ─── D-15: التحقق من صحة manifest القوالب المُدارة ومطابقة بصمات المصادر قبل البناء ───
-      # أي عبث بأصل أو عدم تطابق بصمة أو manifest ناقص يسقط البناء كله (fail-closed):
-      # لا حزمة تُبنى فوق أصول غير موثقة.
+      # ─── D-15: validate the managed-template manifest and match source hashes before the build ───
+      # Any tampered asset, hash mismatch, or missing manifest drops the whole build (fail-closed):
+      # no package is ever built over unverified assets.
       - name: Verify managed-template manifest and source hashes
         run: |
           python3 - <<'PY'
@@ -203,17 +203,17 @@ jobs:
           print(f"manifest OK: {len(assets)} assets, all source hashes verified")
           PY
 
-      # ─── بناء الحزمة: قائمة بيضاء صريحة؛ resources/ultimate-member هي الأصول القانونية ───
-      # (tests/, docs/, .github/, Child Theme/* بالكامل, *.md الجذرية, phpunit.xml.dist,
-      #  composer.json/lock تبقى خارجها عمدًا).
+      # ─── Package build: explicit whitelist; resources/ultimate-member is the canonical asset set ───
+      # (tests/, docs/, .github/, Child Theme/* entirely, root *.md files, phpunit.xml.dist,
+      #  composer.json/lock are deliberately left out).
       - name: Build plugin package
         run: |
           mkdir -p build/hal-member-profiles
           cp -r hal-member-profiles.php uninstall.php readme.txt includes assets languages vendor resources build/hal-member-profiles/
           cd build && zip -rq "hal-member-profiles-${GITHUB_REF_NAME#v}.zip" hal-member-profiles
 
-      # ─── حارس الحزمة 1 (D-15): منع تسلل المسارات المحظورة — وأي أثر لـChild Theme ممنوع ───
-      # كليًا الآن: الأصول القانونية تسافر عبر resources/ فقط، فلا ازدواج قديم ممكن.
+      # ─── Package guard 1 (D-15): block forbidden-path leakage — any trace of Child Theme is banned ───
+      # entirely now: canonical assets travel via resources/ only, so legacy duplication is impossible.
       - name: Guard - fail if forbidden paths leaked into the package
         run: |
           ZIP="build/hal-member-profiles-${GITHUB_REF_NAME#v}.zip"
@@ -261,8 +261,8 @@ jobs:
           print(f"guard OK: {len(names)} entries, single root, no forbidden paths (Child Theme fully banned)")
           PY
 
-      # ─── حارس الحزمة 2 (D-15): كل الأصول القانونية المطلوبة داخل الـZIP + ترويسة
-      # القالب الصحيحة + إعادة التحقق من manifest والبصمات من داخل الحزمة نفسها ───
+      # ─── Package guard 2 (D-15): every required canonical asset inside the ZIP + correct
+      # template headers + manifest and hash re-verification from inside the package itself ───
       - name: Guard - required canonical assets, template headers, and in-zip manifest hashes
         run: |
           ZIP="build/hal-member-profiles-${GITHUB_REF_NAME#v}.zip"
@@ -337,7 +337,7 @@ jobs:
                 f"in-zip manifest verified ({len(data.get('assets', []))} hashes)")
           PY
 
-      # ─── حارس الحزمة 3 (D-15): فحص أسرار على كل محتويات الحزمة قبل النشر ───
+      # ─── Package guard 3 (D-15): secret scan across every packaged file before publication ───
       - name: Guard - secret scan across every packaged file
         run: |
           ZIP="build/hal-member-profiles-${GITHUB_REF_NAME#v}.zip"
@@ -381,9 +381,9 @@ jobs:
           print("secret scan OK: no credential patterns in any packaged file")
           PY
 
-      # ─── بوابة Preflight قبل أي نشر مستقر. وضع claims_only هنا مقصود لأن الـRelease
-      # لم يُنشأ بعد؛ الربط الكامل بالـRelease والـAsset يبقى في الـworkflow الدفاعي
-      # اللاحق بعد النشر. ───
+      # ─── Preflight gate before any stable publication. claims_only mode here is intentional because the Release
+      # does not exist yet; full Release/Asset binding stays in the defensive workflow that runs
+      # after publication. ───
       - name: Preflight stable release before publication
         if: ${{ !contains(github.ref_name, '-rc') }}
         env:
@@ -436,14 +436,14 @@ jobs:
           jq '.provenance.mode = "claims_only"' "$VERIFICATION_CONFIG" > "$RUNNER_TEMP/prepublish-verification-config.json"
           VERIFICATION_CONFIG="$RUNNER_TEMP/prepublish-verification-config.json" node tests/external/verify.mjs validate
 
-      # ─── سلوك مقصود: إعادة تشغيل الـworkflow لنفس Tag القائم تفشل إلا بعد حذف
-      # الـRelease القديم يدويًا — لا حذف دفاعي تلقائي لإصدار قد تكون مواقع حية
-      # استهلكته فعلًا. ───
+      # ─── Intentional behavior: re-running the workflow for an existing tag fails until the old Release
+      # is deleted manually — no automatic defensive deletion of a version live sites may already
+      # have consumed. ───
       #
-      # قناة RC: يُنشأ المرشح Draft+Prerelease — الـDraft لا يظهر عبر REST العام فلا تراه
-      # اختبارات التحديث (PUC) أصلًا، وعلم Prerelease يستبعد الوسم من Latest حتى لو نُشر
-      # لاحقًا؛ وبذلك لا يصل أي RC إلى قناة التحديث المستقرة مهما حدث. القناة المستقرة
-      # تنشر مباشرة كما كانت.
+      # RC channel: the candidate is created Draft+Prerelease — a Draft is invisible to public REST, so
+      # update tests (PUC) never see it, and the Prerelease flag keeps the tag out of Latest even if published
+      # later; so no RC ever reaches the stable update channel under any circumstance. The stable channel
+      # publishes directly as before.
       - name: Create GitHub Release with the package asset
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

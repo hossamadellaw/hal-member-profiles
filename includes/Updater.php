@@ -44,8 +44,8 @@ final class Updater {
 			return;
 		}
 
-		// إن سبقتنا إضافة أخرى إلى تحميل نفس الـnamespace فتجاوز التحميل واستخدم نسختها؛
-		// ملفات المكتبة محمية داخليًا بـclass_exists(false) فالتكرار آمن أصلًا.
+		// If another plugin already loaded the same namespace, skip loading and use its copy;
+		// the library files are internally guarded by class_exists(false), so double-loading is inherently safe.
 		if ( ! class_exists( PucFactory::class, false ) ) {
 			require_once $library;
 		}
@@ -64,7 +64,7 @@ final class Updater {
 				VcsApi::REQUIRE_RELEASE_ASSETS
 			);
 		} catch ( \Throwable ) {
-			// لا تسمح لعطل منظومة التحديث بإسقاط عمل الإضافة أبدًا.
+			// Never let an updater subsystem failure take down the plugin.
 		}
 	}
 }

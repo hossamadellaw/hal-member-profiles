@@ -245,7 +245,7 @@ final class Bootstrap {
 		$this->um_integration = new UltimateMember( $this->profile_context, $this->account_context );
 
 		// A missing Amelia leaves its slot null without blocking UM in any way
-		// (acceptance: "Amelia غائبة لا تمنع UM").
+		// (acceptance: "Amelia absent does not block UM").
 		if ( $this->dependencies->has_amelia() ) {
 			require_once HAL_MEMBER_PROFILES_DIR . 'includes/Integrations/Amelia.php';
 
@@ -268,7 +268,7 @@ final class Bootstrap {
 
 		// 6) ManagedTemplates/Lifecycle — ADMIN-ONLY: on frontend requests this entire
 		// block (and its filesystem-capable service) never even loads (acceptance:
-		// "Frontend لا يحمل Admin/Filesystem/API paths غير اللازمة").
+		// "Frontend does not load unneeded Admin/Filesystem/API paths").
 		if ( is_admin() ) {
 			require_once HAL_MEMBER_PROFILES_DIR . 'includes/ManagedTemplates.php';
 

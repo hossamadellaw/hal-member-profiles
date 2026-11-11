@@ -455,7 +455,7 @@ final class Amelia {
 	 *   3. a mapped employee has an empty allowlist (no assigned service IDs).
 	 *
 	 * In every case the wipe is silent by design and staging QA asserts the stored
-	 * outcome ("employee غير مهيأ" case). Otherwise, only submitted IDs inside the
+	 * outcome ("employee not primed" case). Otherwise, only submitted IDs inside the
 	 * member's allowlist survive; anything else is dropped. Fail-closed throughout: an
 	 * invalid/unmapped employee or an empty catalog can never widen what is saved.
 	 *

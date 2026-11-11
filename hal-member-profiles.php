@@ -27,7 +27,7 @@ if ( ! defined( 'HAL_MEMBER_PROFILES_VERSION' ) ) {
 if ( ! defined( 'HAL_MEMBER_PROFILES_FILE' ) ) {
 	define( 'HAL_MEMBER_PROFILES_FILE', __FILE__ );
 }
-// عنوان مستودع GitHub — قابل للتجاوز من wp-config.php عند الحاجة.
+// GitHub repository URL — overridable from wp-config.php when needed.
 if ( ! defined( 'HAL_MEMBER_PROFILES_GITHUB_REPO' ) ) {
 	define( 'HAL_MEMBER_PROFILES_GITHUB_REPO', 'https://github.com/hossamadellaw/hal-member-profiles' );
 }

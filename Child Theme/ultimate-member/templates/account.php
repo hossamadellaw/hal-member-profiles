@@ -7,7 +7,7 @@
  * adapter/gate/template decline the Elementor route, it delegates to Ultimate Member's
  * OWN original account.php — loaded straight from the plugin directory, deliberately
  * bypassing the theme override lookup so the delegation can never recurse back into
- * this file. Every original arg travels with the hand-off (F-15: "يمرر كل args").
+ * this file. Every original arg travels with the hand-off (F-15: "passes all args").
  *
  * If Ultimate Member's original template cannot be located/read, nothing is echoed:
  * per the governing card, an unverifiable Account public layout is simply not published,
