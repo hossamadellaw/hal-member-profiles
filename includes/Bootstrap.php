@@ -44,6 +44,7 @@ final class Bootstrap {
 	private ?Amelia $amelia = null;
 	private ?OptionalIntegrations $optional_integrations = null;
 	private ?ManagedTemplates $managed_templates = null;
+	private ?UmFormTemplateWatcher $um_form_template_watcher = null;
 
 	private function __construct() {}
 
@@ -169,6 +170,16 @@ final class Bootstrap {
 	}
 
 	/**
+	 * Card F-10: the admin-only um_form template watcher; null on frontend and whenever
+	 * boot stopped before the admin block.
+	 *
+	 * @return UmFormTemplateWatcher|null
+	 */
+	public function get_um_form_template_watcher(): ?UmFormTemplateWatcher {
+		return $this->um_form_template_watcher;
+	}
+
+	/**
 	 * @return UltimateMember|null
 	 */
 	public function get_um_integration(): ?UltimateMember {
@@ -272,13 +283,30 @@ final class Bootstrap {
 		// above; the guard against double registration lives inside the registrar itself.
 		OptionalIntegrations::register_dashboard_link_consumer();
 
-		// 6) ManagedTemplates/Lifecycle — ADMIN-ONLY: on frontend requests this entire
-		// block (and its filesystem-capable service) never even loads (acceptance:
-		// "Frontend does not load unneeded Admin/Filesystem/API paths").
+		// 6) ManagedTemplates/UmFormTemplateWatcher (card F-10)/Lifecycle — ADMIN-ONLY: on
+		// frontend requests this entire block (and its filesystem-capable service) never
+		// even loads (acceptance: "Frontend does not load unneeded Admin/Filesystem/API
+		// paths").
 		if ( is_admin() ) {
 			require_once HAL_MEMBER_PROFILES_DIR . 'includes/ManagedTemplates.php';
 
 			$this->managed_templates = new ManagedTemplates();
+
+			// Card F-10: the um_form template watcher — ADMIN-ONLY, constructor-injected
+			// (F-11 pattern) with the SHARED gate/settings/managed-templates instances.
+			// Bootstrap arms exactly two hooks (the official 4-arg updated_post_meta
+			// signature and admin_notices); the watcher itself reads only and keeps zero
+			// persistent state (warning-only, rule 0.5).
+			require_once HAL_MEMBER_PROFILES_DIR . 'includes/UmFormTemplateWatcher.php';
+
+			$this->um_form_template_watcher = new UmFormTemplateWatcher(
+				$this->compatibility_gate,
+				$this->settings,
+				$this->managed_templates
+			);
+
+			add_action( 'updated_post_meta', array( $this->um_form_template_watcher, 'on_updated_post_meta' ), 10, 4 );
+			add_action( 'admin_notices', array( $this->um_form_template_watcher, 'render_admin_notice' ) );
 
 			require_once HAL_MEMBER_PROFILES_DIR . 'includes/Lifecycle.php';
 
