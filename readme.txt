@@ -4,7 +4,7 @@ Tags: ultimate-member, elementor, membership, profile
 Requires at least: 6.5
 Requires PHP: 8.0
 Requires Plugins: ultimate-member, elementor
-Stable tag: 1.2.0
+Stable tag: 1.2.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -234,6 +234,30 @@ closed and must simply be re-entered.
   compatibility sign-off.
 
 == Changelog ==
+
+= 1.2.1 =
+* Fix: the managed-template write path is gated by the release version itself — closed
+  on every 1.2.x (including rollbacks), self-opening at 1.3.0 — and stale per-theme
+  state rows are pruned to the current manifest (option state only, never file deletion).
+* Fix: terminal provisioning failures (version gate, immutable mode) now close into a
+  final status exactly once instead of re-looping as pending on every admin visit;
+  retryable reasons and consent gating unchanged.
+* New: the compatibility registry supports signed pinned and floor rows with HMAC
+  verification run after the extension filter; the registry stays empty (awaiting matrix
+  signoff) in this release.
+* Fix: gate rejections in the settings screen now surface the machine reason.
+* Fix: the Diagnostics "Sync" form is replaced by a passive informational row while
+  writes are version-gated, alongside a consolidated read-only Readiness card.
+* New: a read-only template contract validator and an early-switch watcher for UM form
+  template changes (admin warning only — never blocks, never writes UM data).
+* Fix: the stale bundled Child Theme folder was removed and .gitattributes now enforces
+  canonical LF bytes so a fresh checkout can only produce canonical bytes.
+* Fix: translations now load (text domain hooked on init) and the POT template was
+  regenerated with the official tool.
+* Fix: uninstall purges every HAL option under the existing purge_on_uninstall guard;
+  stale 1.1.5 test version pins replaced.
+* Fix: every tracked programmatic file is English-only, enforced by an automated
+  language-purity guard in the local build pipeline.
 
 = 1.2.0 =
 * UM-native atomic Account ownership: the member Account layout renders through
