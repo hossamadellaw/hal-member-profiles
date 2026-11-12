@@ -1,204 +1,1193 @@
-# Copyright (C) 2026 HAL Member Profiles
-# This file is distributed under the GPL-2.0-or-later license.
-#
-# DRAFT translation template, hand-compiled from this plugin's own source files as a
-# best-effort listing of every hal-member-profiles text-domain string. It intentionally
-# excludes any Ultimate Member/Amelia string this plugin merely reads or reproduces
-# verbatim from UM (e.g. the Child Theme templates' 'ultimate-member' text-domain
-# strings) — this bridge translates only its own bridge text, never UM/Amelia raw
-# values or user-entered content, per this file's own card.
-#
-# Regenerate this file with `wp i18n make-pot . languages/hal-member-profiles.pot`
-# (WP-CLI) before release to get exact, verified file/line references and to catch any
-# string this manual pass may have missed — this draft could not be run through that
-# tool in this environment (no PHP/WP-CLI execution available here).
+# Copyright (C) 2026 Hossam Adel Law Firm
+# This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: HAL Member Profiles 1.0.0\n"
-"Report-Msgid-Bugs-To: \n"
-"Last-Translator: \n"
-"Language-Team: \n"
+"Project-Id-Version: HAL Member Profiles 1.2.1\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/hal-member-profiles\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-11-12T16:19:57+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: hal-member-profiles\n"
 
-#. Settings page menu title and page heading; Elementor category title;
-#. missing-dependency admin notice product name.
-#: includes/Settings.php
-#: includes/Elementor/Register.php
+#. Plugin Name of the plugin
+#: hal-member-profiles.php
+#: includes/AdminDashboard.php:265
+#: includes/AdminDashboard.php:266
+#: includes/AdminDashboard.php:408
+#: includes/Elementor/Register.php:105
+#: includes/Settings.php:71
+#: includes/Settings.php:122
 msgid "HAL Member Profiles"
 msgstr ""
 
-#: includes/Bootstrap.php
-msgid "Ultimate Member"
+#. Description of the plugin
+#: hal-member-profiles.php
+msgid "Elementor design layer for Ultimate Member public profiles and member accounts."
 msgstr ""
 
-#: includes/Bootstrap.php
-msgid "Elementor"
+#. Author of the plugin
+#: hal-member-profiles.php
+msgid "Hossam Adel Law Firm"
 msgstr ""
 
-#. translators: %s: missing plugin name.
-#: includes/Bootstrap.php
-msgid "HAL Member Profiles is inactive: %s is required and was not detected."
+#: includes/AdminDashboard.php:112
+msgid "You are not allowed to run this action."
 msgstr ""
 
-#: includes/Elementor/Register.php
-msgid "HAL Member Profiles: Elementor Pro was not detected, so Full Dynamic Layout (Dynamic Tags) is unavailable. Compatible Widgets and the Ultimate Member native fallback still work."
+#: includes/AdminDashboard.php:288
+#: includes/AdminDashboard.php:289
+msgid "Overview"
 msgstr ""
 
-#: includes/Settings.php
-msgid "Profile & Account Bridge"
+#: includes/AdminDashboard.php:311
+#: includes/AdminDashboard.php:312
+#: includes/AdminDashboard.php:438
+msgid "Profiles"
 msgstr ""
 
-#: includes/Settings.php
+#: includes/AdminDashboard.php:320
+#: includes/AdminDashboard.php:321
+#: includes/AdminDashboard.php:503
+msgid "Account"
+msgstr ""
+
+#: includes/AdminDashboard.php:329
+#: includes/AdminDashboard.php:330
+#: includes/AdminDashboard.php:578
+#: includes/AdminDashboard.php:642
+#: includes/Settings.php:221
+msgid "Amelia"
+msgstr ""
+
+#: includes/AdminDashboard.php:338
+#: includes/AdminDashboard.php:339
+#: includes/AdminDashboard.php:604
+msgid "Diagnostics"
+msgstr ""
+
+#: includes/AdminDashboard.php:360
+msgid "Managed templates reconciled successfully."
+msgstr ""
+
+#: includes/AdminDashboard.php:361
+msgid "Managed templates reconciliation did not complete."
+msgstr ""
+
+#: includes/AdminDashboard.php:365
+msgid "Amelia action completed."
+msgstr ""
+
+#: includes/AdminDashboard.php:366
+msgid "Amelia action did not complete."
+msgstr ""
+
+#. translators: %s: machine-readable failure slug.
+#: includes/AdminDashboard.php:387
+#, php-format
+msgid " (reason: %s)"
+msgstr ""
+
+#: includes/AdminDashboard.php:400
+#: includes/AdminDashboard.php:430
+#: includes/AdminDashboard.php:495
+#: includes/AdminDashboard.php:570
+#: includes/AdminDashboard.php:596
+msgid "You are not allowed to access this page."
+msgstr ""
+
+#: includes/AdminDashboard.php:409
+msgid "Brief system state and dependency versions for HAL Member Profiles."
+msgstr ""
+
+#: includes/AdminDashboard.php:410
+#: includes/AdminDashboard.php:440
+#: includes/AdminDashboard.php:505
+#: includes/AdminDashboard.php:580
+#: includes/AdminDashboard.php:606
+#: includes/Settings.php:124
+msgid "Next step:"
+msgstr ""
+
+#: includes/AdminDashboard.php:410
+msgid "open Profiles or Account to review layout state, or Settings to edit values."
+msgstr ""
+
+#: includes/AdminDashboard.php:412
+msgid "Overview / Health"
+msgstr ""
+
+#: includes/AdminDashboard.php:439
+msgid "Read-only profile layout state — the editable values live on the Settings page."
+msgstr ""
+
+#: includes/AdminDashboard.php:440
+msgid "open the Settings page to configure the profile template."
+msgstr ""
+
+#: includes/AdminDashboard.php:442
+msgid "Profile layout / template"
+msgstr ""
+
+#: includes/AdminDashboard.php:452
+#: includes/Settings.php:133
 msgid "Profile layout mode"
 msgstr ""
 
-#: includes/Settings.php
-msgid "Observe (no visual change)"
+#: includes/AdminDashboard.php:460
+msgid "Profile Elementor library template"
 msgstr ""
 
-#: includes/Settings.php
-msgid "Public layout (Elementor template)"
+#: includes/AdminDashboard.php:467
+msgid "Profile layout state"
 msgstr ""
 
-#: includes/Settings.php
-msgid "Profile Elementor library template ID"
+#: includes/AdminDashboard.php:468
+#: includes/AdminDashboard.php:550
+msgid "unavailable — plugin core is unbooted (fail-closed)."
 msgstr ""
 
-#: includes/Settings.php
+#: includes/AdminDashboard.php:475
+msgid "UM Fields / Dynamic Tags"
+msgstr ""
+
+#: includes/AdminDashboard.php:504
+msgid "Ultimate Member owns and renders the complete Account page, including navigation, active state, forms, nonces, and extension tabs."
+msgstr ""
+
+#: includes/AdminDashboard.php:505
+msgid "review the legacy override observation below; HAL never changes or deletes that file."
+msgstr ""
+
+#: includes/AdminDashboard.php:507
+msgid "Account layout / template"
+msgstr ""
+
+#: includes/AdminDashboard.php:516
+#: includes/Settings.php:168
 msgid "Account layout mode"
 msgstr ""
 
-#: includes/Settings.php
-msgid "Account Elementor library template ID"
+#: includes/AdminDashboard.php:518
+#: includes/Settings.php:171
+msgid "Native (Ultimate Member)"
 msgstr ""
 
-#: includes/Settings.php
-msgid "Amelia general booking URL"
+#: includes/AdminDashboard.php:524
+msgid "Legacy Account Elementor template (retained, inactive)"
 msgstr ""
 
-#: includes/Settings.php
-msgid "Profile preview fixture user ID"
+#: includes/AdminDashboard.php:532
+msgid "Legacy theme Account override"
 msgstr ""
 
-#: includes/Settings.php
-msgid "Account preview fixture user ID"
+#: includes/AdminDashboard.php:540
+msgid "Account field selectors"
 msgstr ""
 
-#: includes/Settings.php
-msgid "Purge on uninstall"
+#: includes/AdminDashboard.php:543
+msgid "fields stay inside the native Account body until a verified field source exists"
 msgstr ""
 
-#: includes/Settings.php
-msgid "Delete these bridge settings on uninstall"
+#. translators: %s: number of registered selectors.
+#: includes/AdminDashboard.php:545
+#, php-format
+msgid "%s registered from the verified source"
 msgstr ""
 
-#: includes/Elementor/Widgets/NativeHeader.php
-msgid "Native Header (UM)"
+#: includes/AdminDashboard.php:549
+msgid "Account layout state"
 msgstr ""
 
-#: includes/Elementor/Widgets/ProfileHeaderCompatibility.php
-msgid "Header Compatibility (UM)"
+#: includes/AdminDashboard.php:579
+msgid "Connection state and delegated Amelia operations — availability and booking always stay inside Amelia itself."
 msgstr ""
 
-#: includes/Elementor/Widgets/ProfileActions.php
-msgid "Profile Actions (UM)"
+#: includes/AdminDashboard.php:580
+msgid "paste a key only when you intend to connect; every action shows its result banner once."
 msgstr ""
 
-#: includes/Elementor/Widgets/ProfileField.php
-msgid "Profile Field"
+#: includes/AdminDashboard.php:605
+msgid "Compatibility verdicts and the managed-template manifest/lifecycle state."
 msgstr ""
 
-#. Field-selector control section/label, shared by every Profile/Account field
-#. Widget and Dynamic Tag.
-#: includes/Elementor/Widgets/ProfileField.php
-#: includes/Elementor/Widgets/AccountField.php
-#: includes/Elementor/DynamicTags.php
-msgid "Field"
+#: includes/AdminDashboard.php:606
+msgid "run Sync only after reviewing the manifest table below."
 msgstr ""
 
-#. Empty option in every field-selector control.
-#: includes/Elementor/Widgets/ProfileField.php
-#: includes/Elementor/Widgets/AccountField.php
-#: includes/Elementor/DynamicTags.php
+#: includes/AdminDashboard.php:608
+msgid "Compatibility / Diagnostics"
+msgstr ""
+
+#: includes/AdminDashboard.php:611
+msgid "Managed templates / lifecycle"
+msgstr ""
+
+#: includes/AdminDashboard.php:614
+msgid "Readiness (read-only)"
+msgstr ""
+
+#: includes/AdminDashboard.php:630
+msgid "Plugin core"
+msgstr ""
+
+#: includes/AdminDashboard.php:631
+msgid "Unavailable — Ultimate Member was not detected, so HAL stayed unbooted (fail-closed)."
+msgstr ""
+
+#: includes/AdminDashboard.php:637
+msgid "WordPress"
+msgstr ""
+
+#: includes/AdminDashboard.php:638
+msgid "PHP"
+msgstr ""
+
+#: includes/AdminDashboard.php:639
+#: includes/Bootstrap.php:236
+msgid "Ultimate Member"
+msgstr ""
+
+#: includes/AdminDashboard.php:640
+#: includes/Bootstrap.php:88
+#: includes/Bootstrap.php:328
+msgid "Elementor"
+msgstr ""
+
+#: includes/AdminDashboard.php:641
+msgid "Elementor Pro"
+msgstr ""
+
+#: includes/AdminDashboard.php:643
+msgid "Active theme"
+msgstr ""
+
+#: includes/AdminDashboard.php:655
+#: includes/AdminDashboard.php:1327
+msgid "not detected"
+msgstr ""
+
+#: includes/AdminDashboard.php:666
+msgid "Managed templates lifecycle"
+msgstr ""
+
+#. translators: 1: lifecycle status slug, 2: audit reason slug.
+#: includes/AdminDashboard.php:669
+#, php-format
+msgid "%1$s (last reason: %2$s)"
+msgstr ""
+
+#: includes/AdminDashboard.php:670
+msgid "not recorded yet"
+msgstr ""
+
+#: includes/AdminDashboard.php:689
+msgid "Open the settings page"
+msgstr ""
+
+#: includes/AdminDashboard.php:701
+msgid "Managed template module unavailable (fail-closed)."
+msgstr ""
+
+#: includes/AdminDashboard.php:712
+msgid "Legacy theme Account override (observe only)"
+msgstr ""
+
+#: includes/AdminDashboard.php:722
+msgid "Managed template inspection declined:"
+msgstr ""
+
+#: includes/AdminDashboard.php:730
+msgid "current"
+msgstr ""
+
+#: includes/AdminDashboard.php:731
+msgid "missing — will be created on sync"
+msgstr ""
+
+#: includes/AdminDashboard.php:732
+msgid "upgrade — safe update pending"
+msgstr ""
+
+#: includes/AdminDashboard.php:733
+msgid "user modified — conflict, never overwritten automatically"
+msgstr ""
+
+#: includes/AdminDashboard.php:734
+msgid "unreadable target"
+msgstr ""
+
+#: includes/AdminDashboard.php:735
+msgid "last write failed"
+msgstr ""
+
+#: includes/AdminDashboard.php:736
+msgid "needs filesystem credentials"
+msgstr ""
+
+#: includes/AdminDashboard.php:737
+msgid "immutable deployment mode active"
+msgstr ""
+
+#: includes/AdminDashboard.php:763
+msgid "Writes are disabled in this release by the version gate — see Diagnostics."
+msgstr ""
+
+#: includes/AdminDashboard.php:786
+msgid "Sync managed templates now"
+msgstr ""
+
+#: includes/AdminDashboard.php:790
+msgid "Sync creates missing managed templates and safely updates only files HAL deployed itself; your modifications are always reported as conflicts first."
+msgstr ""
+
+#: includes/AdminDashboard.php:850
+#: includes/AdminDashboard.php:858
+#: includes/AdminDashboard.php:866
+#: includes/AdminDashboard.php:874
+msgid "Managed files"
+msgstr ""
+
+#. translators: %s: managed asset source path.
+#: includes/AdminDashboard.php:885
+#, php-format
+msgid "Managed file — %s"
+msgstr ""
+
+#: includes/AdminDashboard.php:903
+#: includes/AdminDashboard.php:915
+#: includes/AdminDashboard.php:1522
+#: includes/AdminDashboard.php:1527
+msgid "Compatibility gate"
+msgstr ""
+
+#. translators: %s: capability slug.
+#: includes/AdminDashboard.php:938
+#, php-format
+msgid "Compatibility gate — %s"
+msgstr ""
+
+#: includes/AdminDashboard.php:967
+#: includes/AdminDashboard.php:983
+#: includes/UmFormTemplateWatcher.php:472
+msgid "UM member mapping"
+msgstr ""
+
+#: includes/AdminDashboard.php:968
+msgid "Persona templates"
+msgstr ""
+
+#. translators: %s: member type slug.
+#: includes/AdminDashboard.php:998
+#, php-format
+msgid "Persona template — %s"
+msgstr ""
+
+#. translators: %d: Elementor library template ID.
+#: includes/AdminDashboard.php:1005
+#, php-format
+msgid "valid selection — template #%d"
+msgstr ""
+
+#: includes/AdminDashboard.php:1008
+msgid "no valid template selected — the native Ultimate Member profile renders"
+msgstr ""
+
+#: includes/AdminDashboard.php:1024
+msgid "UM Forms (um_form)"
+msgstr ""
+
+#. translators: 1: form post ID, 2: form title.
+#: includes/AdminDashboard.php:1081
+#, php-format
+msgid "UM form #%1$d — %2$s"
+msgstr ""
+
+#. translators: %d: form post ID.
+#: includes/AdminDashboard.php:1087
+#, php-format
+msgid "UM form #%d"
+msgstr ""
+
+#: includes/AdminDashboard.php:1103
+msgid "no template selected — the Ultimate Member default profile renders"
+msgstr ""
+
+#. translators: 1: selected template slug, 2: relative template file path.
+#: includes/AdminDashboard.php:1119
+#, php-format
+msgid "selected: \"%1$s\" — template file present (%2$s)"
+msgstr ""
+
+#. translators: %s: selected template slug.
+#: includes/AdminDashboard.php:1130
+#, php-format
+msgid "selected: \"%1$s\" — template file NOT found in the active child theme"
+msgstr ""
+
+#: includes/AdminDashboard.php:1140
+msgid "none found"
+msgstr ""
+
+#: includes/AdminDashboard.php:1201
+msgid "Template contract (pre-check)"
+msgstr ""
+
+#. translators: 1: validator verdict slug, 2: template post ID.
+#: includes/AdminDashboard.php:1261
+#, php-format
+msgid "%1$s — template #%2$d"
+msgstr ""
+
+#: includes/AdminDashboard.php:1282
+msgid "present — retained and never managed by HAL"
+msgstr ""
+
+#: includes/AdminDashboard.php:1283
+msgid "absent — Ultimate Member native Account remains active"
+msgstr ""
+
+#: includes/AdminDashboard.php:1284
+msgid "present but unreadable — retained and never managed by HAL"
+msgstr ""
+
+#: includes/AdminDashboard.php:1285
+msgid "unavailable — filesystem access is not ready"
+msgstr ""
+
+#: includes/AdminDashboard.php:1286
+msgid "unavailable — inspection was denied"
+msgstr ""
+
+#: includes/AdminDashboard.php:1289
+msgid "unavailable — unknown observation state"
+msgstr ""
+
+#: includes/AdminDashboard.php:1301
+msgid "UM fields catalog"
+msgstr ""
+
+#: includes/AdminDashboard.php:1301
+msgid "unavailable — plugin core unbooted (fail-closed)"
+msgstr ""
+
+#: includes/AdminDashboard.php:1309
+msgid "Elementor Pro Dynamic Tags"
+msgstr ""
+
+#: includes/AdminDashboard.php:1311
+msgid "available"
+msgstr ""
+
+#: includes/AdminDashboard.php:1312
+msgid "unavailable — Elementor Pro missing; widgets and native fallback stay active"
+msgstr ""
+
+#: includes/AdminDashboard.php:1316
+msgid "Schema registry (card D-09)"
+msgstr ""
+
+#: includes/AdminDashboard.php:1317
+msgid "not shipped yet — the automatic UM/Amelia field catalog arrives with development card D-09"
+msgstr ""
+
+#: includes/AdminDashboard.php:1326
+msgid "Amelia plugin"
+msgstr ""
+
+#: includes/AdminDashboard.php:1327
+msgid "detected"
+msgstr ""
+
+#: includes/AdminDashboard.php:1331
+msgid "Secret store (card D-07)"
+msgstr ""
+
+#: includes/AdminDashboard.php:1332
+msgid "unavailable (fail-closed)"
+msgstr ""
+
+#: includes/AdminDashboard.php:1336
+#: includes/Settings.php:228
+msgid "Amelia sync mode"
+msgstr ""
+
+#: includes/AdminDashboard.php:1337
+msgid "unknown (fail-closed)"
+msgstr ""
+
+#: includes/AdminDashboard.php:1344
+msgid "Field-definition capabilities (card C6a)"
+msgstr ""
+
+#. translators: 1: read verdict, 2: diff verdict, 3: create verdict, 4: update verdict.
+#: includes/AdminDashboard.php:1347
+#, php-format
+msgid "read: %1$s · diff: %2$s · create missing: %3$s · update: %4$s (delete: never)"
+msgstr ""
+
+#: includes/AdminDashboard.php:1348
+#: includes/AdminDashboard.php:1349
+#: includes/AdminDashboard.php:1350
+#: includes/AdminDashboard.php:1351
+#: includes/AdminDashboard.php:1382
+#: includes/AdminDashboard.php:1498
+msgid "yes"
+msgstr ""
+
+#: includes/AdminDashboard.php:1348
+#: includes/AdminDashboard.php:1349
+#: includes/AdminDashboard.php:1350
+#: includes/AdminDashboard.php:1351
+msgid "no"
+msgstr ""
+
+#: includes/AdminDashboard.php:1360
+msgid "Amelia management modules unavailable (fail-closed)."
+msgstr ""
+
+#: includes/AdminDashboard.php:1366
+msgid "Amelia API key"
+msgstr ""
+
+#: includes/AdminDashboard.php:1370
+msgid "Current key"
+msgstr ""
+
+#: includes/AdminDashboard.php:1371
+msgid "(none stored)"
+msgstr ""
+
+#: includes/AdminDashboard.php:1377
+msgid "Storage"
+msgstr ""
+
+#. translators: 1: source slug, 2: decodable state.
+#. translators: 1: source slug, 2: decodability state.
+#: includes/AdminDashboard.php:1380
+#: includes/AdminDashboard.php:1503
+#, php-format
+msgid "source: %1$s · decryptable: %2$s"
+msgstr ""
+
+#: includes/AdminDashboard.php:1382
+#: includes/AdminDashboard.php:1499
+msgid "NO — re-entry required"
+msgstr ""
+
+#: includes/AdminDashboard.php:1391
+msgid "Amelia Elite API key — sensitive, stored encrypted:"
+msgstr ""
+
+#: includes/AdminDashboard.php:1392
+msgid "Paste a new Amelia Elite API key…"
+msgstr ""
+
+#: includes/AdminDashboard.php:1393
+msgid "Save key (encrypted)"
+msgstr ""
+
+#: includes/AdminDashboard.php:1399
+msgid "Revoke stored key"
+msgstr ""
+
+#: includes/AdminDashboard.php:1402
+msgid "Connection & discovery"
+msgstr ""
+
+#: includes/AdminDashboard.php:1406
+msgid "Test connection (read-only)"
+msgstr ""
+
+#: includes/AdminDashboard.php:1412
+msgid "Refresh / discover snapshot"
+msgstr ""
+
+#: includes/AdminDashboard.php:1413
+msgid "Requires Amelia sync mode above Off. Builds a PII-free local catalog; employees appear as numeric IDs only."
+msgstr ""
+
+#: includes/AdminDashboard.php:1416
+msgid "Fields sync plan (diff preview) — managed modes only"
+msgstr ""
+
+#: includes/AdminDashboard.php:1420
+msgid "Desired custom fields"
+msgstr ""
+
+#: includes/AdminDashboard.php:1422
+msgid "One field per line: Title | type (text, select or url). These become HAL-owned Amelia custom fields once you run Apply."
+msgstr ""
+
+#: includes/AdminDashboard.php:1423
+msgid "Save desired set"
+msgstr ""
+
+#: includes/AdminDashboard.php:1433
+msgid "No snapshot yet — use Refresh / discover first (sync mode must be above Off)."
+msgstr ""
+
+#: includes/AdminDashboard.php:1437
+msgid "Action"
+msgstr ""
+
+#: includes/AdminDashboard.php:1438
+msgid "Key / ID"
+msgstr ""
+
+#: includes/AdminDashboard.php:1439
+msgid "Detail"
+msgstr ""
+
+#: includes/AdminDashboard.php:1445
+msgid "create"
+msgstr ""
+
+#: includes/AdminDashboard.php:1446
+msgid "update"
+msgstr ""
+
+#: includes/AdminDashboard.php:1447
+msgid "unchanged"
+msgstr ""
+
+#: includes/AdminDashboard.php:1448
+msgid "orphaned — manual handling only, never auto-deleted"
+msgstr ""
+
+#: includes/AdminDashboard.php:1449
+msgid "conflict — manual resolution required, never auto-corrected"
+msgstr ""
+
+#: includes/AdminDashboard.php:1483
+msgid "Apply plan now"
+msgstr ""
+
+#: includes/AdminDashboard.php:1486
+msgid "Creates/updates HAL-owned fields only. Nothing is ever deleted from Amelia — removals are listed as orphaned for manual handling."
+msgstr ""
+
+#: includes/AdminDashboard.php:1522
+msgid "unavailable — plugin core unbooted; everything stays on native rendering"
+msgstr ""
+
+#: includes/AdminDashboard.php:1527
+msgid "not initialized (fail-closed)"
+msgstr ""
+
+#: includes/AdminDashboard.php:1532
+msgid "Profile Elementor layout"
+msgstr ""
+
+#: includes/AdminDashboard.php:1533
+msgid "Account Elementor layout"
+msgstr ""
+
+#: includes/AdminDashboard.php:1534
+msgid "Amelia bridge capabilities"
+msgstr ""
+
+#: includes/AdminDashboard.php:1535
+msgid "Managed templates provisioning"
+msgstr ""
+
+#: includes/AdminDashboard.php:1536
+msgid "Amelia API read"
+msgstr ""
+
+#: includes/AdminDashboard.php:1537
+msgid "Amelia fields write"
+msgstr ""
+
+#: includes/AdminDashboard.php:1538
+msgid "UM schema normalization"
+msgstr ""
+
+#: includes/AdminDashboard.php:1539
+msgid "Elementor Dynamic Tags"
+msgstr ""
+
+#: includes/AdminDashboard.php:1554
+msgid "approved composition"
+msgstr ""
+
+#. translators: %s: comma-separated component slugs.
+#: includes/AdminDashboard.php:1560
+#, php-format
+msgid "locked — missing components: %1$s (native fallback active)"
+msgstr ""
+
+#: includes/AdminDashboard.php:1563
+msgid "awaiting matrix sign-off — observe mode until QA passes on this exact composition"
+msgstr ""
+
+#: includes/AdminDashboard.php:1566
+msgid "current versions differ from the signed composition — native fallback active"
+msgstr ""
+
+#: includes/AdminDashboard.php:1599
+msgid "Runtime compatibility evidence (JSON)"
+msgstr ""
+
+#: includes/AdminDashboard.php:1601
+msgid "Evidence report unavailable (fail-closed) — no JSON is shown."
+msgstr ""
+
+#: includes/AdminDashboard.php:1603
+msgid "Read-only JSON of this site's own HAL state — the external Production Verifier never reads it, and it never changes any compatibility verdict."
+msgstr ""
+
+#: includes/AdminDashboard.php:1604
+msgid "Runtime compatibility evidence JSON"
+msgstr ""
+
+#: includes/AdminDashboard.php:1635
+msgid "Ready"
+msgstr ""
+
+#: includes/AdminDashboard.php:1636
+msgid "Blocked"
+msgstr ""
+
+#: includes/AdminDashboard.php:1637
+msgid "Pending"
+msgstr ""
+
+#: includes/AdminDashboard.php:1638
+msgid "Not configured"
+msgstr ""
+
+#. translators: %s: missing plugin name.
+#: includes/Bootstrap.php:401
+#, php-format
+msgid "HAL Member Profiles is inactive: %s is required and was not detected."
+msgstr ""
+
+#: includes/Elementor/DynamicTags.php:53
+#: includes/Elementor/Widgets/AccountField.php:76
+#: includes/Elementor/Widgets/ProfileField.php:75
 msgid "— Select a field —"
 msgstr ""
 
-#: includes/Elementor/Widgets/ProfileNavigation.php
-msgid "Profile Navigation (UM)"
+#: includes/Elementor/DynamicTags.php:134
+msgid "— Select an item —"
 msgstr ""
 
-#: includes/Elementor/Widgets/ProfileBody.php
-msgid "Profile Body (UM)"
+#. translators: %s: Dynamic Tag title, e.g. "HAL UM Profile Name".
+#: includes/Elementor/DynamicTags.php:325
+#, php-format
+msgid "%s: no context. Choose a preview fixture in HAL Member Profiles → Settings to preview this tag here."
 msgstr ""
 
-#: includes/Elementor/Widgets/AccountField.php
-msgid "Account Field"
-msgstr ""
-
-#: includes/Elementor/Widgets/AccountNavigation.php
-msgid "Account Navigation (UM)"
-msgstr ""
-
-#: includes/Elementor/Widgets/AccountBody.php
-msgid "Account Body (UM)"
-msgstr ""
-
-#: includes/Elementor/Widgets/AmeliaBooking.php
-msgid "Amelia Booking (UM Profile)"
-msgstr ""
-
-#: includes/Elementor/Widgets/AmeliaBooking.php
-msgid "Book an appointment"
-msgstr ""
-
-#: includes/Elementor/DynamicTags.php
+#: includes/Elementor/DynamicTags.php:342
 msgid "HAL UM Profile Name"
 msgstr ""
 
-#: includes/Elementor/DynamicTags.php
+#: includes/Elementor/DynamicTags.php:368
 msgid "HAL UM Profile Bio"
 msgstr ""
 
-#: includes/Elementor/DynamicTags.php
+#: includes/Elementor/DynamicTags.php:397
 msgid "HAL UM Profile Avatar"
 msgstr ""
 
-#: includes/Elementor/DynamicTags.php
+#: includes/Elementor/DynamicTags.php:423
 msgid "HAL UM Profile Cover"
 msgstr ""
 
-#: includes/Elementor/DynamicTags.php
+#: includes/Elementor/DynamicTags.php:449
 msgid "HAL UM Profile URL"
 msgstr ""
 
-#: includes/Elementor/DynamicTags.php
+#: includes/Elementor/DynamicTags.php:507
 msgid "HAL UM Profile Field — Text"
 msgstr ""
 
-#: includes/Elementor/DynamicTags.php
+#: includes/Elementor/DynamicTags.php:522
+#: includes/Elementor/DynamicTags.php:559
+#: includes/Elementor/DynamicTags.php:596
+#: includes/Elementor/DynamicTags.php:633
+#: includes/Elementor/DynamicTags.php:670
+#: includes/Elementor/DynamicTags.php:707
+#: includes/Elementor/Widgets/AccountField.php:50
+#: includes/Elementor/Widgets/ProfileField.php:50
+msgid "Field"
+msgstr ""
+
+#: includes/Elementor/DynamicTags.php:544
 msgid "HAL UM Profile Field — URL"
 msgstr ""
 
-#: includes/Elementor/DynamicTags.php
+#: includes/Elementor/DynamicTags.php:581
 msgid "HAL UM Profile Field — Image"
 msgstr ""
 
-#: includes/Elementor/DynamicTags.php
+#: includes/Elementor/DynamicTags.php:618
 msgid "HAL UM Account Field — Text"
 msgstr ""
 
-#: includes/Elementor/DynamicTags.php
+#: includes/Elementor/DynamicTags.php:655
 msgid "HAL UM Account Field — URL"
 msgstr ""
 
-#: includes/Elementor/DynamicTags.php
+#: includes/Elementor/DynamicTags.php:692
 msgid "HAL UM Account Field — Image"
 msgstr ""
 
-#: includes/Elementor/DynamicTags.php
+#: includes/Elementor/DynamicTags.php:733
 msgid "HAL UM Booking URL"
+msgstr ""
+
+#: includes/Elementor/DynamicTags.php:775
+msgid "HAL Amelia Catalog Item"
+msgstr ""
+
+#: includes/Elementor/DynamicTags.php:790
+msgid "Catalog item"
+msgstr ""
+
+#: includes/Elementor/Register.php:163
+msgid "HAL Member Profiles: Elementor Pro was not detected, so Full Dynamic Layout (Dynamic Tags) is unavailable. Compatible Widgets and the Ultimate Member native fallback still work."
+msgstr ""
+
+#: includes/Elementor/Widgets/AccountBody.php:23
+msgid "Account Body (UM)"
+msgstr ""
+
+#: includes/Elementor/Widgets/AccountField.php:27
+#: includes/Elementor/Widgets/AccountField.php:58
+msgid "Account Field"
+msgstr ""
+
+#: includes/Elementor/Widgets/AccountField.php:218
+msgid "Account Field: no account context. Choose a preview fixture in HAL Member Profiles → Settings to preview this widget here."
+msgstr ""
+
+#: includes/Elementor/Widgets/AccountNavigation.php:23
+msgid "Account Navigation (UM)"
+msgstr ""
+
+#: includes/Elementor/Widgets/AmeliaBooking.php:26
+msgid "Amelia Booking (UM Profile)"
+msgstr ""
+
+#: includes/Elementor/Widgets/AmeliaBooking.php:144
+msgid "Book an appointment"
+msgstr ""
+
+#: includes/Elementor/Widgets/AmeliaBooking.php:158
+msgid "Amelia Booking (UM Profile): no profile context. Choose a preview fixture in HAL Member Profiles → Settings to preview this widget here."
+msgstr ""
+
+#: includes/Elementor/Widgets/NativeHeader.php:26
+msgid "Native Header (UM)"
+msgstr ""
+
+#: includes/Elementor/Widgets/NativeHeader.php:95
+msgid "Native Header (UM): no profile context. Choose a preview fixture in HAL Member Profiles → Settings to preview this widget here."
+msgstr ""
+
+#: includes/Elementor/Widgets/ProfileActions.php:25
+msgid "Profile Actions (UM)"
+msgstr ""
+
+#: includes/Elementor/Widgets/ProfileActions.php:95
+msgid "Profile Actions (UM): no profile context. Choose a preview fixture in HAL Member Profiles → Settings to preview this widget here."
+msgstr ""
+
+#: includes/Elementor/Widgets/ProfileBody.php:26
+msgid "Profile Body (UM)"
+msgstr ""
+
+#: includes/Elementor/Widgets/ProfileBody.php:99
+msgid "Profile Body (UM): no profile context. Choose a preview fixture in HAL Member Profiles → Settings to preview this widget here."
+msgstr ""
+
+#: includes/Elementor/Widgets/ProfileField.php:27
+#: includes/Elementor/Widgets/ProfileField.php:58
+msgid "Profile Field"
+msgstr ""
+
+#: includes/Elementor/Widgets/ProfileField.php:219
+msgid "Profile Field: no profile context. Choose a preview fixture in HAL Member Profiles → Settings to preview this widget here."
+msgstr ""
+
+#: includes/Elementor/Widgets/ProfileHeaderCompatibility.php:27
+msgid "Header Compatibility (UM)"
+msgstr ""
+
+#: includes/Elementor/Widgets/ProfileHeaderCompatibility.php:152
+msgid "Header Compatibility (UM): no profile context. Choose a preview fixture in HAL Member Profiles → Settings to preview this widget here."
+msgstr ""
+
+#: includes/Elementor/Widgets/ProfileNavigation.php:25
+msgid "Profile Navigation (UM)"
+msgstr ""
+
+#: includes/Elementor/Widgets/ProfileNavigation.php:93
+msgid "Profile Navigation (UM): no profile context. Choose a preview fixture in HAL Member Profiles → Settings to preview this widget here."
+msgstr ""
+
+#: includes/Integrations/OptionalIntegrations.php:278
+msgid "Profile overview"
+msgstr ""
+
+#: includes/Integrations/UltimateMember.php:106
+msgid "Profile photo"
+msgstr ""
+
+#: includes/Lifecycle.php:195
+msgid "You are not allowed to run this command."
+msgstr ""
+
+#: includes/ProfileOverview.php:62
+#: includes/ProfileOverview.php:63
+msgid "Profile Overview"
+msgstr ""
+
+#: includes/ProfileOverview.php:108
+msgid "View photo on profile"
+msgstr ""
+
+#: includes/ProfileOverview.php:197
+msgid "Profile privacy is managed by Ultimate Member settings."
+msgstr ""
+
+#: includes/ProfileOverview.php:214
+msgid "Public services"
+msgstr ""
+
+#: includes/ProfileOverview.php:215
+msgid "Service selection will be available here."
+msgstr ""
+
+#: includes/ProfileOverview.php:228
+#: includes/Settings.php:638
+msgid "Lawyer"
+msgstr ""
+
+#: includes/ProfileOverview.php:230
+msgid "Legal consultant"
+msgstr ""
+
+#: includes/ProfileOverview.php:232
+msgid "Member"
+msgstr ""
+
+#. translators: %d: Amelia employee numeric ID.
+#: includes/SchemaRegistry.php:469
+#, php-format
+msgid "Employee #%d"
+msgstr ""
+
+#: includes/Settings.php:72
+msgid "Settings"
+msgstr ""
+
+#: includes/Settings.php:101
+msgid "Profile & Account Bridge"
+msgstr ""
+
+#: includes/Settings.php:123
+msgid "All editable HAL Member Profiles values live on this single save form."
+msgstr ""
+
+#: includes/Settings.php:124
+msgid "review the groups below and save — grouping changed the view only, not how values are stored."
+msgstr ""
+
+#: includes/Settings.php:130
+msgid "Profile layout"
+msgstr ""
+
+#: includes/Settings.php:136
+msgid "Observe (no visual change)"
+msgstr ""
+
+#: includes/Settings.php:137
+msgid "Public layout (Elementor template)"
+msgstr ""
+
+#: includes/Settings.php:142
+msgid "Profile Elementor library template ID"
+msgstr ""
+
+#. translators: %s: member type label.
+#: includes/Settings.php:148
+#, php-format
+msgid "%s profile template ID"
+msgstr ""
+
+#: includes/Settings.php:151
+msgid "Existing Elementor library template for this member type public profile only. Empty or unqualified values fall back to the single template ID above; a configured but invalid ID stays on the native Ultimate Member view. HAL never creates, edits, or writes any template or file."
+msgstr ""
+
+#: includes/Settings.php:156
+msgid "Profile preview fixture user ID"
+msgstr ""
+
+#: includes/Settings.php:159
+msgid "Only used to preview this layout inside the Elementor editor, for administrators only — never shown on the live frontend or in a public preview."
+msgstr ""
+
+#: includes/Settings.php:164
+msgid "Account ownership"
+msgstr ""
+
+#: includes/Settings.php:165
+msgid "Ultimate Member owns and renders the complete Account page. Legacy HAL Account layout values are retained for backward compatibility but are not active in v1.2.0."
+msgstr ""
+
+#: includes/Settings.php:177
+msgid "Account Elementor library template ID"
+msgstr ""
+
+#: includes/Settings.php:181
+msgid "Account preview fixture user ID"
+msgstr ""
+
+#: includes/Settings.php:185
+msgid "Retained only so older saved settings are not deleted; HAL does not preview or replace the native Account page."
+msgstr ""
+
+#: includes/Settings.php:190
+msgid "Ultimate Member membership mapping"
+msgstr ""
+
+#: includes/Settings.php:191
+msgid "HAL reads roles and account approval from Ultimate Member. If this mapping is missing or no longer valid, the native Ultimate Member view remains active."
+msgstr ""
+
+#: includes/Settings.php:199
+msgid "Role"
+msgstr ""
+
+#: includes/Settings.php:201
+msgid "— Select discovered role —"
+msgstr ""
+
+#: includes/Settings.php:208
+msgid "Approved status"
+msgstr ""
+
+#: includes/Settings.php:210
+msgid "— Select discovered status —"
+msgstr ""
+
+#: includes/Settings.php:224
+msgid "Amelia general booking URL"
+msgstr ""
+
+#: includes/Settings.php:231
+msgid "Off — no connection"
+msgstr ""
+
+#: includes/Settings.php:232
+msgid "Discover only — read and show diffs, never write"
+msgstr ""
+
+#: includes/Settings.php:233
+msgid "Managed additions — create missing HAL-owned fields only, never update"
+msgstr ""
+
+#: includes/Settings.php:234
+msgid "Managed sync — create missing and update HAL-owned fields (deletions stay manual)"
+msgstr ""
+
+#: includes/Settings.php:236
+msgid "Turning this off stops future synchronization only — it never deletes catalog data or files."
+msgstr ""
+
+#: includes/Settings.php:241
+msgid "Managed sync & uninstall"
+msgstr ""
+
+#: includes/Settings.php:244
+msgid "Managed templates consent"
+msgstr ""
+
+#: includes/Settings.php:248
+msgid "Allow HAL to provision and sync its managed templates into the active Child Theme"
+msgstr ""
+
+#: includes/Settings.php:250
+msgid "Revoking this consent stops provisioning/syncing — it never deletes your files or stored data."
+msgstr ""
+
+#: includes/Settings.php:254
+msgid "Purge on uninstall"
+msgstr ""
+
+#: includes/Settings.php:258
+msgid "Delete these bridge settings on uninstall"
+msgstr ""
+
+#: includes/Settings.php:260
+msgid "Irreversible: once the plugin is uninstalled with this enabled, the deletion cannot be undone."
+msgstr ""
+
+#: includes/Settings.php:639
+msgid "Consultant"
+msgstr ""
+
+#: includes/Settings.php:640
+msgid "Ordinary member"
+msgstr ""
+
+#: includes/Settings.php:801
+msgid "\"Public layout\" was not saved: the runtime compatibility gate is not available, so the bridge stays on \"Observe\" until it is wired and passes."
+msgstr ""
+
+#. translators: %s: machine-readable gate reason from CompatibilityGate::describe(), e.g. awaiting_matrix_signoff.
+#: includes/Settings.php:804
+#, php-format
+msgid "\"Public layout\" was not saved: the compatibility gate has not passed for this site's current component versions (see docs/compatibility-matrix.md). The mode stayed \"Observe\". Machine reason: %s."
+msgstr ""
+
+#. translators: 1: form post ID, 2: selected template value, 3: failed readiness element list.
+#: includes/UmFormTemplateWatcher.php:223
+#, php-format
+msgid "Form #%1$s now points to the template \"%2$s\". Incomplete readiness: %3$s."
+msgstr ""
+
+#. translators: %s: failed readiness element list.
+#: includes/UmFormTemplateWatcher.php:231
+#, php-format
+msgid "Incomplete readiness: %s."
+msgstr ""
+
+#: includes/UmFormTemplateWatcher.php:236
+msgid "This is a warning only: nothing was blocked and no Ultimate Member data was modified."
+msgstr ""
+
+#: includes/UmFormTemplateWatcher.php:241
+msgid "Rollback: this switch replaced the form's previous design (not \"UM native\") — re-select the previous template under Ultimate Member > Forms to restore it."
+msgstr ""
+
+#: includes/UmFormTemplateWatcher.php:246
+msgid "Cache rule (mandatory): after any provision or template switch, run Purge All (LiteSpeed + any CDN), or cached pages may keep serving the previous design."
+msgstr ""
+
+#: includes/UmFormTemplateWatcher.php:252
+msgid "HAL Member Profiles: the Ultimate Member profile form template was changed while HAL readiness is incomplete."
+msgstr ""
+
+#: includes/UmFormTemplateWatcher.php:470
+msgid "managed template file"
+msgstr ""
+
+#: includes/UmFormTemplateWatcher.php:471
+msgid "compatibility gate"
+msgstr ""
+
+#: includes/UmFormTemplateWatcher.php:473
+msgid "template contract"
+msgstr ""
+
+#: includes/UmFormTemplateWatcher.php:484
+msgid "unresolved evaluation"
 msgstr ""

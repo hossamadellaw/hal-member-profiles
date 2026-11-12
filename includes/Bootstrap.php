@@ -206,6 +206,13 @@ final class Bootstrap {
 	 * @return void
 	 */
 	private function boot(): void {
+		// Card F-14: the official textdomain load, hooked on init from boot(). boot()
+		// itself runs at plugins_loaded (hal-member-profiles.php), which precedes init
+		// (audit round-2 correction), so the load must be deferred to init here.
+		// Registered on every boot path — including the missing-dependency early return
+		// below — so translations resolve for the notice strings too.
+		add_action( 'init', array( $this, 'load_textdomain' ) );
+
 		// 1) Dependencies/Gate → 2) Settings/SecretStore — card D-14 order start.
 		require_once HAL_MEMBER_PROFILES_DIR . 'includes/Dependencies.php';
 		require_once HAL_MEMBER_PROFILES_DIR . 'includes/CompatibilityGate.php';
@@ -352,6 +359,20 @@ final class Bootstrap {
 			$this->amelia,
 			$this->optional_integrations
 		) )->run();
+	}
+
+	/**
+	 * Card F-14: loads the plugin translations from the plugin-local languages/
+	 * directory on the init hook (registered from boot()).
+	 *
+	 * @return void
+	 */
+	public function load_textdomain(): void {
+		load_plugin_textdomain(
+			'hal-member-profiles',
+			false,
+			dirname( plugin_basename( HAL_MEMBER_PROFILES_FILE ) ) . '/languages'
+		);
 	}
 
 	/**
