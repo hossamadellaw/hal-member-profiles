@@ -715,4 +715,21 @@ final class ManagedTemplates {
 	private function writes_disapproved(): bool {
 		return version_compare( HAL_MEMBER_PROFILES_VERSION, self::WRITES_APPROVED_SINCE, '<' );
 	}
+
+	/**
+	 * Card F-05: public readiness read of the F-01 release-version write gate, for admin
+	 * surfaces that must present the gate's verdict without touching the write path —
+	 * the Diagnostics page swaps its active Sync form for a passive informational row
+	 * exactly when this returns false. The helper MIRRORS the F-01 gate by delegating to
+	 * the ONE existing version comparison against WRITES_APPROVED_SINCE (single source of
+	 * truth: no second comparison, no second constant, no drift from the verdict
+	 * provision() actually enforces). Read-only: pure version arithmetic — no state,
+	 * no side effects, no filesystem work.
+	 *
+	 * @return bool True only from WRITES_APPROVED_SINCE (1.3.0) onward; false on every
+	 *              1.2.x release, including any rollback.
+	 */
+	public function writes_approved_for_version(): bool {
+		return ! $this->writes_disapproved();
+	}
 }

@@ -28,6 +28,15 @@
  * - Notices are resolvable: the action-result notices render once from their query arg
  *   and disappear on the next pageload, exactly matching the acceptance rule.
  *
+ * v1.2.1 (card F-05): while the F-01 version gate keeps writes disapproved, the active
+ * Sync form and its caption/description are replaced by a passive informational row
+ * (E-14: an active false promise is never shown), and the Diagnostics page gains the
+ * consolidated READ-ONLY Readiness card — managed-file inspection (E-13), the gate
+ * describe() verdict per capability, UM mapping availability, per-persona template
+ * validity, the current UM Forms selection across every um_form post (including every
+ * WPML-translated copy) with template-file presence in the active child theme, and the
+ * F-11 contract pre-check behind a class_exists degradation guard. Zero writes.
+ *
  * Integration note for card D-14: this file registers nothing on include; wiring happens
  * exclusively through {@see AdminDashboard::register()} during bootstrapping. Until then
  * the dashboard is inert and unreachable.
@@ -575,8 +584,10 @@ final class AdminDashboard {
 	}
 
 	/**
-	 * Diagnostics page (card S-04): compatibility gate verdicts plus the managed
-	 * templates manifest/lifecycle state and its delegated Repair command.
+	 * Diagnostics page (card S-04): compatibility gate verdicts, the managed templates
+	 * manifest/lifecycle state with the version-gated Repair/Sync surface (card F-05:
+	 * the active form is replaced by a passive row while the F-01 gate disapproves
+	 * writes), and the consolidated read-only Readiness card (card F-05).
 	 *
 	 * @return void
 	 */
@@ -599,6 +610,9 @@ final class AdminDashboard {
 
 			<h2 class="title"><?php esc_html_e( 'Managed templates / lifecycle', 'hal-member-profiles' ); ?></h2>
 			<?php self::render_managed_templates_block(); ?>
+
+			<h2 class="title"><?php esc_html_e( 'Readiness (read-only)', 'hal-member-profiles' ); ?></h2>
+			<?php self::render_readiness_card( $bootstrap ); ?>
 		</div>
 		<?php
 	}
@@ -739,6 +753,30 @@ final class AdminDashboard {
 
 		echo '</tbody></table>';
 
+		// Card F-05 (E-14): while the F-01 version gate keeps writes disapproved, the
+		// active Sync form and its caption/description are an ACTIVE false promise —
+		// they are replaced by a passive informational row. The original form returns
+		// verbatim once writes_approved_for_version() turns true (from 1.3.0).
+		if ( ! $managed->writes_approved_for_version() ) {
+			printf(
+				'<p class="description"><em>%1$s</em></p>',
+				esc_html__( 'Writes are disabled in this release by the version gate — see Diagnostics.', 'hal-member-profiles' )
+			);
+
+			return;
+		}
+
+		self::render_sync_form();
+	}
+
+	/**
+	 * The single delegated Repair/Sync form (D-05 endpoint) with its caption/description —
+	 * extracted verbatim by card F-05 so the version-gate branch above can swap it for a
+	 * passive row while keeping this exact markup for the approved (1.3.0+) state.
+	 *
+	 * @return void
+	 */
+	private static function render_sync_form(): void {
 		$nonce = class_exists( Lifecycle::class ) ? Lifecycle::repair_nonce() : '';
 		?>
 
@@ -752,6 +790,483 @@ final class AdminDashboard {
 			<?php esc_html_e( 'Sync creates missing managed templates and safely updates only files HAL deployed itself; your modifications are always reported as conflicts first.', 'hal-member-profiles' ); ?>
 		</p>
 		<?php
+	}
+
+	/**
+	 * Card F-05: the consolidated READ-ONLY Readiness card on the Diagnostics page — six
+	 * checks, each a pure read (zero writes, zero state):
+	 *  (a) managed-file status via ManagedTemplates::inspect() (E-13: read-only and
+	 *      functional on 1.2.x);
+	 *  (b) the executive gate verdict plus machine-stable describe() reason for EVERY
+	 *      capability;
+	 *  (c) UM member mapping availability plus its machine reason;
+	 *  (d) per-persona public-profile template validity (the effective, revalidated
+	 *      selection the renderer would actually use);
+	 *  (e) the CURRENT UM Forms selection — `_um_profile_template` for EVERY `um_form`
+	 *      post (each WPML-translated copy is its own um_form post and is enumerated
+	 *      individually) plus whether the referenced template file exists in the ACTIVE
+	 *      CHILD THEME;
+	 *  (f) the F-11 contract pre-check, degrading behind a class_exists guard to
+	 *      "unavailable (validator not deployed)" when the validator class is absent —
+	 *      never to a false pass.
+	 *
+	 * @param Bootstrap|null $bootstrap Booted instance or null (rows degrade fail-closed).
+	 * @return void
+	 */
+	private static function render_readiness_card( ?Bootstrap $bootstrap ): void {
+		?>
+		<table class="widefat striped" style="max-width:900px">
+			<tbody>
+			<?php
+			// (a) managed files.
+			self::readiness_managed_files_rows();
+
+			// (b) gate describe() per capability.
+			self::readiness_gate_rows( $bootstrap );
+
+			// (c) + (d) UM mapping availability and per-persona template validity.
+			self::readiness_mapping_and_persona_rows( $bootstrap );
+
+			// (e) UM Forms selection + template file presence.
+			self::readiness_um_forms_rows();
+
+			// (f) F-11 contract pre-check (ROUND-4 degradation behind class_exists).
+			self::readiness_contract_rows( $bootstrap );
+			?>
+			</tbody>
+		</table>
+		<?php
+	}
+
+	/**
+	 * Readiness check (a): managed-file status per manifest asset through the read-only
+	 * inspection (E-13). Degrades to an explicit fail-closed row when the inspection is
+	 * declined, fails, or reports no assets. Never writes.
+	 *
+	 * @return void
+	 */
+	private static function readiness_managed_files_rows(): void {
+		if ( ! class_exists( ManagedTemplates::class ) ) {
+			self::print_state_row( __( 'Managed files', 'hal-member-profiles' ), 'blocked', 'unavailable (fail-closed)' );
+
+			return;
+		}
+
+		try {
+			$inspection = ( new ManagedTemplates() )->inspect();
+		} catch ( \Throwable $e ) {
+			self::print_state_row( __( 'Managed files', 'hal-member-profiles' ), 'blocked', 'inspect_failed' );
+
+			return;
+		}
+
+		if ( ! is_array( $inspection ) || empty( $inspection['ok'] ) ) {
+			$reason = is_array( $inspection ) && is_string( $inspection['reason'] ?? null ) ? $inspection['reason'] : 'unknown';
+
+			self::print_state_row( __( 'Managed files', 'hal-member-profiles' ), 'blocked', 'inspection declined — ' . $reason );
+
+			return;
+		}
+
+		$assets = $inspection['assets'] ?? array();
+
+		if ( ! is_array( $assets ) || array() === $assets ) {
+			self::print_state_row( __( 'Managed files', 'hal-member-profiles' ), 'blocked', 'no managed assets declared' );
+
+			return;
+		}
+
+		foreach ( $assets as $source_path => $info ) {
+			$status = is_array( $info ) && is_string( $info['target_status'] ?? null ) ? $info['target_status'] : '';
+
+			self::print_state_row(
+				sprintf(
+					/* translators: %s: managed asset source path. */
+					__( 'Managed file — %s', 'hal-member-profiles' ),
+					(string) $source_path
+				),
+				ManagedTemplates::STATUS_CURRENT === $status ? 'ready' : 'blocked',
+				'' !== $status ? $status : 'unknown'
+			);
+		}
+	}
+
+	/**
+	 * Readiness check (b): the gate verdict and machine-stable describe() reason for
+	 * EVERY capability, straight from the shared gate instance. Never writes.
+	 *
+	 * @param Bootstrap|null $bootstrap Booted instance or null.
+	 * @return void
+	 */
+	private static function readiness_gate_rows( ?Bootstrap $bootstrap ): void {
+		if ( null === $bootstrap ) {
+			self::print_state_row( __( 'Compatibility gate', 'hal-member-profiles' ), 'blocked', 'unavailable — plugin core unbooted (fail-closed)' );
+
+			return;
+		}
+
+		try {
+			$gate = $bootstrap->get_compatibility_gate();
+		} catch ( \Throwable $e ) {
+			$gate = null;
+		}
+
+		if ( null === $gate ) {
+			self::print_state_row( __( 'Compatibility gate', 'hal-member-profiles' ), 'blocked', 'not initialized (fail-closed)' );
+
+			return;
+		}
+
+		try {
+			$capabilities = $gate->capabilities();
+		} catch ( \Throwable $e ) {
+			$capabilities = array();
+		}
+
+		foreach ( array_keys( $capabilities ) as $capability ) {
+			try {
+				$reason = $gate->describe( (string) $capability );
+				$passes = $gate->passes( (string) $capability );
+			} catch ( \Throwable $e ) {
+				$reason = 'gate_unavailable';
+				$passes = false;
+			}
+
+			self::print_state_row(
+				sprintf(
+					/* translators: %s: capability slug. */
+					__( 'Compatibility gate — %s', 'hal-member-profiles' ),
+					(string) $capability
+				),
+				$passes ? 'ready' : 'blocked',
+				(string) $reason
+			);
+		}
+	}
+
+	/**
+	 * Readiness checks (c) + (d): UM member mapping availability plus reason, then the
+	 * effective per-persona template validity. Every read is a revalidating Settings
+	 * read; nothing is ever written.
+	 *
+	 * @param Bootstrap|null $bootstrap Booted instance or null.
+	 * @return void
+	 */
+	private static function readiness_mapping_and_persona_rows( ?Bootstrap $bootstrap ): void {
+		$settings = null;
+
+		if ( null !== $bootstrap ) {
+			try {
+				$settings = $bootstrap->get_settings();
+			} catch ( \Throwable $e ) {
+				$settings = null;
+			}
+		}
+
+		if ( null === $settings ) {
+			self::print_state_row( __( 'UM member mapping', 'hal-member-profiles' ), 'blocked', 'unavailable — plugin core unbooted (fail-closed)' );
+			self::print_state_row( __( 'Persona templates', 'hal-member-profiles' ), 'blocked', 'unavailable — plugin core unbooted (fail-closed)' );
+
+			return;
+		}
+
+		try {
+			$mapping = $settings->get_um_member_mapping();
+		} catch ( \Throwable $e ) {
+			$mapping = array();
+		}
+
+		$available = is_array( $mapping ) && 'available' === ( $mapping['availability'] ?? '' );
+		$reason    = is_array( $mapping ) && is_string( $mapping['reason'] ?? null ) ? $mapping['reason'] : 'unavailable';
+
+		self::print_state_row(
+			__( 'UM member mapping', 'hal-member-profiles' ),
+			$available ? 'ready' : 'blocked',
+			(string) $reason
+		);
+
+		foreach ( array( Settings::PERSONA_LAWYER, Settings::PERSONA_CONSULTANT, Settings::PERSONA_ORDINARY_MEMBER ) as $persona ) {
+			try {
+				$template_id = $settings->get_public_profile_template_id_for_persona( $persona );
+			} catch ( \Throwable $e ) {
+				$template_id = null;
+			}
+
+			self::print_state_row(
+				sprintf(
+					/* translators: %s: member type slug. */
+					__( 'Persona template — %s', 'hal-member-profiles' ),
+					$persona
+				),
+				null !== $template_id ? 'ready' : 'not_configured',
+				null !== $template_id
+					? sprintf(
+						/* translators: %d: Elementor library template ID. */
+						__( 'valid selection — template #%d', 'hal-member-profiles' ),
+						$template_id
+					)
+					: __( 'no valid template selected — the native Ultimate Member profile renders', 'hal-member-profiles' )
+			);
+		}
+	}
+
+	/**
+	 * Readiness check (e): the CURRENT UM Forms selection. Every `um_form` post is
+	 * enumerated (post_status 'any' — a WPML-translated copy is its own um_form post and
+	 * carries its OWN `_um_profile_template`, so per-post rows are the only complete
+	 * view), and for each non-empty selection the card reports whether the referenced
+	 * template file exists in the ACTIVE CHILD THEME. Meta and stat reads only — the
+	 * form, its meta, and the theme are never modified.
+	 *
+	 * @return void
+	 */
+	private static function readiness_um_forms_rows(): void {
+		$label = __( 'UM Forms (um_form)', 'hal-member-profiles' );
+
+		if ( ! function_exists( 'get_posts' ) ) {
+			self::print_state_row( $label, 'blocked', 'unavailable — post queries are unavailable (fail-closed)' );
+
+			return;
+		}
+
+		try {
+			$found = get_posts(
+				array(
+					'post_type'      => UmFormTemplateWatcher::WATCHED_POST_TYPE,
+					'post_status'    => 'any',
+					'posts_per_page' => -1,
+					'orderby'        => 'ID',
+					'order'          => 'ASC',
+				)
+			);
+		} catch ( \Throwable $e ) {
+			$found = null;
+		}
+
+		if ( ! is_array( $found ) ) {
+			self::print_state_row( $label, 'blocked', 'unavailable — the post query failed (fail-closed)' );
+
+			return;
+		}
+
+		$rows = 0;
+
+		foreach ( $found as $form ) {
+			$post = null;
+
+			if ( is_numeric( $form ) ) {
+				try {
+					$post = get_post( (int) $form );
+				} catch ( \Throwable $e ) {
+					$post = null;
+				}
+			} elseif ( is_object( $form ) && isset( $form->ID ) ) {
+				$post = $form;
+			}
+
+			if ( ! is_object( $post ) || (int) $post->ID <= 0 ) {
+				continue;
+			}
+
+			if ( isset( $post->post_type ) && UmFormTemplateWatcher::WATCHED_POST_TYPE !== (string) $post->post_type ) {
+				continue;
+			}
+
+			$form_id = (int) $post->ID;
+			$title   = isset( $post->post_title ) && is_scalar( $post->post_title ) ? trim( (string) $post->post_title ) : '';
+
+			$row_label = '' !== $title
+				? sprintf(
+					/* translators: 1: form post ID, 2: form title. */
+					__( 'UM form #%1$d — %2$s', 'hal-member-profiles' ),
+					$form_id,
+					$title
+				)
+				: sprintf(
+					/* translators: %d: form post ID. */
+					__( 'UM form #%d', 'hal-member-profiles' ),
+					$form_id
+				);
+
+			try {
+				$selected = get_post_meta( $form_id, UmFormTemplateWatcher::WATCHED_META_KEY, true );
+			} catch ( \Throwable $e ) {
+				$selected = '';
+			}
+
+			$selected = is_scalar( $selected ) ? trim( (string) $selected ) : '';
+
+			if ( '' === $selected ) {
+				self::print_state_row(
+					$row_label,
+					'not_configured',
+					__( 'no template selected — the Ultimate Member default profile renders', 'hal-member-profiles' )
+				);
+
+				$rows++;
+
+				continue;
+			}
+
+			$found_relative = self::locate_um_template_file( $selected );
+
+			if ( '' !== $found_relative ) {
+				self::print_state_row(
+					$row_label,
+					'ready',
+					sprintf(
+						/* translators: 1: selected template slug, 2: relative template file path. */
+						__( 'selected: "%1$s" — template file present (%2$s)', 'hal-member-profiles' ),
+						$selected,
+						$found_relative
+					)
+				);
+			} else {
+				self::print_state_row(
+					$row_label,
+					'blocked',
+					sprintf(
+						/* translators: %s: selected template slug. */
+						__( 'selected: "%1$s" — template file NOT found in the active child theme', 'hal-member-profiles' ),
+						$selected
+					)
+				);
+			}
+
+			$rows++;
+		}
+
+		if ( 0 === $rows ) {
+			self::print_state_row( $label, 'not_configured', __( 'none found', 'hal-member-profiles' ) );
+		}
+	}
+
+	/**
+	 * Locates a UM profile template file, named by its `_um_profile_template` value,
+	 * inside the ACTIVE CHILD THEME only — both Ultimate Member's theme conventions:
+	 * the modern `ultimate-member/templates/` location (also the managed manifest's
+	 * target base) and the legacy theme-root location. Pure existence stats; the value
+	 * comes from post meta, so anything outside a plain file slug fails closed to
+	 * "not found". Never writes.
+	 *
+	 * @param string $template Template slug from the form meta.
+	 * @return string The found relative path, or '' when absent in the child theme.
+	 */
+	private static function locate_um_template_file( string $template ): string {
+		if ( '' === $template || preg_match( '/[^A-Za-z0-9_\-]/', $template ) ) {
+			return '';
+		}
+
+		$base = function_exists( 'get_stylesheet_directory' )
+			? rtrim( (string) get_stylesheet_directory(), '/\\' )
+			: '';
+
+		if ( '' === $base ) {
+			return '';
+		}
+
+		foreach ( array( 'ultimate-member/templates/' . $template . '.php', 'ultimate-member/' . $template . '.php' ) as $relative ) {
+			if ( file_exists( $base . '/' . $relative ) ) {
+				return $relative;
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * Readiness check (f): the F-11 contract pre-check row. The validator is resolved
+	 * behind a class_exists guard; a degraded deploy without the class renders the
+	 * ROUND-4 degradation row — never a pass (see readiness_contract_verdict()).
+	 *
+	 * @param Bootstrap|null $bootstrap Booted instance or null.
+	 * @return void
+	 */
+	private static function readiness_contract_rows( ?Bootstrap $bootstrap ): void {
+		$settings = null;
+
+		if ( null !== $bootstrap ) {
+			try {
+				$settings = $bootstrap->get_settings();
+			} catch ( \Throwable $e ) {
+				$settings = null;
+			}
+		}
+
+		$validator = class_exists( TemplateContractValidator::class ) ? new TemplateContractValidator() : null;
+
+		$verdict = self::readiness_contract_verdict( $settings, $validator );
+
+		self::print_state_row(
+			__( 'Template contract (pre-check)', 'hal-member-profiles' ),
+			$verdict['state'],
+			$verdict['detail']
+		);
+	}
+
+	/**
+	 * The pure F-11 contract verdict for the readiness card, kept free of rendering so
+	 * the ROUND-4 degradation branch is unit-testable: a missing validator (null) reads
+	 * as "unavailable (validator not deployed)" — never as a pass. With the validator
+	 * deployed, the verdict mirrors the fail-closed validator contract: only a confirmed
+	 * pass reads ready; unverified/fallback verdicts read blocked.
+	 *
+	 * @param Settings|null                  $settings  Shared settings service, or null when unbooted.
+	 * @param TemplateContractValidator|null $validator Resolved validator, or null when the F-11 class is absent.
+	 * @return array{state:string, detail:string}
+	 */
+	private static function readiness_contract_verdict( ?Settings $settings, ?TemplateContractValidator $validator ): array {
+		if ( null === $settings ) {
+			return array(
+				'state'  => 'blocked',
+				'detail' => 'unavailable — plugin core unbooted (fail-closed)',
+			);
+		}
+
+		if ( null === $validator ) {
+			return array(
+				'state'  => 'blocked',
+				'detail' => 'unavailable (validator not deployed)',
+			);
+		}
+
+		try {
+			$template_id = $settings->get_profile_library_template_id();
+		} catch ( \Throwable $e ) {
+			return array(
+				'state'  => 'blocked',
+				'detail' => 'settings_unavailable',
+			);
+		}
+
+		if ( ! is_int( $template_id ) || $template_id <= 0 ) {
+			return array(
+				'state'  => 'not_configured',
+				'detail' => 'no profile library template selected',
+			);
+		}
+
+		try {
+			$result = $validator->validate_template( $template_id );
+		} catch ( \Throwable $e ) {
+			return array(
+				'state'  => 'blocked',
+				'detail' => 'validation_failed',
+			);
+		}
+
+		$reason = is_array( $result ) && is_string( $result['reason'] ?? null ) ? $result['reason'] : 'invalid_result';
+		$detail = sprintf(
+			/* translators: 1: validator verdict slug, 2: template post ID. */
+			__( '%1$s — template #%2$d', 'hal-member-profiles' ),
+			$reason,
+			(int) $template_id
+		);
+
+		return array(
+			'state'  => is_array( $result ) && true === ( $result['pass'] ?? false ) ? 'ready' : 'blocked',
+			'detail' => $detail,
+		);
 	}
 
 	/**
