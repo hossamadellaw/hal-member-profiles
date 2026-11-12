@@ -8,8 +8,9 @@ Stable tag: 1.2.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-An Elementor design layer for Ultimate Member's public Profile and member Account pages —
-built on top of Ultimate Member's own logic, never a replacement for it.
+An Elementor design layer for Ultimate Member's public Profile page — built on top of
+Ultimate Member's own logic, never a replacement for it. The member Account page renders
+through Ultimate Member's own Account logic.
 
 **Baseline (v1.1.5):** the runtime baseline is the ORIGINAL Ultimate Member and Amelia
 plugins together with this plugin's standard bridge. The former site-specific `custom UM`
@@ -18,9 +19,10 @@ README's history mentions them, that is history only.
 
 == Description ==
 
-HAL Member Profiles lets you design the Ultimate Member public Profile page and the
-member Account page visually in Elementor, while Ultimate Member itself keeps full
-ownership of identity, privacy, roles, field validation, saving, nonces, and tabs.
+HAL Member Profiles lets you design the Ultimate Member public Profile page visually in
+Elementor; the member Account page renders through Ultimate Member's own Account logic.
+Ultimate Member itself keeps full ownership of identity, privacy, roles, field
+validation, saving, nonces, and tabs.
 
 **Two explicit modes, never mixed on the same request:**
 
@@ -28,10 +30,14 @@ ownership of identity, privacy, roles, field validation, saving, nonces, and tab
   Image, Text Editor, Button, Container) and bind them to a Profile/Account field or a
   core element (Name, Avatar, Cover, Bio, Profile URL) via the "HAL Member Profiles"
   Dynamic Tags group.
-* **Widgets + Native Fallback (Elementor free, no Pro):** compatible HAL Widgets
-  (`Native Header`, `Profile Navigation`, `Profile Body`, `Profile Actions`,
-  `Account Navigation`, `Account Body`, and related) render Ultimate Member's own native
-  output inside your Elementor layout.
+* **Widgets + Native Fallback (Elementor free, no Pro):** the HAL Widgets registered with
+  Elementor in this release (`Native Header`, `Profile Header Compatibility`,
+  `Profile Navigation`, `Profile Body`, `Profile Actions`, `Profile Field`, and
+  `Account Field`, plus `Amelia Booking` when Amelia is active) render Ultimate Member's
+  own native output inside your Elementor layout. Two further Account widget classes
+  (`Account Navigation`, `Account Body`) are present in the plugin source but are NOT
+  registered in this release and render nothing; the member Account page renders through
+  Ultimate Member's own native pipeline.
 
 **Privacy enforcement:** every field decision is made server-side by this plugin's own
 Policy layer, which reads Ultimate Member's documented per-field Privacy values
@@ -42,26 +48,46 @@ the visitor. Parity with YOUR installed Ultimate Member version is verified duri
 compatibility QA recorded in this plugin's internal matrix before any public layout is
 enabled.
 
-**Managed templates (no manual copying):** the canonical Profile/Account bridge templates
-ship INSIDE this package under `resources/ultimate-member/` together with a signed-style
-manifest (version + SHA-256 per asset). An administrator provisions and syncs them into
-the active CHILD theme from the HAL dashboard ("Sync managed templates now"); a locally
-modified copy is always reported as a conflict and never overwritten automatically, and
-nothing ever installs or deletes itself on its own.
+**Managed templates (manual copying is the official deployment path in this release):**
+the canonical Profile bridge template ships INSIDE this package under
+`resources/ultimate-member/` together with a manifest (per-asset version + SHA-256; the
+manifest lists exactly one asset, `profile-hal-member-profiles.php`, sha256
+`4505034e70093d3d8922e7ddb7f846ead6645ad54cfe863a1aeb687dce5633d0`). In this release the
+dashboard write action is closed by a release-version gate (closed on every 1.2.x,
+reopening automatically at 1.3.0), so the official path is a MANUAL copy into the active
+CHILD theme's `ultimate-member/templates/` directory (Ultimate Member's documented theme
+override location) — see Installation. The package also ships
+`resources/ultimate-member/account.php`, which is NOT listed in the manifest and has no
+declared provisioning bridge in this release; a legacy account override in the child
+theme is only observed read-only, never managed. When the dashboard write action
+reopens, a locally modified copy is always reported as a conflict and never overwritten
+automatically, and nothing ever installs or deletes itself on its own.
 
 **Deployment modes (honest matrix):**
 
-* **Direct filesystem:** provisioning writes normally.
-* **Other hosts (FTP/SSH):** WordPress reports its standard credentials request state;
-  HAL never asks for or stores passwords.
-* **Immutable / CI:** defining `HAL_MEMBER_PROFILES_IMMUTABLE_DEPLOYMENT` makes every
-  write a verify-only no-op, for pipelines where your deployer owns file placement.
+* **This release (all 1.2.x):** managed-template writes are closed by the release-version
+  gate before any filesystem work — provisioning returns the machine reason
+  `writes_disabled_v1_2`, and the dashboard shows a passive informational row instead of
+  a Sync button. Read-only inspection keeps working; it can report the credentials state
+  below.
+* **Direct filesystem (write path reopens at 1.3.0):** provisioning writes normally.
+* **Other hosts, FTP/SSH (from 1.3.0):** WordPress reports its standard credentials
+  request state; HAL never asks for or stores passwords.
+* **Immutable / CI (from 1.3.0):** defining `HAL_MEMBER_PROFILES_IMMUTABLE_DEPLOYMENT`
+  makes every write a verify-only no-op, for pipelines where your deployer owns file
+  placement. In this release the flag has no observable effect: the version gate closes
+  every write before this check is reached (the check sits after the gate by design).
 
 **Compatibility humility:** features are gated at runtime by the built-in compatibility
 gate against THIS site's actual component versions. Compositions that have not passed
 the internal QA matrix stay on Observe/native rendering — including a brand-new install.
-No universal compatibility is claimed for any host, cache layer, or future plugin
-version.
+In this release the gate's composition registry is empty, so its verdict is
+`awaiting_matrix_signoff`. The registry can be extended through a documented filter with
+signed rows — exact "pinned" rows, or per-component "floor" minimum rows that survive
+patch-level component updates — and every externally supplied row must carry a valid
+HMAC signature (`wp_hash(..., 'auth', 'sha256')`) that is verified AFTER the filter;
+unsigned or tampered rows are dropped before matching. No universal compatibility is
+claimed for any host, cache layer, or future plugin version.
 
 **Fallback contract:** if the Elementor Library Template for a Profile or Account is
 deleted, left as a Draft, fails the layout contract (each required Widget rendered
@@ -69,6 +95,10 @@ exactly once inside valid context), throws during render, or the runtime compati
 gate has not passed for this site's component versions — the page automatically completes
 through Ultimate Member's FULL native pipeline inside the original wrappers. Never a
 blank, partial, or duplicated page.
+
+**Translations:** the `hal-member-profiles` text domain is loaded on WordPress' `init`
+hook from the plugin's `languages/` directory, so an installed translation pack applies
+to the plugin's own strings.
 
 = What this plugin does not do =
 
@@ -88,31 +118,48 @@ Everything below is doable from the Release ZIP alone.
 1. Ensure Ultimate Member and Elementor (free) are active first — this plugin declares
    both as hard requirements via `Requires Plugins` and will not activate without them.
 2. Upload and activate HAL Member Profiles like any other plugin.
-3. The managed bridge templates already ship INSIDE this package under
-   `resources/ultimate-member/` (with their manifest). To place them into your active
-   CHILD theme, go to the **HAL Member Profiles** admin dashboard and use
-   **"Sync managed templates now"** — an administrator action; nothing copies itself.
-   Without provisioning, pages stay 100% native (safe, just unstyled-by-HAL).
+3. The managed Profile bridge template ships INSIDE this package under
+   `resources/ultimate-member/` (with its manifest — exactly one asset; the `account.php`
+   file there is not part of the manifest and has no bridge in this release). In this
+   release the dashboard Sync action is replaced by a passive informational row:
+   managed-template writes are closed by the release-version gate (closed on every 1.2.x,
+   reopening automatically at 1.3.0). Place the template the official Ultimate Member way
+   — a MANUAL copy of `resources/ultimate-member/profile-hal-member-profiles.php` into
+   your active CHILD theme's `ultimate-member/templates/` directory (canonical sha256
+   `4505034e70093d3d8922e7ddb7f846ead6645ad54cfe863a1aeb687dce5633d0`, as recorded in the
+   manifest). Without this copy, pages stay 100% native (safe, just unstyled-by-HAL).
 4. Go to **HAL Member Profiles → Settings** (the Settings page inside the HAL Member
    Profiles admin menu): both layout modes start at **Observe**
    (zero visual change) and the Elementor route stays locked there until the built-in
-   compatibility gate passes for your site's exact plugin versions.
-5. Build one Profile and one Account Elementor Library Template containing the required
-   widgets exactly once each — Profile: one Header widget (Native OR Compatibility) +
-   Navigation + Body; Account: Navigation + Body.
-6. After staging QA passes and your composition is recorded, select the matching
-   Library Template IDs in Settings, then switch the relevant mode to **Public layout**
-   (it will refuse to save while the compatibility gate has not passed), and finally
-   select "HAL Member Profiles" as the Profile Form template under Ultimate Member →
-   Forms.
+   compatibility gate passes for your site's exact plugin versions. The Diagnostics page
+   carries a read-only Readiness card — managed-file status, the gate verdict with its
+   machine reason, UM mapping, persona template validity, the current Ultimate Member
+   Forms selection, and a template-contract pre-check. It performs zero writes.
+5. Build ONE Profile Elementor Library Template containing the required widgets exactly
+   once each — one Header widget (Native OR Compatibility) + Navigation + Body. The
+   Account page uses no Elementor template in this release: its widget classes are not
+   registered (see the widget list above) and the Account surface renders through
+   Ultimate Member's own native pipeline. The Readiness card's contract pre-check
+   verifies your Profile template against this contract, fail-closed.
+6. After staging QA passes and your composition is recorded (the gate stays closed —
+   `awaiting_matrix_signoff` — on every 1.2.x until that QA row exists), select the
+   matching Profile Library Template ID in Settings, then switch the Profile mode to
+   **Public layout**: the save is refused while the compatibility gate has not passed,
+   and the refusal message shows the gate's machine reason. Finally, select "HAL Member
+   Profiles" as the Profile Form template under Ultimate Member → Forms. HAL never
+   modifies Ultimate Member data: switching a UM form's profile template before HAL
+   readiness is complete raises a dismissible admin warning only — never a block —
+   naming the form's previous design as the rollback anchor and the mandatory
+   "Purge All" cache step.
 
 == Frequently Asked Questions ==
 
 = Does this replace Ultimate Member's profile/account templates? =
 
 No. Both original templates remain untouched and selectable at any time. This plugin
-adds an additional, optional template override that you select manually from
-Ultimate Member → Forms once you are ready.
+adds an additional, optional PROFILE template override that you select manually from
+Ultimate Member → Forms once you are ready; the Account page keeps rendering through
+Ultimate Member's own templates in this release.
 
 = What happens if Elementor Pro is deactivated later? =
 
@@ -122,8 +169,10 @@ half-configured layout.
 
 = What happens if I deactivate HAL Member Profiles entirely? =
 
-Provisioned bridge templates detect this and delegate straight to Ultimate Member's
-ORIGINAL account/profile rendering, exactly as if this plugin were never installed.
+The bridge template (however it was placed — manually copied in this release, or
+provisioned once the write path reopens) detects this and delegates straight to
+Ultimate Member's ORIGINAL account/profile rendering, exactly as if this plugin were
+never installed.
 
 = Does this integrate with Amelia? =
 
@@ -165,8 +214,14 @@ closed and must simply be re-entered.
   rendering (they are not served by any legacy custom renderer — that code is deleted).
 * `FieldSchema`'s field-type classification list should be checked against this site's
   actual Ultimate Member field types during the same QA pass.
-* Managed-template provisioning currently runs from the dashboard Sync action and the
-  admin reconciliation tick; the recorded consent flag will gate future automated runs.
+* Managed-template provisioning does NOT run in this release: the release-version gate
+  keeps every write closed on all 1.2.x and reopens automatically at 1.3.0. The
+  dashboard Sync action is replaced by a passive informational row; the admin
+  reconciliation tick records a terminal failure (`writes_disabled_v1_2`) as a FINAL
+  status exactly once instead of re-looping as pending on every admin visit (retryable
+  causes — missing credentials, busy — still stay pending); and the recorded consent
+  flag continues to gate any future automated runs. Until the write path reopens, the
+  official deployment path is the manual copy described in the Installation section.
 * Amelia write-sync: the HAL-owned fields writer (`AmeliaFieldsWriter`) exists and is
   wired into its governed admin route ("Apply plan now"), but production writes stay
   closed by the runtime compatibility gate (`amelia_fields_write` capability, currently
