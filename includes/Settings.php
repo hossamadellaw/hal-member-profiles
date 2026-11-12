@@ -799,7 +799,11 @@ final class Settings {
 					'hal_member_profiles_' . $capability . '_layout_gate',
 					null === $this->compatibility_gate
 						? __( '"Public layout" was not saved: the runtime compatibility gate is not available, so the bridge stays on "Observe" until it is wired and passes.', 'hal-member-profiles' )
-						: __( '"Public layout" was not saved: the compatibility gate has not passed for this site\'s current component versions (see docs/compatibility-matrix.md). The mode stayed "Observe".', 'hal-member-profiles' ),
+						: sprintf(
+							/* translators: %s: machine-readable gate reason from CompatibilityGate::describe(), e.g. awaiting_matrix_signoff. */
+							__( '"Public layout" was not saved: the compatibility gate has not passed for this site\'s current component versions (see docs/compatibility-matrix.md). The mode stayed "Observe". Machine reason: %s.', 'hal-member-profiles' ),
+							$this->compatibility_gate->describe( $capability )
+						),
 					'warning'
 				);
 			}
