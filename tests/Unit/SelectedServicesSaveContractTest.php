@@ -235,7 +235,7 @@ final class SelectedServicesSaveContractTest extends TestCase {
 		$this->assertSame( 1, $total, 'exactly one production hook registration, static-guarded' );
 	}
 
-	/** S-01 proof: the closed direct-save body keeps its documented v1.1.5 verdicts. */
+	/** S-01 proof: the closed direct-save body keeps its documented legacy verdicts (recorded in v1.1.5, unchanged since). */
 	public function test_direct_save_legacy_body_is_unchanged(): void {
 		$amelia = $this->amelia( array( 11 => 'Contracts' ) );
 
