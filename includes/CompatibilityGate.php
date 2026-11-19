@@ -25,13 +25,15 @@
  * runs inside the constructor. Every row a filter introduces must carry an HMAC
  * signature over the row's canonical JSON; verification runs AFTER the filter (D-02)
  * and unverifiable rows are silently dropped before any matching (fail-closed). Step 4
- * of F-02 (the first approved pinned row) is a separate owner-gated card (F-02b,
- * v1.3.0): APPROVED_COMPOSITIONS stays empty in this release and the gate stays closed
- * on 1.2.x (awaiting_matrix_signoff).
+ * of F-02 (the first approved pinned row) was card F-02b, executed in v1.3.0: the
+ * registry now carries the signed `profile` row mirrored from the matrix's signed §1
+ * rows (2026-11-14, production-as-QA); on 1.2.x the registry was empty and the gate
+ * stayed closed (awaiting_matrix_signoff).
  *
- * Development card D-13: the capability surface expands to eight INDEPENDENT gates —
- * profile, account, amelia, managed_templates, amelia_api_read, amelia_fields_write,
- * um_schema, elementor_dynamic_tags. There is deliberately NO master/general pass: every
+ * Development card D-13: the capability surface expands to seven INDEPENDENT gates —
+ * profile, amelia, managed_templates, amelia_api_read, amelia_fields_write, um_schema,
+ * elementor_dynamic_tags. The account gate was retired in v1.3.0. There is deliberately
+ * NO master/general pass: every
  * capability carries its own required-component floor (enforced in passes() BEFORE any
  * tuple match, so even a mis-signed row can never enable a feature whose stack component
  * is absent) and its own signed-composition rows. Losing one stack component disables
@@ -53,11 +55,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class CompatibilityGate {
 
 	const CAP_PROFILE = 'profile';
-	const CAP_ACCOUNT = 'account';
 	const CAP_AMELIA  = 'amelia';
 
 	// Development card D-13: five further INDEPENDENT capabilities. No general pass
-	// exists — each of the eight gates opens exclusively through its own signed rows.
+	// exists — each of the seven gates opens exclusively through its own signed rows.
 	const CAP_MANAGED_TEMPLATES      = 'managed_templates';
 	const CAP_AMELIA_API_READ        = 'amelia_api_read';
 	const CAP_AMELIA_FIELDS_WRITE    = 'amelia_fields_write';
@@ -69,9 +70,10 @@ final class CompatibilityGate {
 	 * wp, php, um, elementor, elementor_pro, amelia, theme. A tuple only has to pin the
 	 * components relevant to its capability; unlisted components are not compared.
 	 *
-	 * QA-approved compositions per capability. Deliberately empty until a live staging
-	 * test produces a signed Pass row in docs/compatibility-matrix.md — that first row
-	 * is card F-02b, owner-gated to v1.3.0, so the gate stays closed on 1.2.x. Each
+	 * QA-approved compositions per capability. Card F-02b (executed in v1.3.0) mirrored
+	 * the matrix's signed §1 rows (2026-11-14, production-as-QA) into the `profile` row
+	 * below; on 1.2.x this constant was empty and the gate stayed closed
+	 * (awaiting_matrix_signoff). Each
 	 * entry shape (F-02a step 1; 'signed' => true is mandatory for BOTH types):
 	 *
 	 * array(
@@ -99,7 +101,22 @@ final class CompatibilityGate {
 	 *
 	 * @var array<string, array<int, array<string, mixed>>>
 	 */
-	private const APPROVED_COMPOSITIONS = array();
+	private const APPROVED_COMPOSITIONS = array(
+		self::CAP_PROFILE => array(
+			array(
+				'matrix_row' => 'profile (pinned) - compatibility-matrix.md §1 rows, 2026-11-14',
+				'signed'     => true,
+				'type'       => 'pinned',
+				'versions'   => array(
+					'wp'            => '7.1.4',
+					'php'           => '8.3.36',
+					'um'            => '2.14.2',
+					'elementor'     => '4.4.0',
+					'elementor_pro' => '4.4.0',
+				),
+			),
+		),
+	);
 
 	/**
 	 * D-13: the minimal component floor each capability REQUIRES in the live environment,
@@ -113,7 +130,6 @@ final class CompatibilityGate {
 	 */
 	private const REQUIRED_COMPONENTS = array(
 		self::CAP_PROFILE                => array( 'wp', 'php', 'um', 'elementor' ),
-		self::CAP_ACCOUNT                => array( 'wp', 'php', 'um', 'elementor' ),
 		self::CAP_AMELIA                 => array( 'wp', 'php', 'amelia' ),
 		self::CAP_MANAGED_TEMPLATES      => array( 'wp', 'php', 'theme' ),
 		self::CAP_AMELIA_API_READ        => array( 'wp', 'php', 'amelia' ),

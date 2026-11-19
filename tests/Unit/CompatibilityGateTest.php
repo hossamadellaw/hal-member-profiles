@@ -9,7 +9,9 @@
  *       floor separately)
  * - (b) tampered or unsigned external row -> silently dropped, verdict unchanged
  * - (c) floor row survives patch-level component updates
- * - (d) empty constant with no filter -> awaiting_matrix_signoff (no regression)
+ * - (d) ground state: the frozen constant carries the F-02b signed `profile` row —
+ *       drift -> composition_mismatch, the exact signed tuple -> approved_composition;
+ *       every other gate stays awaiting_matrix_signoff (no regression)
  * - (e) the constructor filter is actually invoked and its rows open the gate
  * - (f) canonical JSON stability (same input -> same signature; permuted key order ->
  *       same signature)
@@ -134,8 +136,10 @@ namespace HAL\MemberProfiles\Tests\Unit {
 
 			// Deliberately tamper a field that is NOT part of the version comparison:
 			// if the gate failed to verify signatures, this row would still match the
-			// environment and approve — so the awaiting_matrix_signoff verdict below
-			// proves the row was dropped, not merely mismatched.
+			// environment and approve. After the row is dropped, only the internal
+			// frozen row remains — which does not match this environment — so the
+			// composition_mismatch verdict below proves the row was dropped, not
+			// merely mismatched.
 			$row['matrix_row'] = 'tampered-after-signing';
 
 			$this->add_rows_via_filter( 'profile', array( $row ) );
@@ -143,7 +147,7 @@ namespace HAL\MemberProfiles\Tests\Unit {
 			$gate = new CompatibilityGate( $this->environment() );
 
 			$this->assertFalse( $gate->passes( 'profile' ) );
-			$this->assertSame( 'awaiting_matrix_signoff', $gate->describe( 'profile' ) );
+			$this->assertSame( 'composition_mismatch', $gate->describe( 'profile' ) );
 		}
 
 		public function test_unsigned_external_row_is_silently_dropped(): void {
@@ -162,7 +166,7 @@ namespace HAL\MemberProfiles\Tests\Unit {
 			$gate = new CompatibilityGate( $this->environment() );
 
 			$this->assertFalse( $gate->passes( 'profile' ) );
-			$this->assertSame( 'awaiting_matrix_signoff', $gate->describe( 'profile' ) );
+			$this->assertSame( 'composition_mismatch', $gate->describe( 'profile' ) );
 		}
 
 		public function test_corrupt_signature_is_silently_dropped(): void {
@@ -183,10 +187,12 @@ namespace HAL\MemberProfiles\Tests\Unit {
 
 			$gate = new CompatibilityGate( $this->environment() );
 
-			// The row would otherwise match and approve; the closed verdict proves the
-			// fail-closed verification, not a version mismatch.
+			// The corrupt row would otherwise match and approve; the closed verdict
+			// proves the fail-closed verification dropped it, while the remaining
+			// internal row — which does not match this environment — yields
+			// composition_mismatch.
 			$this->assertFalse( $gate->passes( 'profile' ) );
-			$this->assertSame( 'awaiting_matrix_signoff', $gate->describe( 'profile' ) );
+			$this->assertSame( 'composition_mismatch', $gate->describe( 'profile' ) );
 		}
 
 		public function test_tampered_row_does_not_disturb_a_valid_sibling_row(): void {
@@ -278,13 +284,16 @@ namespace HAL\MemberProfiles\Tests\Unit {
 		}
 
 		// ---------------------------------------------------------------
-		// (d) empty constant, no filter -> awaiting_matrix_signoff (no regression)
+		// (d) ground state: the frozen constant (F-02b) carries the signed
+		//     `profile` row — drift closes the gate as composition_mismatch,
+		//     the exact signed tuple opens it; every other gate stays closed
 		// ---------------------------------------------------------------
 
-		public function test_empty_registry_without_filter_stays_awaiting_matrix_signoff(): void {
-			// Full-floor environment: every capability's presence floor is met, so each
-			// verdict reaches the rows stage — which is empty (frozen constant, no
-			// filter attached) and stays exactly today's closed verdict.
+		public function test_ground_state_profile_row_mismatches_on_drift_and_passes_on_the_signed_tuple(): void {
+			// Full-floor environment, drifted from the signed tuple: every capability's
+			// presence floor is met, so each verdict reaches the rows stage. The frozen
+			// constant (since F-02b) carries the signed `profile` row, which does NOT
+			// match this environment, while every other capability still has no rows.
 			$gate = new CompatibilityGate(
 				array(
 					'wp'            => '6.5.2',
@@ -299,13 +308,34 @@ namespace HAL\MemberProfiles\Tests\Unit {
 
 			$this->assertFalse( $gate->passes( 'profile' ) );
 			$this->assertFalse( $gate->effective_passes( 'profile' ) );
+			$this->assertSame( 'composition_mismatch', $gate->describe( 'profile' ) );
 
-			// Every known capability keeps exactly today's closed verdict.
+			// Every other known capability keeps the closed no-rows verdict.
 			foreach ( array_keys( $gate->capabilities() ) as $capability ) {
+				if ( 'profile' === $capability ) {
+					continue;
+				}
+
 				$this->assertSame( 'awaiting_matrix_signoff', $gate->describe( $capability ), $capability );
 			}
 
 			$this->assertSame( 'unknown_capability', $gate->describe( 'nonexistent' ) );
+
+			// The exact signed tuple (matrix §1 rows, 2026-11-14) matches the frozen
+			// row and opens the profile gate.
+			$signed_gate = new CompatibilityGate(
+				array(
+					'wp'            => '7.1.4',
+					'php'           => '8.3.36',
+					'um'            => '2.14.2',
+					'elementor'     => '4.4.0',
+					'elementor_pro' => '4.4.0',
+				)
+			);
+
+			$this->assertTrue( $signed_gate->passes( 'profile' ) );
+			$this->assertSame( 'approved_composition', $signed_gate->describe( 'profile' ) );
+			$this->assertTrue( $signed_gate->effective_passes( 'profile' ) );
 		}
 
 		// ---------------------------------------------------------------
@@ -327,11 +357,14 @@ namespace HAL\MemberProfiles\Tests\Unit {
 			);
 
 			// Part 1: the hook runs at construction and receives the assigned registry
-			// (the frozen, empty constant on the production path).
+			// (the frozen constant, which since F-02b carries the internal profile row).
 			new CompatibilityGate( $this->environment() );
 
 			$this->assertSame( 1, $invocations );
-			$this->assertSame( array(), $seen );
+			$this->assertSame( array( 'profile' ), array_keys( $seen ) );
+			$this->assertCount( 1, $seen['profile'] );
+			$this->assertArrayHasKey( 'signed', $seen['profile'][0] );
+			$this->assertSame( true, $seen['profile'][0]['signed'] );
 
 			// Part 2: a filter appending a valid signed row opens the gate.
 			$row = $this->sign_row(
@@ -374,7 +407,7 @@ namespace HAL\MemberProfiles\Tests\Unit {
 			$gate = new CompatibilityGate( $this->environment() );
 
 			$this->assertFalse( $gate->passes( 'profile' ) );
-			$this->assertSame( 'awaiting_matrix_signoff', $gate->describe( 'profile' ) );
+			$this->assertSame( 'composition_mismatch', $gate->describe( 'profile' ) );
 		}
 
 		// ---------------------------------------------------------------
