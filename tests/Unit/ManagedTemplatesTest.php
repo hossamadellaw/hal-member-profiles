@@ -1,13 +1,15 @@
 <?php
 /**
- * Unit tests for ManagedTemplates (card D-04 / D-17 / v1.2.0 C7 / v1.2.1 F-01): hash
- * ownership, conflicts, and silent-delete prevention under READ-ONLY inspection; the
- * fail-closed write closure — a release-version gate since v1.2.1 (writes stay disabled
- * on every 1.2.x; zero Child Theme writes); the manifest-key state prune; and the
- * C7/OD-06 public-profile template-selection contract — per-member-type selection,
- * legacy-compat reading, valid/invalid/deleted/wrong-type/unpublished/Elementor-absent
- * rendering, owner/visitor context, and private-field exclusion. Exercises the REAL
- * classes against REAL temp directories through the contract-level filesystem stub.
+ * Unit tests for ManagedTemplates (card D-04 / D-17 / v1.2.0 C7 / v1.2.1 F-01 / v1.3.0
+ * G-14): hash ownership, conflicts, and silent-delete prevention under READ-ONLY
+ * inspection; the release-version write gate — closed on every 1.2.x since v1.2.1 and
+ * OPEN at the suite-pinned 1.3.0 (the closed 1.2.x regression runs as the standalone
+ * runtime proof tool tests/runtime/force-1-2-x-closed-regression.php in its own
+ * process); the manifest-key state prune; and the C7/OD-06 public-profile
+ * template-selection contract — per-member-type selection, legacy-compat reading,
+ * valid/invalid/deleted/wrong-type/unpublished/Elementor-absent rendering, owner/visitor
+ * context, and private-field exclusion. Exercises the REAL classes against REAL temp
+ * directories through the contract-level filesystem stub.
  *
  * @package HAL\MemberProfiles\Tests\Unit
  */
@@ -22,16 +24,20 @@ use HAL\MemberProfiles\ManagedTemplates;
 use HAL\MemberProfiles\Settings;
 use PHPUnit\Framework\TestCase;
 
-// Card F-01: the write-closure gate compares the RUNNING plugin version, and the unit
-// suite boots without the main plugin file, so the version constant is pinned here for
-// the whole test process (file level = before ANY test method of ANY suite file runs).
-// A 1.2.x value keeps every writes_disabled_v1_2 assertion in this suite — and in the
-// Lifecycle/Wiring suites sharing this process — meaningful against the 1.3.0 gate.
-// Production always defines this in hal-member-profiles.php before boot; the guarded
-// define is a no-op there and matches the convention in AdminDashboardPermissionsTest
-// and RuntimeEvidenceReporterTest.
+// Card F-01 / G-14: the write-closure gate compares the RUNNING plugin version, and the
+// unit suite boots without the main plugin file, so the version constant is pinned here
+// for the whole test process (file level = before ANY test method of ANY suite file
+// runs). The pinned 1.3.0 value OPENS the F-01 gate for this suite — and for the
+// Lifecycle/Wiring suites sharing this process (phpunit.xml.dist has no
+// processIsolation; first define wins) — so the provision-ladder assertions prove the
+// approved write path. The CLOSED 1.2.x semantics cannot exist in this process (the
+// constant is process-wide and immutable once defined): they are proven by the
+// standalone runtime proof tool tests/runtime/force-1-2-x-closed-regression.php, which
+// forces '1.2.0' in its own process. Production always defines this in
+// hal-member-profiles.php before boot; the guarded define is a no-op there and matches
+// the convention in AdminDashboardPermissionsTest and RuntimeEvidenceReporterTest.
 if ( ! defined( 'HAL_MEMBER_PROFILES_VERSION' ) ) {
-	define( 'HAL_MEMBER_PROFILES_VERSION', '1.2.0' );
+	define( 'HAL_MEMBER_PROFILES_VERSION', '1.3.0' );
 }
 
 final class ManagedTemplatesTest extends TestCase {
@@ -155,11 +161,12 @@ final class ManagedTemplatesTest extends TestCase {
 	}
 
 	/**
-	 * C7: the v1.2.0 write closure fires BEFORE any WP_Filesystem connection — even a
-	 * credentials-less environment can never turn provisioning into a write attempt, and
-	 * nothing is ever created in the Child Theme.
+	 * The provision ladder at the open 1.3.0 gate: a credentials-less environment can
+	 * never turn provisioning into a write attempt — the WP_Filesystem connection is
+	 * required BEFORE the lock or any target work, so the verdict is needs_credentials
+	 * and nothing is ever created in the Child Theme.
 	 */
-	public function test_provision_is_fail_closed_before_any_filesystem_work(): void {
+	public function test_provision_fails_closed_when_no_filesystem_is_available(): void {
 		hal_wp_stub_extra_set( 'is_admin', true );
 		$GLOBALS['wp_stubs']['can_manage'] = true;
 		hal_wp_stub_extra_set( 'fs_available', false );
@@ -170,42 +177,44 @@ final class ManagedTemplatesTest extends TestCase {
 		$result = $gate->provision();
 
 		$this->assertFalse( $result['ok'] );
-		$this->assertSame( 'writes_disabled_v1_2', $result['reason'] );
+		$this->assertSame( ManagedTemplates::STATUS_NEEDS_CREDENTIALS, $result['reason'] );
 		$this->assertFileDoesNotExist( $this->target_in( $theme ) );
-		$this->assertFalse( get_transient( ManagedTemplates::LOCK_TRANSIENT ), 'the write closure must never arm the provisioning lock' );
+		$this->assertFalse( get_transient( ManagedTemplates::LOCK_TRANSIENT ), 'the failed filesystem step must never arm the provisioning lock' );
 	}
 
 	/**
-	 * F-01: the formerly unconditional write closure is a release-version gate
-	 * (WRITES_APPROVED_SINCE = '1.3.0'). The unit process pins a 1.2.x plugin version
-	 * (file-level define above), so the private verdict must stay closed exactly as on
-	 * production 1.2.x. The gate's opening at 1.3.0 cannot be proven in-process (the
-	 * version constant is process-wide and immutable once defined), so it is proven by a
-	 * standalone runtime proof tool executed and logged during the F-01 card session.
+	 * F-01 / G-14: the formerly unconditional write closure is a release-version gate
+	 * (WRITES_APPROVED_SINCE = '1.3.0'), and the unit process pins exactly that version
+	 * (file-level define above), so the private verdict must read OPEN exactly as on
+	 * production 1.3.0. The CLOSED side of the gate — every 1.2.x release, including any
+	 * rollback — cannot exist in this process (the version constant is process-wide and
+	 * immutable once defined): it is proven by the standalone runtime proof tool
+	 * tests/runtime/force-1-2-x-closed-regression.php, which forces '1.2.0' in its own
+	 * process and is executed and logged during the G-14 card session.
 	 */
-	public function test_write_gate_stays_closed_for_the_pinned_1_2_x_version(): void {
+	public function test_write_gate_is_open_at_the_pinned_1_3_0_version(): void {
 		$this->assertTrue(
-			version_compare( HAL_MEMBER_PROFILES_VERSION, '1.3.0', '<' ),
-			'this proof is only meaningful while the process pins a pre-1.3.0 version'
+			version_compare( HAL_MEMBER_PROFILES_VERSION, '1.3.0', '==' ),
+			'this proof is only meaningful while the process pins exactly 1.3.0'
 		);
 
 		$method = new \ReflectionMethod( ManagedTemplates::class, 'writes_disapproved' );
 		$method->setAccessible( true );
 
-		$this->assertTrue(
+		$this->assertFalse(
 			$method->invoke( new ManagedTemplates() ),
-			'on 1.2.x the gate stays closed (the verdict stays writes_disabled_v1_2)'
+			'at the pinned 1.3.0 the gate is open (provisioning is approved)'
 		);
 	}
 
 	/**
-	 * F-01 step 3: per-theme state rows whose key is absent from the CURRENT manifest are
+	 * C7 / F-01: per-theme state rows whose key is absent from the CURRENT manifest are
 	 * pruned on the state-writing path, so the stored option ends up holding exactly the
 	 * current manifest keys (a stale v1.1.5-era row such as the retired account.php asset
-	 * can never survive). The unit process stays on 1.2.x, where provision() fails closed
-	 * BEFORE any state work, so the prune helper itself is exercised directly; the
-	 * end-to-end persistence (first successful provision on 1.3.0) runs on production
-	 * after release. Option-state cleanup ONLY — no file is ever deleted.
+	 * can never survive). The prune helper itself is exercised directly here; the
+	 * end-to-end persistence now also runs in-process through the successful-provision
+	 * tests below (the gate opens at the pinned 1.3.0). Option-state cleanup ONLY — no
+	 * file is ever deleted.
 	 */
 	public function test_state_rows_absent_from_the_current_manifest_are_pruned(): void {
 		$gate = new ManagedTemplates();
@@ -276,40 +285,39 @@ final class ManagedTemplatesTest extends TestCase {
 	}
 
 	/**
-	 * C7 acceptance: ZERO Child Theme writes and ZERO template overwrite. Provisioning
-	 * against a healthy admin environment with an available filesystem reports
-	 * writes_disabled_v1_2 and leaves the theme tree, the ownership ledger, and the lock
-	 * transient completely untouched.
+	 * G-14: with the gate open at the pinned 1.3.0, provisioning against a healthy admin
+	 * environment SUCCEEDS: the bridge file is created byte-exactly through the
+	 * hash-verified temp-write cycle, the success verdict is reported, and the ownership
+	 * ledger records the per-theme state for the manifest asset.
 	 */
-	public function test_provision_never_writes_child_theme_files_or_state(): void {
+	public function test_provision_writes_the_bridge_file_and_records_ownership_state(): void {
 		hal_wp_stub_extra_set( 'is_admin', true );
 		$GLOBALS['wp_stubs']['can_manage'] = true;
-		list( $manifest,,$theme ) = $this->sandbox();
-
-		$before_files = scandir( $theme );
+		list( $manifest,,$theme, $digest ) = $this->sandbox();
 
 		$gate   = new ManagedTemplates( $manifest );
 		$result = $gate->provision();
 
-		$this->assertFalse( $result['ok'] );
-		$this->assertSame( 'writes_disabled_v1_2', $result['reason'] );
-		$this->assertSame( $before_files, scandir( $theme ), 'the Child Theme tree must stay byte-identical' );
-		$this->assertFileDoesNotExist( $this->target_in( $theme ) );
-		$this->assertSame(
-			array(),
-			get_option( ManagedTemplates::STATE_OPTION, array() ),
-			'no ownership state may be recorded while writes are disabled'
-		);
-		$this->assertSame(
-			array(),
-			$result['assets'],
-			'a fail-closed verdict must not claim any per-asset result'
-		);
+		$this->assertTrue( $result['ok'] );
+		$this->assertSame( 'provisioned', $result['reason'] );
+		$this->assertFileExists( $this->target_in( $theme ), 'the open gate lets the bridge file be created' );
+		$this->assertStringEqualsFile( $this->target_in( $theme ), "<?php // managed body\n" );
+
+		$key   = key( $result['assets'] );
+		$state = get_option( ManagedTemplates::STATE_OPTION, array() );
+
+		$this->assertSame( ManagedTemplates::STATUS_CURRENT, $result['assets'][ $key ]['status'] );
+		$this->assertSame( $digest, $result['assets'][ $key ]['last_managed_hash'] );
+		$this->assertSame( 'child-a', $state['theme'] ?? '', 'the ledger records the provisioning theme' );
+		$this->assertSame( ManagedTemplates::STATUS_CURRENT, $state['assets'][ $key ]['status'] ?? '' );
+		$this->assertSame( $digest, $state['assets'][ $key ]['last_managed_hash'] ?? '' );
+		$this->assertFalse( get_transient( ManagedTemplates::LOCK_TRANSIENT ), 'the provisioning lock must be released after success' );
 	}
 
 	/**
-	 * C7: the conflict contract survives the write closure through READ-ONLY inspection —
-	 * a user-modified target is still reported, and provisioning can never overwrite it.
+	 * C7 / G-14: the conflict contract holds at the open 1.3.0 gate — a user-modified
+	 * target is reported through READ-ONLY inspection AND through provisioning, and the
+	 * conflicted file is never overwritten.
 	 */
 	public function test_user_modified_target_is_a_hard_conflict_and_never_touched(): void {
 		hal_wp_stub_extra_set( 'is_admin', true );
@@ -330,7 +338,13 @@ final class ManagedTemplatesTest extends TestCase {
 
 		$result = $gate->provision();
 
-		$this->assertSame( 'writes_disabled_v1_2', $result['reason'] );
+		$this->assertTrue( $result['ok'] );
+		$this->assertSame( 'provisioned', $result['reason'] );
+		$this->assertSame(
+			ManagedTemplates::STATUS_USER_MODIFIED,
+			$result['assets'][ key( $result['assets'] ) ]['status'],
+			'the conflict is reported through provisioning as well'
+		);
 		$this->assertStringContainsString(
 			'operator customization',
 			(string) file_get_contents( $target ),
@@ -339,10 +353,12 @@ final class ManagedTemplatesTest extends TestCase {
 	}
 
 	/**
-	 * C7: the retired upgrade path can no longer replace even HAL's own previous bytes —
-	 * a manifest digest bump (drift) triggers zero writes while the closure holds.
+	 * G-14: the upgrade path at the open 1.3.0 gate — a manifest digest bump (drift) is
+	 * recognized as HAL's own previous deployment through the recorded last_managed_hash,
+	 * so the safe hash-verified update proceeds and the target ends up byte-identical to
+	 * the new canonical source.
 	 */
-	public function test_retired_upgrade_path_writes_nothing_even_when_the_manifest_drifts(): void {
+	public function test_manifest_drift_upgrades_the_managed_target_at_the_open_gate(): void {
 		hal_wp_stub_extra_set( 'is_admin', true );
 		$GLOBALS['wp_stubs']['can_manage'] = true;
 
@@ -351,7 +367,8 @@ final class ManagedTemplatesTest extends TestCase {
 		$gate   = new ManagedTemplates( $manifest );
 		$before = $gate->provision();
 
-		$this->assertSame( 'writes_disabled_v1_2', $before['reason'] );
+		$this->assertTrue( $before['ok'] );
+		$this->assertSame( 'provisioned', $before['reason'] );
 
 		// New canonical version: same source path, new bytes + new pinned digest.
 		$new_body = "<?php // v2\n";
@@ -362,16 +379,22 @@ final class ManagedTemplatesTest extends TestCase {
 
 		$result = ( new ManagedTemplates( $this->paths[1] ) )->provision();
 
-		$this->assertFalse( $result['ok'] );
-		$this->assertSame( 'writes_disabled_v1_2', $result['reason'] );
-		$this->assertFileDoesNotExist( $this->target_in( $theme ), 'drift must schedule no write while v1.2.0 disapproves them' );
+		$this->assertTrue( $result['ok'] );
+		$this->assertSame( 'provisioned', $result['reason'] );
+		$this->assertStringEqualsFile(
+			$this->target_in( $theme ),
+			$new_body,
+			'the drifted manifest updates the managed target to the new canonical bytes'
+		);
 	}
 
 	/**
-	 * C7: no write path exists at all — even a hostile, failing filesystem can never turn
-	 * provisioning into a write attempt, and no temporary artifact can ever appear.
+	 * G-14: the temp-write safety holds at the open 1.3.0 gate — a hostile filesystem's
+	 * put failure is contained PER ASSET (the asset records write_failed), the managed
+	 * target itself is never created, no temporary artifact is left behind, and the
+	 * overall verdict still reports the batch outcome through the success shape.
 	 */
-	public function test_no_write_path_exists_even_against_a_hostile_filesystem(): void {
+	public function test_a_failing_filesystem_reports_the_per_asset_write_failure_without_leftovers(): void {
 		hal_wp_stub_extra_set( 'is_admin', true );
 		$GLOBALS['wp_stubs']['can_manage'] = true;
 
@@ -383,18 +406,24 @@ final class ManagedTemplatesTest extends TestCase {
 
 		hal_wp_stub_extra_set( 'fs_fail_put', false );
 
-		$this->assertFalse( $result['ok'] );
-		$this->assertSame( 'writes_disabled_v1_2', $result['reason'] );
-		$this->assertFileDoesNotExist( $this->target_in( $theme ) );
+		$this->assertTrue( $result['ok'] );
+		$this->assertSame( 'provisioned', $result['reason'] );
+		$this->assertSame(
+			ManagedTemplates::STATUS_WRITE_FAILED,
+			$result['assets'][ key( $result['assets'] ) ]['status'],
+			'the put failure is contained as the per-asset write_failed record'
+		);
+		$this->assertFileDoesNotExist( $this->target_in( $theme ), 'a failed write never leaves a managed target' );
 
 		$leftovers = glob( $theme . '/ultimate-member/templates/*.hal-tmp' );
-		$this->assertSame( array(), $leftovers, 'no temporary artifact may ever be created' );
+		$this->assertSame( array(), $leftovers, 'no temporary artifact may ever survive a failed write' );
 	}
 
 	/**
-	 * C7: theme-switch semantics survive read-only. A previously managed tree (placed by
-	 * the test itself, since v1.2.0 never writes) is never trusted in a NEW theme, and
-	 * the OLD theme stays byte-identical through inspection and fail-closed provisioning.
+	 * C7 / G-14: theme-switch semantics hold at the open 1.3.0 gate. A previously managed
+	 * tree (placed by the test itself) is never trusted in a NEW theme — the unknown
+	 * pre-existing file there is a conflict that provisioning reports without ever
+	 * overwriting — and the OLD theme stays byte-identical throughout.
 	 */
 	public function test_theme_switch_never_trusts_old_theme_hashes_and_touches_only_new_theme(): void {
 		hal_wp_stub_extra_set( 'is_admin', true );
@@ -425,7 +454,15 @@ final class ManagedTemplatesTest extends TestCase {
 			'an unknown pre-existing file in the NEW theme is a conflict, never an upgrade'
 		);
 
-		$this->assertSame( 'writes_disabled_v1_2', $gate->provision()['reason'] );
+		$result = $gate->provision();
+
+		$this->assertTrue( $result['ok'] );
+		$this->assertSame( 'provisioned', $result['reason'] );
+		$this->assertSame(
+			ManagedTemplates::STATUS_USER_MODIFIED,
+			$result['assets'][ key( $result['assets'] ) ]['status'],
+			'the NEW theme conflict is reported through provisioning without any write'
+		);
 		$this->assertStringEqualsFile( $this->target_in( $theme_a ), (string) $old_bytes, 'old theme must stay untouched' );
 	}
 
@@ -467,8 +504,8 @@ final class ManagedTemplatesTest extends TestCase {
 		$result = $gate->provision();
 		$state  = get_option( ManagedTemplates::STATE_OPTION, array() );
 
-		$this->assertFalse( $result['ok'] );
-		$this->assertSame( 'writes_disabled_v1_2', $result['reason'] );
+		$this->assertTrue( $result['ok'] );
+		$this->assertSame( 'provisioned', $result['reason'] );
 		$this->assertStringEqualsFile( $target, $bytes );
 		$this->assertArrayNotHasKey( 'resources/ultimate-member/account.php', $result['assets'] );
 		$this->assertArrayNotHasKey( 'resources/ultimate-member/account.php', is_array( $state['assets'] ?? null ) ? $state['assets'] : array() );

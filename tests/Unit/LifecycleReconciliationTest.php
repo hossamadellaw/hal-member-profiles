@@ -1,9 +1,12 @@
 <?php
 /**
  * Unit tests for Lifecycle reconciliation semantics (cards D-05/D-17 / v1.2.0 C7 /
- * v1.2.1 F-06): activation and theme-switch markers, consent-aware reconciliation that
- * stays FAIL-CLOSED under the v1.2.0 write closure (zero Child Theme writes, named
- * reason), failure containment, the manual Repair command, and the F-06 terminal-failure
+ * v1.2.1 F-06 / v1.3.0 G-14): activation and theme-switch markers, consent-aware
+ * reconciliation — at the suite-pinned 1.3.0 the F-01 write gate is OPEN, so a
+ * reconciliation run provisions the bundled bridge asset into the sandbox child theme
+ * and records the success status (the CLOSED 1.2.x semantics are proven by the
+ * standalone runtime proof tool tests/runtime/force-1-2-x-closed-regression.php) —
+ * failure containment, the manual Repair command, and the F-06 terminal-failure
  * classification — version-terminal (writes_disabled_v1_2) and immutable provision
  * failures close into the final idle status exactly once (machine reason + audit
  * timestamps preserved), while retryable causes (needs_credentials, busy) legitimately
@@ -22,17 +25,19 @@ use HAL\MemberProfiles\ManagedTemplates;
 use PHPUnit\Framework\TestCase;
 use HAL\MemberProfiles\Settings;
 
-// Card F-01: the write-closure gate compares the RUNNING plugin version, and this suite
-// boots without the main plugin file, so the version constant is pinned here for the
-// whole test process (file level = before ANY test method runs) — including when THIS
-// file is run standalone, where ManagedTemplatesTest.php (which pins the constant for
-// the shared full-suite process) never loads. A 1.2.x value keeps every
-// writes_disabled_v1_2 assertion in this suite meaningful against the 1.3.0 gate.
-// Production always defines this in hal-member-profiles.php before boot; the guarded
-// define is a no-op there and matches the convention in AdminDashboardPermissionsTest
-// and RuntimeEvidenceReporterTest.
+// Card F-01 / G-14: the write-closure gate compares the RUNNING plugin version, and
+// this suite boots without the main plugin file, so the version constant is pinned here
+// for the whole test process (file level = before ANY test method runs) — including
+// when THIS file is run standalone, where ManagedTemplatesTest.php (which pins the
+// constant for the shared full-suite process) never loads. The pinned 1.3.0 value
+// OPENS the F-01 gate so the reconciliation assertions prove the approved write path;
+// the CLOSED 1.2.x semantics are proven by the standalone runtime proof tool
+// tests/runtime/force-1-2-x-closed-regression.php in its own process. Production
+// always defines this in hal-member-profiles.php before boot; the guarded define is a
+// no-op there and matches the convention in AdminDashboardPermissionsTest and
+// RuntimeEvidenceReporterTest.
 if ( ! defined( 'HAL_MEMBER_PROFILES_VERSION' ) ) {
-	define( 'HAL_MEMBER_PROFILES_VERSION', '1.2.0' );
+	define( 'HAL_MEMBER_PROFILES_VERSION', '1.3.0' );
 }
 
 final class LifecycleReconciliationTest extends TestCase {
@@ -98,7 +103,7 @@ final class LifecycleReconciliationTest extends TestCase {
 	 * Seeds the exact live marker shape measured in production (evidence L-03):
 	 * {"status":"pending","reason":"provision_failed_writes_disabled_v1_2","since":...}.
 	 *
-	 * @param int $since Original pending `since` timestamp to preserve through the closure.
+	 * @param int $since Original pending `since` timestamp (the L-03 live value).
 	 * @return void
 	 */
 	private function seed_terminal_pending( int $since ): void {
@@ -140,34 +145,45 @@ final class LifecycleReconciliationTest extends TestCase {
 	}
 
 	/**
-	 * v1.2.1 (card F-06): drift still schedules reconciliation and provisioning still
-	 * fails closed with zero Child Theme writes — but the terminal closure reason now
-	 * converts the marker to the final idle status ONCE instead of re-looping as
-	 * pending on every admin visit.
+	 * G-14: drift still schedules reconciliation and — at the pinned 1.3.0, where the
+	 * F-01 gate is open — provisioning SUCCEEDS: the bundled bridge asset is written
+	 * into the sandbox child theme, the marker lands on the final idle status with the
+	 * success reason, and the second admin tick (drift now cleared by the recorded
+	 * provisioning state) never rewrites the marker or the ledger.
 	 */
-	public function test_drift_reconciliation_fails_closed_and_closes_terminal_pending_once(): void {
-		Lifecycle::maybe_reconcile(); // fresh env -> drift -> v1.2.x disapproves writes
+	public function test_drift_reconciliation_provisions_successfully_and_records_the_status_once(): void {
+		Lifecycle::maybe_reconcile(); // fresh env -> drift -> the open gate provisions
 
 		$status = $this->stored_status();
 
-		$this->assertSame( 'idle', $status['status'], 'the terminal closure must land on the final status, not pending' );
-		$this->assertSame( 'provision_failed_writes_disabled_v1_2', $status['reason'] );
-		$this->assertFileDoesNotExist( $this->theme . '/ultimate-member/templates/profile-hal-member-profiles.php' );
-		$this->assertFileDoesNotExist( $this->theme . '/ultimate-member/templates/account.php' );
+		$this->assertSame( 'idle', $status['status'], 'the reconciliation must land on the final status, not pending' );
+		$this->assertSame( 'reconciled', $status['reason'] );
+		$this->assertFileExists( $this->theme . '/ultimate-member/templates/profile-hal-member-profiles.php', 'the bridge asset is provisioned into the sandbox theme' );
+		$this->assertFileDoesNotExist( $this->theme . '/ultimate-member/templates/account.php', 'the retired asset is never provisioned' );
 
-		// Second admin tick: still fail-closed, still zero writes, and the closed marker
-		// is never rewritten (drift is still present here, like production, L-04).
-		$closed = get_option( Lifecycle::PENDING_OPTION, array() );
+		// Second admin tick: the recorded provisioning state clears the drift, so the
+		// success marker and the ownership ledger are never rewritten.
+		$recorded = get_option( Lifecycle::PENDING_OPTION, array() );
+		$ledger   = get_option( ManagedTemplates::STATE_OPTION, array() );
 
 		Lifecycle::maybe_reconcile();
 
-		$this->assertSame( $closed, get_option( Lifecycle::PENDING_OPTION, array() ) );
-		$this->assertFileDoesNotExist( $this->theme . '/ultimate-member/templates/profile-hal-member-profiles.php' );
+		$this->assertSame( $recorded, get_option( Lifecycle::PENDING_OPTION, array() ) );
+		$this->assertSame( $ledger, get_option( ManagedTemplates::STATE_OPTION, array() ) );
+		$this->assertFileExists( $this->theme . '/ultimate-member/templates/profile-hal-member-profiles.php' );
 	}
 
-	public function test_retired_account_ledger_row_is_retained_without_reconciliation(): void {
-		// v1.2.0 (card C7): the historical ledger is seeded directly — the writer can no
-		// longer be run to produce it, and no retired row is ever deleted or rewritten.
+	/**
+	 * G-14: the F-01 prune meets the retired row under the OPEN gate — a reconcile that
+	 * provisions the bundled asset also trims the seeded v1.1.5-era account.php row from
+	 * the ownership ledger (option-state cleanup ONLY: no file is ever deleted, and the
+	 * retired file was never written). The v1.2.x-era closed-gate retention behavior —
+	 * the seeded row surviving a fail-closed tick untouched — is proven by the standalone
+	 * runtime proof tool's proof (e).
+	 */
+	public function test_retired_account_ledger_row_is_pruned_by_the_open_gate_reconcile(): void {
+		// v1.2.0 (card C7): the historical ledger is seeded directly, in the exact shape
+		// the v1.1.5-era writer produced.
 		$state = array(
 			'theme'  => 'child-lc',
 			'assets' => array(
@@ -183,17 +199,35 @@ final class LifecycleReconciliationTest extends TestCase {
 
 		Lifecycle::maybe_reconcile();
 
-		$this->assertSame( $state, get_option( ManagedTemplates::STATE_OPTION ), 'the historical ledger row must be retained untouched' );
-		$this->assertFileDoesNotExist( $this->theme . '/ultimate-member/templates/account.php' );
-		$this->assertStringContainsString( 'writes_disabled_v1_2', (string) $this->stored_status()['reason'] );
+		$ledger = get_option( ManagedTemplates::STATE_OPTION, array() );
+		$assets = is_array( $ledger['assets'] ?? null ) ? $ledger['assets'] : array();
+
+		$this->assertArrayNotHasKey(
+			'resources/ultimate-member/account.php',
+			$assets,
+			'the F-01 prune removes the retired row on the state-writing path'
+		);
+		$this->assertSame(
+			ManagedTemplates::STATUS_CURRENT,
+			$assets['resources/ultimate-member/profile-hal-member-profiles.php']['status'] ?? '',
+			'the reconcile provisioned the bundled asset into the ledger'
+		);
+		$this->assertFileDoesNotExist(
+			$this->theme . '/ultimate-member/templates/account.php',
+			'the prune is option-state cleanup ONLY — the retired file is never written or deleted'
+		);
+		$this->assertSame( 'reconciled', (string) $this->stored_status()['reason'] );
 	}
 
 	/**
-	 * Card F-06 (a): the terminal live-shaped marker (pending + writes_disabled_v1_2,
-	 * L-03) with consent enabled converts in ONE admin visit to the final idle status
-	 * while the machine reason and the original pending `since` are preserved verbatim.
+	 * G-14: the live-shaped terminal marker (pending + provision_failed_writes_disabled_
+	 * v1_2, L-03) with consent enabled converts in ONE admin visit through the SUCCESS
+	 * path at the pinned 1.3.0 — the final idle status records the reconciled reason and
+	 * a fresh since, never a pending re-loop. The closed-gate conversion semantics (the
+	 * machine reason and the original pending `since` preserved verbatim, until stamped)
+	 * are proven by the standalone runtime proof tool's proof (e).
 	 */
-	public function test_terminal_pending_converts_once_to_final_status_keeping_reason(): void {
+	public function test_terminal_pending_converts_once_to_final_status_via_a_successful_reconcile(): void {
 		$this->seed_terminal_pending( 1794410931 ); // L-03 live value: 2026-11-11 15:28:51Z.
 
 		Lifecycle::maybe_reconcile();
@@ -201,37 +235,42 @@ final class LifecycleReconciliationTest extends TestCase {
 		$status = $this->stored_status();
 
 		$this->assertSame( 'idle', $status['status'], 'one admin visit must convert the terminal pending to the final status' );
-		$this->assertSame( 'provision_failed_writes_disabled_v1_2', $status['reason'], 'the machine reason must be preserved verbatim' );
-		$this->assertSame( 1794410931, $status['since'], 'the original pending since must be preserved' );
-		$this->assertGreaterThan( 0, $status['until'] ?? 0, 'the closure must stamp until' );
-		$this->assertFileDoesNotExist( $this->theme . '/ultimate-member/templates/profile-hal-member-profiles.php' );
+		$this->assertSame( 'reconciled', $status['reason'], 'the success path records the reconciled reason, never a pending re-loop' );
+		$this->assertGreaterThan(
+			1794410931,
+			(int) ( $status['since'] ?? 0 ),
+			'the success path stamps a fresh since — the seeded audit timestamp is not preserved on success'
+		);
+		$this->assertFileExists( $this->theme . '/ultimate-member/templates/profile-hal-member-profiles.php', 'the successful reconcile provisions the bridge asset' );
 		$this->assertFileDoesNotExist( $this->theme . '/ultimate-member/templates/account.php' );
 	}
 
 	/**
-	 * Card F-06 (a2): stability — after the one-time conversion, a second reconcile call
-	 * (with drift present, matching production's stale state rows, L-04) must leave the
-	 * option identical: no re-loop, no rewrite, no since advance.
+	 * G-14: stability — after the one-time SUCCESS conversion, a second reconcile call
+	 * (drift now cleared by the recorded provisioning state) must leave the option
+	 * identical: no re-loop, no rewrite. The success path stamped a fresh since on the
+	 * first visit; the closed-gate no-since-advance semantics are proven by the
+	 * standalone runtime proof tool's proof (e).
 	 */
-	public function test_second_reconcile_visit_does_not_rewrite_terminal_closure(): void {
+	public function test_second_reconcile_visit_does_not_rewrite_the_success_marker(): void {
 		$this->seed_terminal_pending( 1794410931 );
 
 		Lifecycle::maybe_reconcile();
-		$closed = get_option( Lifecycle::PENDING_OPTION, array() );
+		$converted = get_option( Lifecycle::PENDING_OPTION, array() );
 
 		Lifecycle::maybe_reconcile();
 
-		$this->assertSame( $closed, get_option( Lifecycle::PENDING_OPTION, array() ), 'the second admin visit must not rewrite the closed terminal marker' );
-		$this->assertSame( 'idle', $this->stored_status()['status'] );
-		$this->assertSame( 1794410931, $this->stored_status()['since'], 'since must never advance once closed' );
+		$this->assertSame( $converted, get_option( Lifecycle::PENDING_OPTION, array() ), 'the second admin visit must not rewrite the success marker' );
+		$this->assertSame( 'idle', $this->stored_status()['status'], 'the success marker stays on the final idle status' );
 	}
 
 	/**
 	 * Card F-06 (b): retryable causes legitimately warrant pending — they map to the
-	 * pending status and keep the pre-F-06 behavior unchanged. (The end-to-end retryable
-	 * path is additionally proven by the F-06 runtime simulation under tests/runtime/,
-	 * because the pinned 1.2.x write gate makes needs_credentials/busy unreachable
-	 * through a real provision() call inside this suite.)
+	 * pending status and keep the pre-F-06 behavior unchanged. (Inside this suite the
+	 * retryable classification is proven directly against the classifier, since no test
+	 * drives needs_credentials/busy through a real provision() call; the end-to-end
+	 * retryable path is additionally proven by the F-06 runtime simulation under
+	 * tests/runtime/.)
 	 */
 	public function test_retryable_failure_reasons_remain_pending(): void {
 		$method = new \ReflectionMethod( Lifecycle::class, 'failure_status_for_reason' );
@@ -263,16 +302,16 @@ final class LifecycleReconciliationTest extends TestCase {
 		$this->assertFileDoesNotExist( $this->theme . '/ultimate-member/templates/profile-hal-member-profiles.php' );
 	}
 
-	public function test_manual_repair_reports_writes_disabled_fail_closed(): void {
-		// v1.2.1 (card F-06): the manual Repair reports the named closure reason and the
-		// terminal classification also closes the marker — no pending re-loop from the
-		// repair path either.
+	public function test_manual_repair_reports_the_success_path_status(): void {
+		// G-14: at the pinned 1.3.0 the manual Repair SUCCEEDS — the reconciliation
+		// provisions the bundled asset and the marker records the success-path status
+		// (final idle with the repaired reason), never a pending re-loop.
 		$res = Lifecycle::repair(); // programmatic path; nonce null by design here
 
-		$this->assertFalse( $res['ok'] );
-		$this->assertSame( 'writes_disabled_v1_2', $res['reason'] );
-		$this->assertSame( 'idle', $this->stored_status()['status'], 'the terminal repair failure must close the marker, not re-mark pending' );
-		$this->assertStringContainsString( 'writes_disabled_v1_2', (string) $this->stored_status()['reason'] );
+		$this->assertTrue( $res['ok'] );
+		$this->assertSame( 'repaired', $res['reason'] );
+		$this->assertSame( 'idle', $this->stored_status()['status'], 'the successful repair must close the marker on the final status, not re-mark pending' );
+		$this->assertSame( 'repaired', (string) $this->stored_status()['reason'] );
 		$this->assertFileDoesNotExist( $this->theme . '/ultimate-member/templates/account.php' );
 	}
 }

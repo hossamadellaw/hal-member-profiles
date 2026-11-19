@@ -15,17 +15,19 @@ use HAL\MemberProfiles\Bootstrap;
 use PHPUnit\Framework\TestCase;
 use HAL\MemberProfiles\Settings;
 
-// Card F-01: the write-closure gate compares the RUNNING plugin version, and this suite
-// boots without the main plugin file, so the version constant is pinned here for the
-// whole test process (file level = before ANY test method runs) — including when THIS
-// file is run standalone, where ManagedTemplatesTest.php (which pins the constant for
-// the shared full-suite process) never loads. A 1.2.x value keeps every
-// writes_disabled_v1_2 assertion in this suite meaningful against the 1.3.0 gate.
-// Production always defines this in hal-member-profiles.php before boot; the guarded
-// define is a no-op there and matches the convention in AdminDashboardPermissionsTest
-// and RuntimeEvidenceReporterTest.
+// Card F-01 / G-14: the write-closure gate compares the RUNNING plugin version, and
+// this suite boots without the main plugin file, so the version constant is pinned here
+// for the whole test process (file level = before ANY test method runs) — including
+// when THIS file is run standalone, where ManagedTemplatesTest.php (which pins the
+// constant for the shared full-suite process) never loads. The pinned 1.3.0 value
+// OPENS the F-01 gate so the reconciliation-wiring assertions prove the approved write
+// path; the CLOSED 1.2.x semantics are proven by the standalone runtime proof tool
+// tests/runtime/force-1-2-x-closed-regression.php in its own process. Production
+// always defines this in hal-member-profiles.php before boot; the guarded define is a
+// no-op there and matches the convention in AdminDashboardPermissionsTest and
+// RuntimeEvidenceReporterTest.
 if ( ! defined( 'HAL_MEMBER_PROFILES_VERSION' ) ) {
-	define( 'HAL_MEMBER_PROFILES_VERSION', '1.2.0' );
+	define( 'HAL_MEMBER_PROFILES_VERSION', '1.3.0' );
 }
 
 final class WiringTest extends TestCase {
@@ -144,15 +146,27 @@ final class WiringTest extends TestCase {
 	public function test_lifecycle_is_wired_with_consent_aware_reconciliation(): void {
 		LifecycleShim::run_tick();
 
-		// v1.2.1 (card F-06): reconciliation stays consent-aware and fail-closed — no
-		// provisioning state is recorded and nothing is ever written; the terminal
-		// writes_disabled_v1_2 closure lands on the FINAL idle status exactly once
-		// (no pending re-loop), while Bootstrap still owns the managed-templates service.
+		// G-14: reconciliation stays consent-aware, and at the pinned 1.3.0 the open F-01
+		// gate lets the tick PROVISION successfully — the final idle status records the
+		// reconciled reason, the ownership ledger records the bundled asset, and the
+		// bridge file is created inside this suite's sandbox child theme, while Bootstrap
+		// still owns the managed-templates service.
 		$status = get_option( \HAL\MemberProfiles\Lifecycle::PENDING_OPTION, array() );
 
 		$this->assertSame( 'idle', is_array( $status ) ? ( $status['status'] ?? '' ) : '' );
-		$this->assertStringContainsString( 'writes_disabled_v1_2', (string) ( is_array( $status ) ? ( $status['reason'] ?? '' ) : '' ) );
-		$this->assertFalse( get_option( ManagedTemplates::STATE_OPTION, false ), 'fail-closed provisioning must not record template state' );
+		$this->assertSame( 'reconciled', is_array( $status ) ? ( $status['reason'] ?? '' ) : '' );
+
+		$state = get_option( ManagedTemplates::STATE_OPTION, array() );
+
+		$this->assertArrayHasKey(
+			'resources/ultimate-member/profile-hal-member-profiles.php',
+			is_array( $state['assets'] ?? null ) ? $state['assets'] : array(),
+			'the reconciled tick records the bundled asset in the ownership ledger'
+		);
+		$this->assertFileExists(
+			$this->theme . '/ultimate-member/templates/profile-hal-member-profiles.php',
+			'the shim tick provisions the bridge file into its sandbox theme'
+		);
 		$this->assertNotNull( $this->boot_admin()->get_managed_templates(), 'bootstrap owns the managed-templates service' );
 	}
 

@@ -8,7 +8,9 @@
  * - On every 1.2.x release the active Sync form (its caption and description
  *   "actively promise disabled writes" per E-14) is replaced by the passive row
  *   "Writes are disabled in this release by the version gate — see Diagnostics."; the
- *   original form returns verbatim once writes_approved_for_version() turns true.
+ *   suite pins 1.3.0 (G-14), where the gate is open and the original form renders
+ *   verbatim — the closed 1.2.x side is proven by the standalone runtime proof tool
+ *   tests/runtime/force-1-2-x-closed-regression.php in its own process.
  * - The Readiness card renders all six checks (a) managed files via inspect(), (b) the
  *   gate describe()/passes() verdict per capability, (c) UM member mapping, (d)
  *   per-persona template validity, (e) the CURRENT `_um_profile_template` selection for
@@ -59,11 +61,12 @@ use HAL\MemberProfiles\TemplateContractValidator;
 use HAL\MemberProfiles\UmFormTemplateWatcher;
 use PHPUnit\Framework\TestCase;
 
-// The whole unit process pins a 1.2.x release (shared with the ManagedTemplates,
-// Lifecycle, and RuntimeEvidenceReporter suites) so the F-01 gate stays closed exactly
-// like production 1.2.x.
+// The whole unit process pins exactly 1.3.0 (shared with the ManagedTemplates,
+// Lifecycle, and RuntimeEvidenceReporter suites) so the F-01 gate is open exactly like
+// production 1.3.0 (G-14); the closed 1.2.x regression runs as the standalone runtime
+// proof tool tests/runtime/force-1-2-x-closed-regression.php in its own process.
 if ( ! defined( 'HAL_MEMBER_PROFILES_VERSION' ) ) {
-	define( 'HAL_MEMBER_PROFILES_VERSION', '1.2.0' );
+	define( 'HAL_MEMBER_PROFILES_VERSION', '1.3.0' );
 }
 
 final class AdminDashboardReadinessTest extends TestCase {
@@ -117,11 +120,6 @@ final class AdminDashboardReadinessTest extends TestCase {
 	// ------------------------------------------------------------------
 
 	public function test_writes_approved_for_version_mirrors_the_f01_gate(): void {
-		$this->assertTrue(
-			version_compare( HAL_MEMBER_PROFILES_VERSION, '1.3.0', '<' ),
-			'this proof is only meaningful while the unit process pins a pre-1.3.0 version'
-		);
-
 		$managed  = new ManagedTemplates();
 		$approved = $managed->writes_approved_for_version();
 
@@ -129,7 +127,7 @@ final class AdminDashboardReadinessTest extends TestCase {
 		$gate->setAccessible( true );
 
 		$this->assertSame( ! $gate->invoke( $managed ), $approved, 'the public helper must be the exact negation of the F-01 gate read' );
-		$this->assertFalse( $approved, 'on 1.2.x the F-01 gate disapproves writes and the mirror must report exactly that' );
+		$this->assertTrue( $approved, 'at the pinned 1.3.0 the F-01 gate approves writes and the mirror must report exactly that' );
 
 		// Single source of truth: the helper body must DELEGATE to writes_disapproved()
 		// — no second version comparison, no second constant read that could drift from
@@ -141,24 +139,32 @@ final class AdminDashboardReadinessTest extends TestCase {
 	}
 
 	// ------------------------------------------------------------------
-	// (i) On 1.2.x no active Sync form — the passive row instead.
+	// (i) At the pinned 1.3.0 the active Sync form renders — never the passive row.
 	// ------------------------------------------------------------------
 
-	public function test_on_1_2_x_the_active_sync_form_is_replaced_by_the_passive_row(): void {
+	/**
+	 * G-14: at the suite-pinned 1.3.0 the F-01 gate approves writes, so the managed
+	 * templates block renders the ACTIVE Sync form (endpoint, guarded action, caption)
+	 * and the passive "writes are disabled" row never renders. The closed 1.2.x side —
+	 * the passive row replacing the form — is proven by the standalone runtime proof
+	 * tool tests/runtime/force-1-2-x-closed-regression.php in its own process.
+	 */
+	public function test_at_the_pinned_1_3_0_version_the_active_sync_form_replaces_the_passive_row(): void {
 		hal_wp_stub_extra_set( 'stylesheet', 'hal-child' );
 		hal_wp_stub_extra_set( 'template', 'hal-parent' );
 		hal_wp_stub_extra_set( 'stylesheet_dir', $this->make_theme_dir( array() ) );
 
 		$out = $this->invoke_static( 'render_managed_templates_block' );
 
-		$this->assertStringContainsString(
-			'Writes are disabled in this release by the version gate — see Diagnostics.',
+		$this->assertStringContainsString( '<form method="post"', $out, 'the active Sync form renders while the gate approves writes' );
+		$this->assertStringContainsString( 'admin-post.php', $out, 'the delegated D-05 endpoint' );
+		$this->assertStringContainsString( 'hal_member_profiles_repair', $out, 'the guarded Lifecycle action' );
+		$this->assertStringContainsString( 'Sync managed templates now', $out, 'the original caption' );
+		$this->assertStringNotContainsString(
+			'Writes are disabled in this release by the version gate',
 			$out,
-			'the exact passive info row required by card F-05 must render'
+			'the passive info row must never render while the gate approves writes'
 		);
-		$this->assertStringNotContainsString( 'Sync managed templates now', $out, 'the false-promise caption must never render on 1.2.x' );
-		$this->assertStringNotContainsString( 'Sync creates missing managed templates', $out, 'the false-promise description must never render on 1.2.x' );
-		$this->assertStringNotContainsString( '<form', $out, 'no active Sync form may render on 1.2.x' );
 	}
 
 	/**
@@ -327,10 +333,10 @@ final class AdminDashboardReadinessTest extends TestCase {
 
 	/**
 	 * Wiring proof: the Diagnostics page itself carries the read-only Readiness card and,
-	 * on 1.2.x, no active Sync form anywhere on the page — with the same snapshot
-	 * discipline as the card-only purity test above.
+	 * at the pinned 1.3.0, the ACTIVE Sync form (the passive row never renders on the
+	 * page) — with the same snapshot discipline as the card-only purity test above.
 	 */
-	public function test_diagnostics_page_carries_the_readiness_card_and_no_active_sync_on_1_2_x(): void {
+	public function test_diagnostics_page_carries_the_readiness_card_and_the_active_sync_form_at_1_3_0(): void {
 		hal_wp_stub_extra_set( 'stylesheet', 'hal-child' );
 		hal_wp_stub_extra_set( 'template', 'hal-parent' );
 		$theme = $this->make_theme_dir(
@@ -377,13 +383,13 @@ final class AdminDashboardReadinessTest extends TestCase {
 		$this->assertStringContainsString( 'UM form #101 — Default Profile', $out, 'check (e) renders through its per-form rows when forms exist' );
 		$this->assertStringContainsString( 'Template contract (pre-check)', $out );
 		$this->assertStringContainsString( 'UM form #101 — Default Profile', $out, 'the seeded um_form copy is enumerated on the live page' );
-		$this->assertStringContainsString(
-			'Writes are disabled in this release by the version gate — see Diagnostics.',
+		$this->assertStringContainsString( '<form method="post"', $out, 'the active Sync form renders on the page at the open gate' );
+		$this->assertStringContainsString( 'Sync managed templates now', $out, 'the active Sync button renders at the pinned 1.3.0' );
+		$this->assertStringNotContainsString(
+			'Writes are disabled in this release by the version gate',
 			$out,
-			'the passive version-gate row replaces the Sync form on the page'
+			'the passive version-gate row must never render on the page while writes are approved'
 		);
-		$this->assertStringNotContainsString( 'Sync managed templates now', $out, 'no active Sync button on 1.2.x' );
-		$this->assertStringNotContainsString( '<form', $out, 'no active form of any kind on the 1.2.x Diagnostics page' );
 
 		$this->assertSame( $snapshot['wp_stubs'], $GLOBALS['wp_stubs'], 'rendering the page must not mutate stub state' );
 		$this->assertSame( $snapshot['transients'], $GLOBALS['wp_stubs_extra']['transients'], 'rendering the page must not write transients' );
@@ -409,7 +415,7 @@ final class AdminDashboardReadinessTest extends TestCase {
 		}
 
 		if ( ! defined( 'HAL_MEMBER_PROFILES_VERSION' ) ) {
-			define( 'HAL_MEMBER_PROFILES_VERSION', '1.2.0' );
+			define( 'HAL_MEMBER_PROFILES_VERSION', '1.3.0' );
 		}
 
 		$instance = new \ReflectionProperty( Bootstrap::class, 'instance' );
