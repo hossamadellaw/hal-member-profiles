@@ -278,7 +278,6 @@ jobs:
               "hal-member-profiles/assets/editor.css",
               "hal-member-profiles/vendor/yahnis-elsts/plugin-update-checker/plugin-update-checker.php",
               "hal-member-profiles/resources/ultimate-member/profile-hal-member-profiles.php",
-              "hal-member-profiles/resources/ultimate-member/account.php",
               "hal-member-profiles/resources/ultimate-member/manifest.json",
           ]
 
@@ -301,15 +300,9 @@ jobs:
 
           prof = z.read("hal-member-profiles/resources/ultimate-member/"
                         "profile-hal-member-profiles.php").decode("utf-8", "replace")
-          acct = z.read("hal-member-profiles/resources/ultimate-member/"
-                        "account.php").decode("utf-8", "replace")
 
           if "Template: HAL Member Profiles" not in prof.split("*/", 1)[0]:
               print("::error::Profile bridge template is missing its 'Template:' header")
-              sys.exit(1)
-
-          if "Template:" in acct.split("*/", 1)[0]:
-              print("::error::Account bridge template must NOT declare a 'Template:' header")
               sys.exit(1)
 
           # In-zip manifest verification: the SHIPPED manifest must validate against the
