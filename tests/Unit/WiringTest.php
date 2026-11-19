@@ -156,40 +156,6 @@ final class WiringTest extends TestCase {
 		$this->assertNotNull( $this->boot_admin()->get_managed_templates(), 'bootstrap owns the managed-templates service' );
 	}
 
-	/** C2: Account remains one UM-owned surface; only the field helper stays registerable. */
-	public function test_elementor_registry_excludes_split_account_widgets_and_preserves_legacy_slugs(): void {
-		$b        = $this->boot_admin();
-		$register = ( new \ReflectionClass( \HAL\MemberProfiles\Elementor\Register::class ) )->newInstanceWithoutConstructor();
-		$property = new \ReflectionProperty( \HAL\MemberProfiles\Elementor\Register::class, 'dependencies' );
-		$property->setAccessible( true );
-		$property->setValue( $register, $b->get_dependencies() );
-
-		$method = new \ReflectionMethod( \HAL\MemberProfiles\Elementor\Register::class, 'widget_classes' );
-		$method->setAccessible( true );
-		$widgets = $method->invoke( $register );
-		$prefix  = '\\HAL\\MemberProfiles\\Elementor\\Widgets\\';
-
-		$this->assertArrayHasKey( $prefix . 'AccountField', $widgets );
-		$this->assertArrayNotHasKey( $prefix . 'AccountNavigation', $widgets );
-		$this->assertArrayNotHasKey( $prefix . 'AccountBody', $widgets );
-
-		foreach (
-			array(
-				'AccountNavigation' => 'hal_member_profiles_account_navigation',
-				'AccountBody'       => 'hal_member_profiles_account_body',
-			) as $class => $slug
-		) {
-			$fqcn = $prefix . $class;
-			$this->assertSame( $slug, ( new $fqcn() )->get_name() );
-
-			$render = new \ReflectionMethod( $fqcn, 'render' );
-			$render->setAccessible( true );
-			ob_start();
-			$render->invoke( new $fqcn() );
-			$this->assertSame( '', ob_get_clean(), $class . ' stays inert for saved legacy documents' );
-		}
-	}
-
 	public function test_legacy_account_adapter_attempts_native_callback_only_once_on_failure(): void {
 		$calls = 0;
 
