@@ -67,8 +67,8 @@ final class AccountField extends Widget_Base {
 
 	/**
 	 * FieldSchema supplies only fields discovered for UM's server-resolved current Account
-	 * tab. A field with no eligible discovered definition stays inside the native
-	 * AccountBody.
+	 * tab. A field with no eligible discovered definition renders in UM's native account
+	 * pipeline.
 	 *
 	 * @return array<string,string>
 	 */
