@@ -4,7 +4,7 @@ Tags: ultimate-member, elementor, membership, profile
 Requires at least: 6.5
 Requires PHP: 8.0
 Requires Plugins: ultimate-member, elementor
-Stable tag: 1.2.1
+Stable tag: 1.3.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -34,10 +34,10 @@ validation, saving, nonces, and tabs.
   Elementor in this release (`Native Header`, `Profile Header Compatibility`,
   `Profile Navigation`, `Profile Body`, `Profile Actions`, `Profile Field`, and
   `Account Field`, plus `Amelia Booking` when Amelia is active) render Ultimate Member's
-  own native output inside your Elementor layout. Two further Account widget classes
-  (`Account Navigation`, `Account Body`) are present in the plugin source but are NOT
-  registered in this release and render nothing; the member Account page renders through
-  Ultimate Member's own native pipeline.
+  own native output inside your Elementor layout. The Account widget family was
+  retired in 1.3.0: its two never-registered widget classes were deleted from the
+  plugin source, only `Account Field` remains registered (as the field helper), and
+  the member Account page renders through Ultimate Member's own native pipeline.
 
 **Privacy enforcement:** every field decision is made server-side by this plugin's own
 Policy layer, which reads Ultimate Member's documented per-field Privacy values
@@ -48,46 +48,55 @@ the visitor. Parity with YOUR installed Ultimate Member version is verified duri
 compatibility QA recorded in this plugin's internal matrix before any public layout is
 enabled.
 
-**Managed templates (manual copying is the official deployment path in this release):**
-the canonical Profile bridge template ships INSIDE this package under
-`resources/ultimate-member/` together with a manifest (per-asset version + SHA-256; the
-manifest lists exactly one asset, `profile-hal-member-profiles.php`, sha256
-`4505034e70093d3d8922e7ddb7f846ead6645ad54cfe863a1aeb687dce5633d0`). In this release the
-dashboard write action is closed by a release-version gate (closed on every 1.2.x,
-reopening automatically at 1.3.0), so the official path is a MANUAL copy into the active
-CHILD theme's `ultimate-member/templates/` directory (Ultimate Member's documented theme
-override location) — see Installation. The package also ships
-`resources/ultimate-member/account.php`, which is NOT listed in the manifest and has no
-declared provisioning bridge in this release; a legacy account override in the child
-theme is only observed read-only, never managed. When the dashboard write action
-reopens, a locally modified copy is always reported as a conflict and never overwritten
-automatically, and nothing ever installs or deletes itself on its own.
+**Managed templates:** the canonical Profile bridge template ships INSIDE this package
+under `resources/ultimate-member/` together with a manifest (per-asset version +
+SHA-256; the manifest lists exactly one asset, `profile-hal-member-profiles.php`, sha256
+`4505034e70093d3d8922e7ddb7f846ead6645ad54cfe863a1aeb687dce5633d0`). From 1.3.0 the
+dashboard write action is OPEN again: the release-version gate that closed every 1.2.x
+release self-opened at 1.3.0, so provisioning runs from the Sync form on the Diagnostics
+page. A MANUAL copy into the active CHILD theme's `ultimate-member/templates/` directory
+(Ultimate Member's documented theme override location) remains the documented
+alternative — see Installation. A legacy Account override left in the child theme is
+only observed read-only, never managed. A locally modified copy is always reported as a
+conflict and never overwritten automatically, and nothing ever installs or deletes
+itself on its own.
 
 **Deployment modes (honest matrix):**
 
-* **This release (all 1.2.x):** managed-template writes are closed by the release-version
-  gate before any filesystem work — provisioning returns the machine reason
-  `writes_disabled_v1_2`, and the dashboard shows a passive informational row instead of
-  a Sync button. Read-only inspection keeps working; it can report the credentials state
-  below.
-* **Direct filesystem (write path reopens at 1.3.0):** provisioning writes normally.
-* **Other hosts, FTP/SSH (from 1.3.0):** WordPress reports its standard credentials
-  request state; HAL never asks for or stores passwords.
-* **Immutable / CI (from 1.3.0):** defining `HAL_MEMBER_PROFILES_IMMUTABLE_DEPLOYMENT`
-  makes every write a verify-only no-op, for pipelines where your deployer owns file
-  placement. In this release the flag has no observable effect: the version gate closes
-  every write before this check is reached (the check sits after the gate by design).
+* **This release (1.3.0):** managed-template writes are ACTIVE — the release-version
+  gate that closed every 1.2.x release self-opened at 1.3.0, the Sync form on the
+  Diagnostics page is back, and provisioning writes normally (a locally modified copy
+  is always reported as a conflict and never overwritten automatically). On a 1.2.x
+  rollback the same gate closes the writes again before any filesystem work —
+  provisioning returns the machine reason `writes_disabled_v1_2` and the dashboard
+  shows a passive informational row instead of the Sync form. Read-only inspection
+  keeps working either way.
+* **Direct filesystem:** provisioning writes normally.
+* **Other hosts, FTP/SSH:** WordPress reports its standard credentials request state;
+  HAL never asks for or stores passwords.
+* **Immutable / CI:** defining `HAL_MEMBER_PROFILES_IMMUTABLE_DEPLOYMENT` now takes
+  effect: every managed-template write becomes a reported no-op (machine reason
+  `immutable`) for pipelines where your deployer owns file placement — HAL writes
+  nothing, and read-only inspection keeps working.
 
 **Compatibility humility:** features are gated at runtime by the built-in compatibility
-gate against THIS site's actual component versions. Compositions that have not passed
-the internal QA matrix stay on Observe/native rendering — including a brand-new install.
-In this release the gate's composition registry is empty, so its verdict is
-`awaiting_matrix_signoff`. The registry can be extended through a documented filter with
-signed rows — exact "pinned" rows, or per-component "floor" minimum rows that survive
-patch-level component updates — and every externally supplied row must carry a valid
-HMAC signature (`wp_hash(..., 'auth', 'sha256')`) that is verified AFTER the filter;
-unsigned or tampered rows are dropped before matching. No universal compatibility is
-claimed for any host, cache layer, or future plugin version.
+gate against THIS site's actual component versions. The gate's registry now carries one
+signed, pinned `profile` row — recorded in the internal QA matrix and mirrored into the
+code in this release (WordPress 7.1.4, PHP 8.3.36, Ultimate Member 2.14.2, Elementor
+4.4.0, Elementor Pro 4.4.0) — so the Profile public layout is approved exactly on that
+tuple; on any other component version the verdict is `composition_mismatch` and
+rendering fails closed back to Ultimate Member's native pipeline. Every other
+capability still has no signed row in the registry and stays closed until its own QA
+row is recorded (Diagnostics reports those as awaiting matrix sign-off). The registry
+can be extended two ways: through a documented filter, or with the new WP-CLI commands
+(`wp hal-member-profiles sign-composition` / `list-compositions` / `revoke-composition`,
+run by an administrator with `--user=<admin>`), whose stored rows reach the gate
+through the same documented filter — both accept signed rows: exact
+"pinned" rows, or per-component "floor" minimum rows that survive patch-level component
+updates. Every externally supplied row must carry a valid HMAC signature
+(`wp_hash(..., 'auth', 'sha256')`) that is verified AFTER the filter; unsigned or
+tampered rows are dropped before matching. No universal compatibility is claimed for
+any host, cache layer, or future plugin version.
 
 **Fallback contract:** if the Elementor Library Template for a Profile or Account is
 deleted, left as a Draft, fails the layout contract (each required Widget rendered
@@ -119,15 +128,19 @@ Everything below is doable from the Release ZIP alone.
    both as hard requirements via `Requires Plugins` and will not activate without them.
 2. Upload and activate HAL Member Profiles like any other plugin.
 3. The managed Profile bridge template ships INSIDE this package under
-   `resources/ultimate-member/` (with its manifest — exactly one asset; the `account.php`
-   file there is not part of the manifest and has no bridge in this release). In this
-   release the dashboard Sync action is replaced by a passive informational row:
-   managed-template writes are closed by the release-version gate (closed on every 1.2.x,
-   reopening automatically at 1.3.0). Place the template the official Ultimate Member way
-   — a MANUAL copy of `resources/ultimate-member/profile-hal-member-profiles.php` into
-   your active CHILD theme's `ultimate-member/templates/` directory (canonical sha256
+   `resources/ultimate-member/` (with its manifest — exactly one asset). From 1.3.0 the
+   dashboard Sync action is back: open **HAL Member Profiles → Diagnostics**, review the
+   manifest table, and run the Sync form there — provisioning writes the template into
+   your active CHILD theme's `ultimate-member/templates/` directory (Ultimate Member's
+   documented theme override location). The action is admin-only and nonce-guarded; the
+   "Managed templates consent" checkbox on the Settings page governs the automated
+   reconciliation runs, while this manual Sync button is the explicit admin action
+   itself. The official alternative is the MANUAL copy of
+   `resources/ultimate-member/profile-hal-member-profiles.php` into that same directory
+   (canonical sha256
    `4505034e70093d3d8922e7ddb7f846ead6645ad54cfe863a1aeb687dce5633d0`, as recorded in the
-   manifest). Without this copy, pages stay 100% native (safe, just unstyled-by-HAL).
+   manifest). Without the template in place, pages stay 100% native (safe, just
+   unstyled-by-HAL).
 4. Go to **HAL Member Profiles → Settings** (the Settings page inside the HAL Member
    Profiles admin menu): both layout modes start at **Observe**
    (zero visual change) and the Elementor route stays locked there until the built-in
@@ -137,15 +150,16 @@ Everything below is doable from the Release ZIP alone.
    Forms selection, and a template-contract pre-check. It performs zero writes.
 5. Build ONE Profile Elementor Library Template containing the required widgets exactly
    once each — one Header widget (Native OR Compatibility) + Navigation + Body. The
-   Account page uses no Elementor template in this release: its widget classes are not
-   registered (see the widget list above) and the Account surface renders through
+   Account page uses no Elementor template (the Account widget family was retired in
+   1.3.0 — see the widget list above) and the Account surface renders through
    Ultimate Member's own native pipeline. The Readiness card's contract pre-check
    verifies your Profile template against this contract, fail-closed.
-6. After staging QA passes and your composition is recorded (the gate stays closed —
-   `awaiting_matrix_signoff` — on every 1.2.x until that QA row exists), select the
-   matching Profile Library Template ID in Settings, then switch the Profile mode to
-   **Public layout**: the save is refused while the compatibility gate has not passed,
-   and the refusal message shows the gate's machine reason. Finally, select "HAL Member
+6. On the signed composition above (the QA row is recorded in the internal matrix and
+   mirrored into the gate's registry, so the profile gate is OPEN at 1.3.0 on exactly
+   that tuple), select the matching Profile Library Template ID in Settings, then switch
+   the Profile mode to **Public layout**: on the signed tuple the save goes through; on
+   any drifted component version the save is refused, the mode stays "Observe", and the
+   refusal message shows the gate's machine reason. Finally, select "HAL Member
    Profiles" as the Profile Form template under Ultimate Member → Forms. HAL never
    modifies Ultimate Member data: switching a UM form's profile template before HAL
    readiness is complete raises a dismissible admin warning only — never a block —
@@ -169,10 +183,9 @@ half-configured layout.
 
 = What happens if I deactivate HAL Member Profiles entirely? =
 
-The bridge template (however it was placed — manually copied in this release, or
-provisioned once the write path reopens) detects this and delegates straight to
-Ultimate Member's ORIGINAL account/profile rendering, exactly as if this plugin were
-never installed.
+The bridge template (however it was placed — provisioned by the dashboard Sync action,
+or manually copied) detects this and delegates straight to Ultimate Member's ORIGINAL
+account/profile rendering, exactly as if this plugin were never installed.
 
 = Does this integrate with Amelia? =
 
@@ -201,9 +214,12 @@ closed and must simply be re-entered.
 
 == Known limitations at this release ==
 
-* **Public layout is locked until compatibility QA passes.** The runtime gate keeps
-  both modes on Observe for every composition that has not been live-tested and signed
-  off internally — including a brand-new install. This is deliberate.
+* **Public layout opens only on the signed composition.** The runtime gate approves the
+  Profile public layout on exactly the signed, pinned tuple recorded in the internal QA
+  matrix and mirrored into the gate's registry in this release (WordPress 7.1.4, PHP
+  8.3.36, Ultimate Member 2.14.2, Elementor 4.4.0, Elementor Pro 4.4.0); on any other
+  component version the verdict fails closed to native rendering, and every other
+  capability stays closed until its own signed QA row exists. This is deliberate.
 * Custom Header (fully Elementor-designed header via `Profile Header Compatibility`) is
   only as capable as the UM extensions registered and tested internally — currently
   none. Native Header is the safe default.
@@ -214,14 +230,15 @@ closed and must simply be re-entered.
   rendering (they are not served by any legacy custom renderer — that code is deleted).
 * `FieldSchema`'s field-type classification list should be checked against this site's
   actual Ultimate Member field types during the same QA pass.
-* Managed-template provisioning does NOT run in this release: the release-version gate
-  keeps every write closed on all 1.2.x and reopens automatically at 1.3.0. The
-  dashboard Sync action is replaced by a passive informational row; the admin
-  reconciliation tick records a terminal failure (`writes_disabled_v1_2`) as a FINAL
-  status exactly once instead of re-looping as pending on every admin visit (retryable
-  causes — missing credentials, busy — still stay pending); and the recorded consent
-  flag continues to gate any future automated runs. Until the write path reopens, the
-  official deployment path is the manual copy described in the Installation section.
+* Managed-template provisioning RUNS at 1.3.0: the release-version gate opened
+  automatically at 1.3.0 (it closes the writes again only on a 1.2.x rollback, where
+  the machine reason `writes_disabled_v1_2` applies — a historical 1.2.x closure
+  reason now). The dashboard Sync form is active on the Diagnostics page, and the
+  recorded consent flag continues to gate the automated reconciliation runs. Terminal
+  provisioning failures (version gate, immutable mode) still close into a final status
+  exactly once instead of re-looping as pending on every admin visit (retryable causes
+  — missing credentials, busy — still stay pending). The manual copy described in the
+  Installation section remains a documented deployment path.
 * Amelia write-sync: the HAL-owned fields writer (`AmeliaFieldsWriter`) exists and is
   wired into its governed admin route ("Apply plan now"), but production writes stay
   closed by the runtime compatibility gate (`amelia_fields_write` capability, currently
@@ -234,6 +251,42 @@ closed and must simply be re-entered.
   compatibility sign-off.
 
 == Changelog ==
+
+= 1.3.0 =
+* New: the profile compatibility gate is OPEN — the internal QA matrix's signed
+  composition (WordPress 7.1.4, PHP 8.3.36, Ultimate Member 2.14.2, Elementor 4.4.0,
+  Elementor Pro 4.4.0) is mirrored into the gate's registry as a signed pinned row, and
+  the Profile public layout is approved exactly on that tuple. Any component drift
+  fails closed: the verdict becomes `composition_mismatch` and rendering returns to
+  Ultimate Member's native pipeline. The six capabilities without signed rows stay
+  closed (awaiting matrix sign-off) until their own QA rows exist.
+* New: the managed-template write path self-opened at 1.3.0 (release-version gate):
+  the dashboard Sync form RETURNS in place of the passive informational row — on the
+  Diagnostics page — provisioning runs from there, and `writes_disabled_v1_2` becomes
+  a historical 1.2.x-only closure reason. The recorded consent flag continues to gate
+  the automated reconciliation runs. A locally modified copy is still reported as a
+  conflict and never overwritten automatically, the manual-copy deployment path stays
+  documented, and nothing ever installs or deletes itself on its own.
+* New: WP-CLI composition-registry commands (`wp hal-member-profiles sign-composition`,
+  `list-compositions`, `revoke-composition`) let an operator sign, list, or revoke a
+  site's approved-composition rows without a code change. Every command requires
+  `--user=<admin>` with the manage_options capability; rows are stored per site in the
+  `hal_member_profiles_composition_rows` option and signed with
+  `wp_hash(..., 'auth', 'sha256')`.
+* Removed (deliberate Account retirement): the two dead Account widget classes (never
+  registered, rendered nothing), the unmanifested legacy Account template asset under
+  `resources/ultimate-member/` (it was never listed in the manifest and had no
+  provisioning bridge), and the retired account capability constant (`CAP_ACCOUNT`)
+  are deleted from the source. The member Account page renders through Ultimate
+  Member's own native pipeline, only the `Account Field` widget remains registered (as
+  the field helper), and a legacy Account override left in the child theme is still
+  observed read-only.
+* Expected Diagnostics fingerprint change from the Account retirement: the runtime
+  evidence now reports SEVEN compatibility gates instead of eight (no `gate_account`
+  key), and the `um_integration` capability reports `gates_total` of 3.
+* Note: with the write gate open, defining `HAL_MEMBER_PROFILES_IMMUTABLE_DEPLOYMENT`
+  now takes observable effect — every managed-template write becomes a reported no-op
+  (machine reason `immutable`) for pipelines whose deployer owns file placement.
 
 = 1.2.1 =
 * Fix: the managed-template write path is gated by the release version itself — closed
