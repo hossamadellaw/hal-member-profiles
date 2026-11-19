@@ -99,7 +99,6 @@ final class RuntimeEvidenceReporterTest extends TestCase {
 				'um_detected'             => true,
 				'native_fallback_present' => true,
 				'gate_profile'            => false,
-				'gate_account'            => false,
 				'gate_um_schema'          => false,
 				'gate_dynamic_tags'       => false,
 			),
