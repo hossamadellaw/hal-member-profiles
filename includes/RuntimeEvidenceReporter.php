@@ -241,7 +241,6 @@ final class RuntimeEvidenceReporter {
 				'um_detected'             => $dependencies->has_um(),
 				'native_fallback_present' => class_exists( LayoutContract::class ),
 				'gate_profile'            => null !== $gate ? $gate->passes( CompatibilityGate::CAP_PROFILE ) : false,
-				'gate_account'            => null !== $gate ? $gate->passes( CompatibilityGate::CAP_ACCOUNT ) : false,
 				'gate_um_schema'          => null !== $gate ? $gate->passes( CompatibilityGate::CAP_UM_SCHEMA ) : false,
 				'gate_dynamic_tags'       => null !== $gate ? $gate->passes( CompatibilityGate::CAP_ELEMENTOR_DYNAMIC_TAGS ) : false,
 			),
@@ -557,7 +556,6 @@ final class RuntimeEvidenceReporter {
 				'um_detected'             => (bool) ( $facts['um_integration']['um_detected'] ?? false ),
 				'native_fallback_present' => (bool) ( $facts['um_integration']['native_fallback_present'] ?? false ),
 				'gate_profile'            => (bool) ( $facts['um_integration']['gate_profile'] ?? false ),
-				'gate_account'            => (bool) ( $facts['um_integration']['gate_account'] ?? false ),
 				'gate_um_schema'          => (bool) ( $facts['um_integration']['gate_um_schema'] ?? false ),
 				'gate_dynamic_tags'       => (bool) ( $facts['um_integration']['gate_dynamic_tags'] ?? false ),
 			),
@@ -635,13 +633,13 @@ final class RuntimeEvidenceReporter {
 	private function um_integration_capability(): array {
 		$facts = $this->facts['um_integration'];
 
-		$gates = array( $facts['gate_profile'], $facts['gate_account'], $facts['gate_um_schema'], $facts['gate_dynamic_tags'] );
+		$gates = array( $facts['gate_profile'], $facts['gate_um_schema'], $facts['gate_dynamic_tags'] );
 		$passing = count( array_filter( $gates ) );
 
 		if ( ! $facts['um_detected'] ) {
 			$runtime = 'not_detected';
 			$reason  = 'dependency_not_detected';
-		} elseif ( 4 === $passing ) {
+		} elseif ( 3 === $passing ) {
 			$runtime = 'ready';
 			$reason  = 'gate_passed';
 		} else {
@@ -652,11 +650,11 @@ final class RuntimeEvidenceReporter {
 		return array(
 			'implementation' => 'implemented',
 			'runtime'        => $runtime,
-			'verification'   => 4 === $passing ? 'Pass' : 'Pending',
+			'verification'   => 3 === $passing ? 'Pass' : 'Pending',
 			'reason'         => $reason,
 			'evidence_level' => $this->evidence_level(),
 			'counts'         => array(
-				'gates_total'   => 4,
+				'gates_total'   => 3,
 				'gates_passing' => $passing,
 			),
 		);
