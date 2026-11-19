@@ -118,8 +118,8 @@ final class UmFormTemplateWatcherTest extends TestCase {
 		$this->assertFalse( $evaluation['ready'] );
 		$this->assertFalse( $evaluation['file']['ready'], 'empty Child Theme: bridge file not provisioned' );
 		$this->assertSame( 'target_not_current', $evaluation['file']['reason'] );
-		$this->assertFalse( $evaluation['gate']['ready'], '1.2.x production registry is empty — gate closed' );
-		$this->assertSame( 'awaiting_matrix_signoff', $evaluation['gate']['reason'] );
+		$this->assertFalse( $evaluation['gate']['ready'], 'production-shaped environment drifts from the signed tuple — gate closed fail-safe' );
+		$this->assertSame( 'composition_mismatch', $evaluation['gate']['reason'] );
 		$this->assertFalse( $evaluation['mapping']['ready'], 'no um_persona_mapping configured' );
 		$this->assertFalse( $evaluation['contract']['ready'], 'no validated profile library template' );
 
@@ -131,7 +131,7 @@ final class UmFormTemplateWatcherTest extends TestCase {
 		$this->assertStringContainsString( 'is-dismissible', $out );
 		$this->assertStringContainsString( '#3621', $out, 'the form ID is surfaced for rollback' );
 		$this->assertStringContainsString( 'profile-hal-member-profiles', $out, 'the new template value is surfaced' );
-		$this->assertStringContainsString( 'awaiting_matrix_signoff', $out, 'the failing gate reason is surfaced' );
+		$this->assertStringContainsString( 'composition_mismatch', $out, 'the failing gate reason is surfaced' );
 		$this->assertStringContainsString( 'Purge All (LiteSpeed', $out, 'ROUND-4 cache rule embedded in the notice' );
 		$this->assertStringContainsString( 'Ultimate Member &gt; Forms', $out, 'rollback guidance' );
 		$this->assertStringContainsString( 'This is a warning only', $out );
@@ -509,8 +509,9 @@ final class UmFormTemplateWatcherTest extends TestCase {
 	}
 
 	/**
-	 * The production-shaped gate: versions present, no signed rows — exactly the 1.2.x
-	 * state where describe() reads awaiting_matrix_signoff.
+	 * The production-shaped gate: the REAL frozen-registry gate on an environment drifted
+	 * from the signed tuple — since F-02b (v1.3.0) the signed profile row exists but does
+	 * not match, so describe() reads composition_mismatch (fail-closed on drift).
 	 *
 	 * @return CompatibilityGate
 	 */

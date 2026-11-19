@@ -23,8 +23,9 @@
  *                 provisioned and hash-intact.
  *   2. GATE     — CompatibilityGate::passes( CAP_PROFILE ): the same executive gate
  *                 ProfileLayoutAdapter consults before ever rendering the Elementor
- *                 route. On 1.2.x this is always closed (describe() reads
- *                 awaiting_matrix_signoff), so every live switch warns today.
+ *                 route. Since F-02b (v1.3.0) it opens exactly on the signed tuple and
+ *                 fails closed on any drift (describe() reads composition_mismatch),
+ *                 so drifted environments keep warning.
  *   3. MAPPING  — Settings::get_um_member_mapping() reports availability "available"
  *                 (um_persona_mapping complete and valid against live UM roles/statuses).
  *   4. CONTRACT — F-11 pre-check: the TemplateContractValidator class exists AND its
@@ -361,8 +362,8 @@ final class UmFormTemplateWatcher {
 
 	/**
 	 * GATE element: the strict executive verdict for the profile capability, plus its
-	 * machine-stable describe() slug (awaiting_matrix_signoff on 1.2.x — the gate is
-	 * simply closed there).
+	 * machine-stable describe() slug (awaiting_matrix_signoff on 1.2.x; since F-02b in
+	 * v1.3.0 — approved_composition on the signed tuple, composition_mismatch on drift).
 	 *
 	 * @return array{ready:bool,reason:string}
 	 */
