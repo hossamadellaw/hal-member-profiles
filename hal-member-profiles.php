@@ -49,6 +49,15 @@ if ( is_admin() && file_exists( __DIR__ . '/includes/Lifecycle.php' ) ) {
 
 require_once HAL_MEMBER_PROFILES_DIR . 'includes/Updater.php';
 
+// Card G-09b (owner decision 3, F-09): WP-CLI composition-registry commands, loaded
+// under the official conditional-loading pattern (D-04: defined('WP_CLI') && WP_CLI).
+// The command class authorizes --user=<admin> + manage_options INSIDE every command
+// (no official "CLI = trust" model exists).
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+	require_once __DIR__ . '/includes/Cli/CompatRegistryCommand.php';
+	Cli\CompatRegistryCommand::register();
+}
+
 add_action( 'plugins_loaded', __NAMESPACE__ . '\\hal_member_profiles_boot', 20 );
 
 /**
