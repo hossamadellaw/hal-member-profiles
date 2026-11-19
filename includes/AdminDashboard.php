@@ -602,8 +602,8 @@ final class AdminDashboard {
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'Diagnostics', 'hal-member-profiles' ); ?></h1>
-			<p class="description"><?php esc_html_e( 'Compatibility verdicts and the managed-template manifest/lifecycle state.', 'hal-member-profiles' ); ?></p>
-			<p class="description"><strong><?php esc_html_e( 'Next step:', 'hal-member-profiles' ); ?></strong> <?php esc_html_e( 'run Sync only after reviewing the manifest table below.', 'hal-member-profiles' ); ?></p>
+			<p class="description"><?php esc_html_e( 'Compatibility verdicts and the managed-template manifest/lifecycle state. The Sync form is active on 1.3.0 — the version gate opens the write path automatically.', 'hal-member-profiles' ); ?></p>
+			<p class="description"><strong><?php esc_html_e( 'Next step:', 'hal-member-profiles' ); ?></strong> <?php esc_html_e( 'the Sync form is ACTIVE on 1.3.0 — run it below on this Diagnostics page; review the manifest table below first.', 'hal-member-profiles' ); ?></p>
 
 			<h2 class="title"><?php esc_html_e( 'Compatibility / Diagnostics', 'hal-member-profiles' ); ?></h2>
 			<?php self::render_diagnostics_rows( $bootstrap ); ?>
@@ -1499,7 +1499,7 @@ final class AdminDashboard {
 				: __( 'NO — re-entry required', 'hal-member-profiles' ) );
 
 		return sprintf(
-			/* translators: 1: source slug, 2: decodability state. */
+			/* translators: 1: source slug, 2: decodable state. */
 			__( 'source: %1$s · decryptable: %2$s', 'hal-member-profiles' ),
 			(string) $state['source'],
 			$decodable
@@ -1526,11 +1526,10 @@ final class AdminDashboard {
 				if ( null === $gate ) {
 					self::print_row( __( 'Compatibility gate', 'hal-member-profiles' ), __( 'not initialized (fail-closed)', 'hal-member-profiles' ) );
 				} else {
-					// Integration Closure #5: enumerate ALL eight capabilities straight from the gate,
+					// Integration Closure #5: enumerate ALL seven capabilities straight from the gate,
 		// with a human reason derived from describe() for every single one.
 		$labels = array(
 			'profile'                => __( 'Profile Elementor layout', 'hal-member-profiles' ),
-			'account'                => __( 'Account Elementor layout', 'hal-member-profiles' ),
 			'amelia'                 => __( 'Amelia bridge capabilities', 'hal-member-profiles' ),
 			'managed_templates'      => __( 'Managed templates provisioning', 'hal-member-profiles' ),
 			'amelia_api_read'        => __( 'Amelia API read', 'hal-member-profiles' ),
