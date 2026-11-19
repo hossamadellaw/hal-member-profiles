@@ -78,7 +78,6 @@ final class SettingsTest extends TestCase {
 			$versions,
 			array(
 				CompatibilityGate::CAP_PROFILE => array( $row ),
-				CompatibilityGate::CAP_ACCOUNT => array( $row ),
 			)
 		);
 		$GLOBALS['wp_stubs']['options'][ Settings::OPTION_KEY ] = array(
