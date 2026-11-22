@@ -63,7 +63,7 @@ itself on its own.
 
 **Deployment modes (honest matrix):**
 
-* **This release (1.3.0):** managed-template writes are ACTIVE — the release-version
+* **This release (1.4.0):** managed-template writes are ACTIVE — the release-version
   gate that closed every 1.2.x release self-opened at 1.3.0, the Sync form on the
   Diagnostics page is back, and provisioning writes normally (a locally modified copy
   is always reported as a conflict and never overwritten automatically). On a 1.2.x
