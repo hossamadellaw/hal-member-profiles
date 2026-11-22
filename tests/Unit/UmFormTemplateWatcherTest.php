@@ -501,7 +501,7 @@ final class UmFormTemplateWatcherTest extends TestCase {
 		$target = $this->theme . '/ultimate-member/templates/profile-hal-member-profiles.php';
 
 		$this->assertTrue( (bool) copy( $source, $target ), 'test fixture: copying the bridge source must succeed' );
-		$this->assertTrue( hash_file( 'sha256', $target ) === '4505034e70093d3d8922e7ddb7f846ead6645ad54cfe863a1aeb687dce5633d0', 'test fixture: copy must match the shipped manifest digest' );
+		$this->assertTrue( hash_file( 'sha256', $target ) === '4e7f3525ff8d07ee2550555a3b84b144f0b8d3442e14d414160f1639abd6f5c8', 'test fixture: copy must match the shipped manifest digest' );
 
 		$this->paths[] = $target;
 

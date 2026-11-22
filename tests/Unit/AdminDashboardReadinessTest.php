@@ -8,7 +8,7 @@
  * - On every 1.2.x release the active Sync form (its caption and description
  *   "actively promise disabled writes" per E-14) is replaced by the passive row
  *   "Writes are disabled in this release by the version gate — see Diagnostics."; the
- *   suite pins 1.3.0 (G-14), where the gate is open and the original form renders
+ *   suite pins 1.4.0 (G-14), where the gate is open and the original form renders
  *   verbatim — the closed 1.2.x side is proven by the standalone runtime proof tool
  *   tests/runtime/force-1-2-x-closed-regression.php in its own process.
  * - The Readiness card renders all six checks (a) managed files via inspect(), (b) the
@@ -61,12 +61,12 @@ use HAL\MemberProfiles\TemplateContractValidator;
 use HAL\MemberProfiles\UmFormTemplateWatcher;
 use PHPUnit\Framework\TestCase;
 
-// The whole unit process pins exactly 1.3.0 (shared with the ManagedTemplates,
+// The whole unit process pins exactly 1.4.0 (shared with the ManagedTemplates,
 // Lifecycle, and RuntimeEvidenceReporter suites) so the F-01 gate is open exactly like
-// production 1.3.0 (G-14); the closed 1.2.x regression runs as the standalone runtime
+// production 1.4.0 (G-14); the closed 1.2.x regression runs as the standalone runtime
 // proof tool tests/runtime/force-1-2-x-closed-regression.php in its own process.
 if ( ! defined( 'HAL_MEMBER_PROFILES_VERSION' ) ) {
-	define( 'HAL_MEMBER_PROFILES_VERSION', '1.3.0' );
+	define( 'HAL_MEMBER_PROFILES_VERSION', '1.4.0' );
 }
 
 final class AdminDashboardReadinessTest extends TestCase {
@@ -127,7 +127,7 @@ final class AdminDashboardReadinessTest extends TestCase {
 		$gate->setAccessible( true );
 
 		$this->assertSame( ! $gate->invoke( $managed ), $approved, 'the public helper must be the exact negation of the F-01 gate read' );
-		$this->assertTrue( $approved, 'at the pinned 1.3.0 the F-01 gate approves writes and the mirror must report exactly that' );
+		$this->assertTrue( $approved, 'at the pinned 1.4.0 the F-01 gate approves writes and the mirror must report exactly that' );
 
 		// Single source of truth: the helper body must DELEGATE to writes_disapproved()
 		// — no second version comparison, no second constant read that could drift from
@@ -139,11 +139,11 @@ final class AdminDashboardReadinessTest extends TestCase {
 	}
 
 	// ------------------------------------------------------------------
-	// (i) At the pinned 1.3.0 the active Sync form renders — never the passive row.
+	// (i) At the pinned 1.4.0 the active Sync form renders — never the passive row.
 	// ------------------------------------------------------------------
 
 	/**
-	 * G-14: at the suite-pinned 1.3.0 the F-01 gate approves writes, so the managed
+	 * G-14: at the suite-pinned 1.4.0 the F-01 gate approves writes, so the managed
 	 * templates block renders the ACTIVE Sync form (endpoint, guarded action, caption)
 	 * and the passive "writes are disabled" row never renders. The closed 1.2.x side —
 	 * the passive row replacing the form — is proven by the standalone runtime proof
@@ -333,7 +333,7 @@ final class AdminDashboardReadinessTest extends TestCase {
 
 	/**
 	 * Wiring proof: the Diagnostics page itself carries the read-only Readiness card and,
-	 * at the pinned 1.3.0, the ACTIVE Sync form (the passive row never renders on the
+	 * at the pinned 1.4.0, the ACTIVE Sync form (the passive row never renders on the
 	 * page) — with the same snapshot discipline as the card-only purity test above.
 	 */
 	public function test_diagnostics_page_carries_the_readiness_card_and_the_active_sync_form_at_1_3_0(): void {
@@ -384,7 +384,7 @@ final class AdminDashboardReadinessTest extends TestCase {
 		$this->assertStringContainsString( 'Template contract (pre-check)', $out );
 		$this->assertStringContainsString( 'UM form #101 — Default Profile', $out, 'the seeded um_form copy is enumerated on the live page' );
 		$this->assertStringContainsString( '<form method="post"', $out, 'the active Sync form renders on the page at the open gate' );
-		$this->assertStringContainsString( 'Sync managed templates now', $out, 'the active Sync button renders at the pinned 1.3.0' );
+		$this->assertStringContainsString( 'Sync managed templates now', $out, 'the active Sync button renders at the pinned 1.4.0' );
 		$this->assertStringNotContainsString(
 			'Writes are disabled in this release by the version gate',
 			$out,
@@ -415,7 +415,7 @@ final class AdminDashboardReadinessTest extends TestCase {
 		}
 
 		if ( ! defined( 'HAL_MEMBER_PROFILES_VERSION' ) ) {
-			define( 'HAL_MEMBER_PROFILES_VERSION', '1.3.0' );
+			define( 'HAL_MEMBER_PROFILES_VERSION', '1.4.0' );
 		}
 
 		$instance = new \ReflectionProperty( Bootstrap::class, 'instance' );

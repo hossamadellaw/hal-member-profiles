@@ -306,7 +306,7 @@ final class AdminDashboardPermissionsTest extends TestCase {
 		}
 		if ( ! defined( 'HAL_MEMBER_PROFILES_VERSION' ) ) {
 			// Production always defines this in the main plugin file before boot.
-			define( 'HAL_MEMBER_PROFILES_VERSION', '1.3.0' );
+			define( 'HAL_MEMBER_PROFILES_VERSION', '1.4.0' );
 		}
 
 		$instance = new \ReflectionProperty( Bootstrap::class, 'instance' );

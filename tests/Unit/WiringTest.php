@@ -19,7 +19,7 @@ use HAL\MemberProfiles\Settings;
 // this suite boots without the main plugin file, so the version constant is pinned here
 // for the whole test process (file level = before ANY test method runs) — including
 // when THIS file is run standalone, where ManagedTemplatesTest.php (which pins the
-// constant for the shared full-suite process) never loads. The pinned 1.3.0 value
+// constant for the shared full-suite process) never loads. The pinned 1.4.0 value
 // OPENS the F-01 gate so the reconciliation-wiring assertions prove the approved write
 // path; the CLOSED 1.2.x semantics are proven by the standalone runtime proof tool
 // tests/runtime/force-1-2-x-closed-regression.php in its own process. Production
@@ -27,7 +27,7 @@ use HAL\MemberProfiles\Settings;
 // no-op there and matches the convention in AdminDashboardPermissionsTest and
 // RuntimeEvidenceReporterTest.
 if ( ! defined( 'HAL_MEMBER_PROFILES_VERSION' ) ) {
-	define( 'HAL_MEMBER_PROFILES_VERSION', '1.3.0' );
+	define( 'HAL_MEMBER_PROFILES_VERSION', '1.4.0' );
 }
 
 final class WiringTest extends TestCase {
@@ -146,7 +146,7 @@ final class WiringTest extends TestCase {
 	public function test_lifecycle_is_wired_with_consent_aware_reconciliation(): void {
 		LifecycleShim::run_tick();
 
-		// G-14: reconciliation stays consent-aware, and at the pinned 1.3.0 the open F-01
+		// G-14: reconciliation stays consent-aware, and at the pinned 1.4.0 the open F-01
 		// gate lets the tick PROVISION successfully — the final idle status records the
 		// reconciled reason, the ownership ledger records the bundled asset, and the
 		// bridge file is created inside this suite's sandbox child theme, while Bootstrap

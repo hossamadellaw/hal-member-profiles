@@ -3,7 +3,7 @@
  * Unit tests for ManagedTemplates (card D-04 / D-17 / v1.2.0 C7 / v1.2.1 F-01 / v1.3.0
  * G-14): hash ownership, conflicts, and silent-delete prevention under READ-ONLY
  * inspection; the release-version write gate — closed on every 1.2.x since v1.2.1 and
- * OPEN at the suite-pinned 1.3.0 (the closed 1.2.x regression runs as the standalone
+ * OPEN at the suite-pinned 1.4.0 (the closed 1.2.x regression runs as the standalone
  * runtime proof tool tests/runtime/force-1-2-x-closed-regression.php in its own
  * process); the manifest-key state prune; and the C7/OD-06 public-profile
  * template-selection contract — per-member-type selection, legacy-compat reading,
@@ -27,7 +27,7 @@ use PHPUnit\Framework\TestCase;
 // Card F-01 / G-14: the write-closure gate compares the RUNNING plugin version, and the
 // unit suite boots without the main plugin file, so the version constant is pinned here
 // for the whole test process (file level = before ANY test method of ANY suite file
-// runs). The pinned 1.3.0 value OPENS the F-01 gate for this suite — and for the
+// runs). The pinned 1.4.0 value OPENS the F-01 gate for this suite — and for the
 // Lifecycle/Wiring suites sharing this process (phpunit.xml.dist has no
 // processIsolation; first define wins) — so the provision-ladder assertions prove the
 // approved write path. The CLOSED 1.2.x semantics cannot exist in this process (the
@@ -37,7 +37,7 @@ use PHPUnit\Framework\TestCase;
 // hal-member-profiles.php before boot; the guarded define is a no-op there and matches
 // the convention in AdminDashboardPermissionsTest and RuntimeEvidenceReporterTest.
 if ( ! defined( 'HAL_MEMBER_PROFILES_VERSION' ) ) {
-	define( 'HAL_MEMBER_PROFILES_VERSION', '1.3.0' );
+	define( 'HAL_MEMBER_PROFILES_VERSION', '1.4.0' );
 }
 
 final class ManagedTemplatesTest extends TestCase {
@@ -161,7 +161,7 @@ final class ManagedTemplatesTest extends TestCase {
 	}
 
 	/**
-	 * The provision ladder at the open 1.3.0 gate: a credentials-less environment can
+	 * The provision ladder at the open 1.4.0 gate: a credentials-less environment can
 	 * never turn provisioning into a write attempt — the WP_Filesystem connection is
 	 * required BEFORE the lock or any target work, so the verdict is needs_credentials
 	 * and nothing is ever created in the Child Theme.
@@ -184,9 +184,9 @@ final class ManagedTemplatesTest extends TestCase {
 
 	/**
 	 * F-01 / G-14: the formerly unconditional write closure is a release-version gate
-	 * (WRITES_APPROVED_SINCE = '1.3.0'), and the unit process pins exactly that version
-	 * (file-level define above), so the private verdict must read OPEN exactly as on
-	 * production 1.3.0. The CLOSED side of the gate — every 1.2.x release, including any
+	 * (WRITES_APPROVED_SINCE = '1.3.0'), and the unit process pins 1.4.0, which the gate
+	 * approves (file-level define above), so the private verdict must read OPEN exactly as on
+	 * production 1.4.0. The CLOSED side of the gate — every 1.2.x release, including any
 	 * rollback — cannot exist in this process (the version constant is process-wide and
 	 * immutable once defined): it is proven by the standalone runtime proof tool
 	 * tests/runtime/force-1-2-x-closed-regression.php, which forces '1.2.0' in its own
@@ -194,8 +194,8 @@ final class ManagedTemplatesTest extends TestCase {
 	 */
 	public function test_write_gate_is_open_at_the_pinned_1_3_0_version(): void {
 		$this->assertTrue(
-			version_compare( HAL_MEMBER_PROFILES_VERSION, '1.3.0', '==' ),
-			'this proof is only meaningful while the process pins exactly 1.3.0'
+			version_compare( HAL_MEMBER_PROFILES_VERSION, '1.3.0', '>=' ),
+			'this proof is only meaningful while the process pins a gate-approved version (suite-pinned 1.4.0)'
 		);
 
 		$method = new \ReflectionMethod( ManagedTemplates::class, 'writes_disapproved' );
@@ -203,7 +203,7 @@ final class ManagedTemplatesTest extends TestCase {
 
 		$this->assertFalse(
 			$method->invoke( new ManagedTemplates() ),
-			'at the pinned 1.3.0 the gate is open (provisioning is approved)'
+			'at the pinned 1.4.0 the gate is open (provisioning is approved)'
 		);
 	}
 
@@ -213,7 +213,7 @@ final class ManagedTemplatesTest extends TestCase {
 	 * current manifest keys (a stale v1.1.5-era row such as the retired account.php asset
 	 * can never survive). The prune helper itself is exercised directly here; the
 	 * end-to-end persistence now also runs in-process through the successful-provision
-	 * tests below (the gate opens at the pinned 1.3.0). Option-state cleanup ONLY — no
+	 * tests below (the gate opens at the pinned 1.4.0). Option-state cleanup ONLY — no
 	 * file is ever deleted.
 	 */
 	public function test_state_rows_absent_from_the_current_manifest_are_pruned(): void {
@@ -285,7 +285,7 @@ final class ManagedTemplatesTest extends TestCase {
 	}
 
 	/**
-	 * G-14: with the gate open at the pinned 1.3.0, provisioning against a healthy admin
+	 * G-14: with the gate open at the pinned 1.4.0, provisioning against a healthy admin
 	 * environment SUCCEEDS: the bridge file is created byte-exactly through the
 	 * hash-verified temp-write cycle, the success verdict is reported, and the ownership
 	 * ledger records the per-theme state for the manifest asset.
@@ -315,7 +315,7 @@ final class ManagedTemplatesTest extends TestCase {
 	}
 
 	/**
-	 * C7 / G-14: the conflict contract holds at the open 1.3.0 gate — a user-modified
+	 * C7 / G-14: the conflict contract holds at the open 1.4.0 gate — a user-modified
 	 * target is reported through READ-ONLY inspection AND through provisioning, and the
 	 * conflicted file is never overwritten.
 	 */
@@ -353,7 +353,7 @@ final class ManagedTemplatesTest extends TestCase {
 	}
 
 	/**
-	 * G-14: the upgrade path at the open 1.3.0 gate — a manifest digest bump (drift) is
+	 * G-14: the upgrade path at the open 1.4.0 gate — a manifest digest bump (drift) is
 	 * recognized as HAL's own previous deployment through the recorded last_managed_hash,
 	 * so the safe hash-verified update proceeds and the target ends up byte-identical to
 	 * the new canonical source.
@@ -389,7 +389,7 @@ final class ManagedTemplatesTest extends TestCase {
 	}
 
 	/**
-	 * G-14: the temp-write safety holds at the open 1.3.0 gate — a hostile filesystem's
+	 * G-14: the temp-write safety holds at the open 1.4.0 gate — a hostile filesystem's
 	 * put failure is contained PER ASSET (the asset records write_failed), the managed
 	 * target itself is never created, no temporary artifact is left behind, and the
 	 * overall verdict still reports the batch outcome through the success shape.
@@ -420,7 +420,7 @@ final class ManagedTemplatesTest extends TestCase {
 	}
 
 	/**
-	 * C7 / G-14: theme-switch semantics hold at the open 1.3.0 gate. A previously managed
+	 * C7 / G-14: theme-switch semantics hold at the open 1.4.0 gate. A previously managed
 	 * tree (placed by the test itself) is never trusted in a NEW theme — the unknown
 	 * pre-existing file there is a conflict that provisioning reports without ever
 	 * overwriting — and the OLD theme stays byte-identical throughout.

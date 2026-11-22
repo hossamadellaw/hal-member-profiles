@@ -602,8 +602,8 @@ final class AdminDashboard {
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'Diagnostics', 'hal-member-profiles' ); ?></h1>
-			<p class="description"><?php esc_html_e( 'Compatibility verdicts and the managed-template manifest/lifecycle state. The Sync form is active on 1.3.0 — the version gate opens the write path automatically.', 'hal-member-profiles' ); ?></p>
-			<p class="description"><strong><?php esc_html_e( 'Next step:', 'hal-member-profiles' ); ?></strong> <?php esc_html_e( 'the Sync form is ACTIVE on 1.3.0 — run it below on this Diagnostics page; review the manifest table below first.', 'hal-member-profiles' ); ?></p>
+			<p class="description"><?php esc_html_e( 'Compatibility verdicts and the managed-template manifest/lifecycle state. The Sync form is active on 1.4.0 — the version gate opens the write path automatically.', 'hal-member-profiles' ); ?></p>
+			<p class="description"><strong><?php esc_html_e( 'Next step:', 'hal-member-profiles' ); ?></strong> <?php esc_html_e( 'the Sync form is ACTIVE on 1.4.0 — run it below on this Diagnostics page; review the manifest table below first.', 'hal-member-profiles' ); ?></p>
 
 			<h2 class="title"><?php esc_html_e( 'Compatibility / Diagnostics', 'hal-member-profiles' ); ?></h2>
 			<?php self::render_diagnostics_rows( $bootstrap ); ?>

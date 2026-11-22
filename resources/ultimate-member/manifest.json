@@ -8,7 +8,7 @@
             "um_scope": "profile",
             "source_path": "resources/ultimate-member/profile-hal-member-profiles.php",
             "target_path": "ultimate-member/templates/profile-hal-member-profiles.php",
-            "sha256": "4505034e70093d3d8922e7ddb7f846ead6645ad54cfe863a1aeb687dce5633d0"
+            "sha256": "4e7f3525ff8d07ee2550555a3b84b144f0b8d3442e14d414160f1639abd6f5c8"
         }
     ]
 }

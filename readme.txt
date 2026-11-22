@@ -4,7 +4,7 @@ Tags: ultimate-member, elementor, membership, profile
 Requires at least: 6.5
 Requires PHP: 8.0
 Requires Plugins: ultimate-member, elementor
-Stable tag: 1.3.0
+Stable tag: 1.4.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -51,7 +51,7 @@ enabled.
 **Managed templates:** the canonical Profile bridge template ships INSIDE this package
 under `resources/ultimate-member/` together with a manifest (per-asset version +
 SHA-256; the manifest lists exactly one asset, `profile-hal-member-profiles.php`, sha256
-`4505034e70093d3d8922e7ddb7f846ead6645ad54cfe863a1aeb687dce5633d0`). From 1.3.0 the
+`4e7f3525ff8d07ee2550555a3b84b144f0b8d3442e14d414160f1639abd6f5c8`). From 1.3.0 the
 dashboard write action is OPEN again: the release-version gate that closed every 1.2.x
 release self-opened at 1.3.0, so provisioning runs from the Sync form on the Diagnostics
 page. A MANUAL copy into the active CHILD theme's `ultimate-member/templates/` directory
@@ -138,7 +138,7 @@ Everything below is doable from the Release ZIP alone.
    itself. The official alternative is the MANUAL copy of
    `resources/ultimate-member/profile-hal-member-profiles.php` into that same directory
    (canonical sha256
-   `4505034e70093d3d8922e7ddb7f846ead6645ad54cfe863a1aeb687dce5633d0`, as recorded in the
+   `4e7f3525ff8d07ee2550555a3b84b144f0b8d3442e14d414160f1639abd6f5c8`, as recorded in the
    manifest). Without the template in place, pages stay 100% native (safe, just
    unstyled-by-HAL).
 4. Go to **HAL Member Profiles → Settings** (the Settings page inside the HAL Member
@@ -251,6 +251,16 @@ closed and must simply be re-entered.
   compatibility sign-off.
 
 == Changelog ==
+
+= 1.4.0 =
+* Fix: the managed Profile bridge template now carries Ultimate Member's
+  `/* Template: HAL Member Profiles */` header marker, so "HAL Member Profiles"
+  appears in Ultimate Member's own Profile-form Template dropdown
+  (Ultimate Member > Forms) and can be selected from that list. The template's
+  documentation header is unchanged; the shipped file differs only by the marker
+  line and the updated manifest digest.
+* Housekeeping: version bumped to 1.4.0; the Diagnostics page strings now state
+  that the Sync form is active on 1.4.0.
 
 = 1.3.0 =
 * New: the profile compatibility gate is OPEN — the internal QA matrix's signed

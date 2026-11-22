@@ -2,7 +2,7 @@
 /**
  * Unit tests for Lifecycle reconciliation semantics (cards D-05/D-17 / v1.2.0 C7 /
  * v1.2.1 F-06 / v1.3.0 G-14): activation and theme-switch markers, consent-aware
- * reconciliation — at the suite-pinned 1.3.0 the F-01 write gate is OPEN, so a
+ * reconciliation — at the suite-pinned 1.4.0 the F-01 write gate is OPEN, so a
  * reconciliation run provisions the bundled bridge asset into the sandbox child theme
  * and records the success status (the CLOSED 1.2.x semantics are proven by the
  * standalone runtime proof tool tests/runtime/force-1-2-x-closed-regression.php) —
@@ -29,7 +29,7 @@ use HAL\MemberProfiles\Settings;
 // this suite boots without the main plugin file, so the version constant is pinned here
 // for the whole test process (file level = before ANY test method runs) — including
 // when THIS file is run standalone, where ManagedTemplatesTest.php (which pins the
-// constant for the shared full-suite process) never loads. The pinned 1.3.0 value
+// constant for the shared full-suite process) never loads. The pinned 1.4.0 value
 // OPENS the F-01 gate so the reconciliation assertions prove the approved write path;
 // the CLOSED 1.2.x semantics are proven by the standalone runtime proof tool
 // tests/runtime/force-1-2-x-closed-regression.php in its own process. Production
@@ -37,7 +37,7 @@ use HAL\MemberProfiles\Settings;
 // no-op there and matches the convention in AdminDashboardPermissionsTest and
 // RuntimeEvidenceReporterTest.
 if ( ! defined( 'HAL_MEMBER_PROFILES_VERSION' ) ) {
-	define( 'HAL_MEMBER_PROFILES_VERSION', '1.3.0' );
+	define( 'HAL_MEMBER_PROFILES_VERSION', '1.4.0' );
 }
 
 final class LifecycleReconciliationTest extends TestCase {
@@ -145,7 +145,7 @@ final class LifecycleReconciliationTest extends TestCase {
 	}
 
 	/**
-	 * G-14: drift still schedules reconciliation and — at the pinned 1.3.0, where the
+	 * G-14: drift still schedules reconciliation and — at the pinned 1.4.0, where the
 	 * F-01 gate is open — provisioning SUCCEEDS: the bundled bridge asset is written
 	 * into the sandbox child theme, the marker lands on the final idle status with the
 	 * success reason, and the second admin tick (drift now cleared by the recorded
@@ -222,7 +222,7 @@ final class LifecycleReconciliationTest extends TestCase {
 	/**
 	 * G-14: the live-shaped terminal marker (pending + provision_failed_writes_disabled_
 	 * v1_2, L-03) with consent enabled converts in ONE admin visit through the SUCCESS
-	 * path at the pinned 1.3.0 — the final idle status records the reconciled reason and
+	 * path at the pinned 1.4.0 — the final idle status records the reconciled reason and
 	 * a fresh since, never a pending re-loop. The closed-gate conversion semantics (the
 	 * machine reason and the original pending `since` preserved verbatim, until stamped)
 	 * are proven by the standalone runtime proof tool's proof (e).
@@ -303,7 +303,7 @@ final class LifecycleReconciliationTest extends TestCase {
 	}
 
 	public function test_manual_repair_reports_the_success_path_status(): void {
-		// G-14: at the pinned 1.3.0 the manual Repair SUCCEEDS — the reconciliation
+		// G-14: at the pinned 1.4.0 the manual Repair SUCCEEDS — the reconciliation
 		// provisions the bundled asset and the marker records the success-path status
 		// (final idle with the repaired reason), never a pending re-loop.
 		$res = Lifecycle::repair(); // programmatic path; nonce null by design here
